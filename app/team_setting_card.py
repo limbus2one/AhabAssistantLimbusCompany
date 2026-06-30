@@ -3,7 +3,6 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QApplication,
-    QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -14,7 +13,6 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import (
     ExpandSettingCard,
-    InfoBarPosition,
     PrimaryPushButton,
     PushButton,
     ScrollArea,
@@ -33,7 +31,6 @@ from app.base_combination import (
     SinnerSelect,
 )
 from app.base_tools import BaseCheckBox, BaseComboBox, BaseLabel, BaseLineEdit, BaseSettingLayout
-from app.card.messagebox_custom import BaseInfoBar, MessageBoxConfirm
 from app.common.ui_config import (
     STARLIGHT_BONUS_COSTS,
     get_starlight_action_label,
@@ -44,12 +41,6 @@ from app.language_manager import LanguageManager
 from app.starlight_bonus import StarlightCard, StarlightLevelSelector
 from app.theme_pack_setting_interface import ThemePackSettingDialog
 from module.config import TeamSetting, cfg, theme_list
-from module.config.team_import_export import (
-    apply_team_settings,
-    export_team_settings,
-    generate_team_export_filename,
-    import_team_settings,
-)
 from app.observe_ego_gift_selection import (
     MAX_OBSERVE_GIFT_SELECTIONS,
     ObserveGiftSelection,
@@ -69,7 +60,10 @@ class TeamSettingCard(QFrame):
         self.__init_layout()
         # self.setStyleSheet("border: 1px solid black;")
 
-        self.team_setting = cfg.config.teams.get(f"{team_num}", TeamSetting()).model_copy(deep=True)
+        if team_num > 0:
+            self.team_setting = cfg.config.teams[team_num - 1]
+        else:
+            self.team_setting = TeamSetting(team_number=team_num)
 
         self.read_settings()
         self.refresh_starlight_select()
@@ -261,15 +255,8 @@ class TeamSettingCard(QFrame):
             self.open_theme_pack_weight_dialog
         )
 
-        self.export_button = PrimaryPushButton(self.tr("导出设置"))
-        self.export_button.clicked.connect(self.on_export_settings)
-        self.import_button = PushButton(self.tr("导入设置"))
-        self.import_button.clicked.connect(self.on_import_settings)
-
-        self.cancel_button = PushButton(self.tr("取消"))
+        self.cancel_button = PushButton(self.tr("返回"))
         self.cancel_button.clicked.connect(self.cancel_team_setting)
-        self.confirm_button = PrimaryPushButton(self.tr("保存"))
-        self.confirm_button.clicked.connect(self.save_team_setting)
 
     def __init_layout(self):
         self.combobox_layout.add(self.select_team)
@@ -305,11 +292,8 @@ class TeamSettingCard(QFrame):
         self.gift_system_layout.add(self.gift_system_list_1)
         self.gift_system_layout.add(self.gift_system_list_2)
 
-        self.setting_layout.addWidget(self.export_button)
-        self.setting_layout.addWidget(self.import_button)
         self.setting_layout.addStretch()
         self.setting_layout.addWidget(self.cancel_button)
-        self.setting_layout.addWidget(self.confirm_button)
 
         self.layout_.addWidget(self.combobox_layout)
         self.layout_.addLayout(self.sinner_layout)
@@ -339,6 +323,7 @@ class TeamSettingCard(QFrame):
     def setting_team(self, data_dict: dict):
         keys = list(data_dict.keys())[0]
         values = list(data_dict.values())[0]
+        changed = True
         if hasattr(self.team_setting, f"{keys}"):
             setattr(self.team_setting, keys, values)
             if keys == "team_system":
@@ -374,10 +359,11 @@ class TeamSettingCard(QFrame):
         elif "ignore_shop_" in keys:
             shop_index = int(keys.split("_")[-1]) - 1
             self.team_setting.ignore_shop[shop_index] = values
+        else:
+            changed = False
 
-    def save_team_setting(self):
-        cfg.set_value(f"{self.team_num}", self.team_setting, config_obj=cfg.config.teams)
-        self.cancel_team_setting()
+        if changed:
+            cfg.save()
 
     def open_theme_pack_weight_dialog(self):
         # 先确保当前队伍的自定义权重文件已创建
@@ -494,88 +480,6 @@ class TeamSettingCard(QFrame):
     def cancel_team_setting(self):
         mediator.close_setting.emit()
 
-    def on_export_settings(self):
-        """导出队伍设置到 YAML 文件"""
-        default_filename = generate_team_export_filename(self.team_num)
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, self.tr("导出队伍设置"), default_filename, "YAML Files (*.yaml *.yml)"
-        )
-
-        if file_path:
-            success = export_team_settings(self.team_num, file_path)
-            if success:
-                BaseInfoBar.success(
-                    title=self.tr("导出成功"),
-                    content=self.tr("队伍设置已导出到: ") + file_path,
-                    orient=Qt.Orientation.Horizontal,
-                    isClosable=True,
-                    position=InfoBarPosition.TOP,
-                    duration=3000,
-                    parent=self,
-                )
-            else:
-                BaseInfoBar.error(
-                    title=self.tr("导出失败"),
-                    content=self.tr("无法导出队伍设置，请检查日志"),
-                    orient=Qt.Orientation.Horizontal,
-                    isClosable=True,
-                    position=InfoBarPosition.TOP,
-                    duration=3000,
-                    parent=self,
-                )
-
-    def on_import_settings(self):
-        """从 YAML 文件导入队伍设置"""
-        file_path, _ = QFileDialog.getOpenFileName(self, self.tr("导入队伍设置"), "", "YAML Files (*.yaml *.yml)")
-
-        if not file_path:
-            return
-
-        team_setting, theme_pack_weight, missing_fields = import_team_settings(file_path, self.team_num)
-
-        if team_setting is None:
-            BaseInfoBar.error(
-                title=self.tr("导入失败"),
-                content=self.tr("无法解析导入文件，请检查文件格式"),
-                orient=Qt.Orientation.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=3000,
-                parent=self,
-            )
-            return
-
-        # 如果有缺失字段则显示警告
-        if missing_fields:
-            BaseInfoBar.warning(
-                title=self.tr("部分字段缺失"),
-                content=self.tr("以下字段将使用默认值: ") + ", ".join(missing_fields),
-                orient=Qt.Orientation.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=5000,
-                parent=self,
-            )
-
-        # 显示确认对话框
-        confirm = MessageBoxConfirm(self.tr("确认导入"), self.tr("导入将覆盖当前队伍设置，是否继续？"), self.window())
-
-        if confirm.exec():
-            apply_team_settings(self.team_num, team_setting, theme_pack_weight)
-            self.team_setting = team_setting
-            self.read_settings()
-            self.refresh_starlight_select()
-
-            BaseInfoBar.success(
-                title=self.tr("导入成功"),
-                content=self.tr("队伍设置已导入并应用"),
-                orient=Qt.Orientation.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=3000,
-                parent=self,
-            )
-
     def retranslateUi(self):
         self.select_system.retranslateUi()
         self.select_shop_strategy.retranslateUi()
@@ -607,10 +511,7 @@ class TeamSettingCard(QFrame):
         self.pierce.check_box.setText(self.tr("突刺"))
         self.blunt.check_box.setText(self.tr("打击"))
 
-        self.export_button.setText(self.tr("导出设置"))
-        self.import_button.setText(self.tr("导入设置"))
-        self.cancel_button.setText(self.tr("取消"))
-        self.confirm_button.setText(self.tr("保存"))
+        self.cancel_button.setText(self.tr("返回"))
 
 
 class CustomizeSettingsModule(QFrame):
@@ -1485,7 +1386,7 @@ class CustomizeInfoModule(QFrame):
 
     def get_info(self, team_num: int):
         return_dict = {}
-        team = cfg.config.teams.get(f"{team_num}")
+        team = cfg.config.teams[team_num - 1] if 0 <= team_num - 1 < len(cfg.config.teams) else None
         if team:
             team_total_mirror_time_hard = team.total_mirror_time_hard
             team_total_mirror_hard_count = team.mirror_hard_count
@@ -1516,7 +1417,9 @@ class CustomizeInfoModule(QFrame):
         return return_dict
 
     def clear_data(self):
-        if team := cfg.config.teams.get(f"{self.team_num}"):
+        team_index = self.team_num - 1
+        if 0 <= team_index < len(cfg.config.teams):
+            team = cfg.config.teams[team_index]
             team.total_mirror_time_hard = [0.0, 0.0, 0.0]
             team.mirror_hard_count = 0
             team.total_mirror_time_normal = [0.0, 0.0, 0.0]

@@ -258,11 +258,11 @@ class MirrorTeamCombination(QFrame):
 
         self.team_number = team_number
 
-        self.remark_name = LineEdit()
-        self.remark_name.setAlignment(Qt.AlignCenter)
-        self.remark_name.setPlaceholderText("备注名")
-        self.remark_name.setMaximumWidth(100)
-        self.remark_name.textChanged.connect(self.remark_name_changed)
+        self.alias = LineEdit()
+        self.alias.setAlignment(Qt.AlignCenter)
+        self.alias.setPlaceholderText("别名")
+        self.alias.setMaximumWidth(100)
+        self.alias.textChanged.connect(self.alias_changed)
 
         self.order = LineEdit()
         self.order.setAlignment(Qt.AlignCenter)
@@ -270,19 +270,17 @@ class MirrorTeamCombination(QFrame):
         self.order.setMaximumWidth(60)
 
         self.hBoxLayout.addWidget(self.box)
-        self.hBoxLayout.addWidget(self.remark_name)
+        self.hBoxLayout.addWidget(self.alias)
         self.hBoxLayout.addWidget(self.order)
         self.hBoxLayout.addWidget(self.button)
 
-        self.button.edit_name.triggered.connect(self.edit_button_clicked)
-        self.button.del_action.triggered.connect(self.delete_button_clicked)
         self.button.copy_settings.triggered.connect(self.copy_team_settings)
         self.button.paste_settings.triggered.connect(self.paste_team_settings)
 
-        self.refresh_remark_name()
+        self.refresh_alias()
 
     def copy_team_settings(self):
-        setting = cfg.config.teams[f"{self.team_number}"].model_dump_json()
+        setting = cfg.config.teams[self.team_number - 1].model_dump_json()
         setting = "||AALC_TEAM_SETTING||" + setting  # 添加标识符
         setting = base64.b64encode(setting.encode("utf-8")).decode("utf-8")
         pyperclip.copy(setting)
@@ -342,8 +340,10 @@ class MirrorTeamCombination(QFrame):
                 parent=self.parent().parent(),
             )
             return
+        # team_number 这个值不再，完全由teams的需要替代
+        team_config.team_number = self.team_number
 
-        cfg.config.teams[f"{self.team_number}"] = team_config
+        cfg.config.teams[self.team_number - 1] = team_config
         cfg.save()
         BaseInfoBar.success(
             title=QT_TRANSLATE_NOOP("BaseInfoBar", "已粘贴设置"),
@@ -355,35 +355,18 @@ class MirrorTeamCombination(QFrame):
             parent=self.parent().parent(),
         )
 
-    def remark_name_changed(self, text):
-        cfg.config.teams[f"{self.team_number}"].remark_name = text
+    def alias_changed(self, text):
+        cfg.config.teams[self.team_number - 1].alias = text
         cfg.save()
 
-    def edit_button_clicked(self):
-        name = cfg.config.teams[f"{self.team_number}"].remark_name
-        if name is None:
-            name = ""
-        message_box = MessageBoxEdit(QT_TRANSLATE_NOOP("MessageBoxEdit", "设置备注名"), name, self.window())
-        self.retranslateTempUi(message_box)
-        if message_box.exec():
-            new_name = str(message_box.getText())
-            cfg.config.teams[f"{self.team_number}"].remark_name = new_name
-            cfg.save()
-            self.remark_name.setText(new_name)
-
-    def delete_button_clicked(self):
-        if len(team_toggle_button_group) > 1:
-            team_toggle_button_group.remove(self.button.button)
-            mediator.delete_team_setting.emit(f"team_{self.team_number}")
-
-    def refresh_remark_name(self):
-        name = cfg.config.teams.get(f"{self.team_number}", None)
-        if name is not None:
-            name = name.remark_name
-            self.remark_name.setText(name)
+    def refresh_alias(self):
+        # 从当前配置编队读取别名，并回填到别名输入框。
+        if self.team_number <= len(cfg.config.teams):
+            team_setting = cfg.config.teams[self.team_number - 1]
+            self.alias.setText(team_setting.alias or "")
 
     def retranslateUi(self):
-        self.remark_name.setPlaceholderText(self.tr("备注名"))
+        self.alias.setPlaceholderText(self.tr("备注名"))
         self.button.retranslateUi()
         if self.team_number == 1:
             self.box.check_box.setText(self.tr(self.box_text))
@@ -395,10 +378,6 @@ class MirrorTeamCombination(QFrame):
             text = self.box_text[:-2]
             box_text = f"{self.tr(text)}{self.team_number}"
             self.box.check_box.setText(box_text)
-
-    def retranslateTempUi(self, message_box: MessageBoxEdit):
-        message_box.retranslateUi()
-
 
 class SinnerSelect(QFrame):
     def __init__(

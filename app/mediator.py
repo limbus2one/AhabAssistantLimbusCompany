@@ -4,10 +4,9 @@ from PySide6.QtCore import QObject, Signal
 class Mediator(QObject):
     switch_page = Signal(str)
     switch_team_setting = Signal(str)
-    delete_team_setting = Signal(str)
     team_setting = Signal(dict)
     close_setting = Signal()
-    refresh_teams_order = Signal()
+    refresh_team_queue = Signal()
     autodaily_setting = Signal(str)
     sinner_be_selected = Signal()
     link_start = Signal()

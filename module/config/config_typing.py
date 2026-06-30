@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class TeamSetting(BaseModel):
@@ -168,7 +168,7 @@ class TeamSetting(BaseModel):
     max_normal_refresh: int = 1
     """每次商店普通刷新最大次数"""
 
-    remark_name: Optional[str] = None
+    alias: Optional[str] = None
     """队伍备注名"""
 
     use_custom_theme_pack_weight: bool = False
@@ -502,22 +502,13 @@ class ConfigModel(BaseModel):
     fight_to_last_man: bool
     """战斗直到全灭"""
 
-    teams_be_select_num: int
-    """被选中的队伍数量"""
-
-    teams_be_select: List[bool]
-    """被选中的队伍"""
-
-    teams_order: List[int]
-    """队伍的顺序"""
-
     teams_active_queue: List[int]
     """镜牢启用队伍的执行队列（单一事实源）"""
 
     mirror_keyboard_navigation: bool
     """使用键盘进行镜牢寻路"""
 
-    teams: List[TeamSetting] = [TeamSetting() for _ in range(20)]
+    teams: List[TeamSetting] = Field(default_factory=lambda: [TeamSetting(team_number=i) for i in range(1, 21)])
     """队伍设置"""
 
     @field_validator("use_continuous_combat_select")

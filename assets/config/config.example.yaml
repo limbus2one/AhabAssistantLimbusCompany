@@ -133,15 +133,12 @@ skip_event_pack: False # 第五层跳过（最左边）活动卡包
 re_claim_rewards: False # 再次执行领取奖励任务
 not_skip_whitegossypium: False # 不跳过白棉花
 fight_to_last_man: False # 战斗直到全灭
-teams_be_select_num: 0 # 被选中的队伍数量
-teams_be_select: [False] # 被选中的队伍
-teams_order: [0] # 队伍的顺序
 mirror_keyboard_navigation: False # 使用键盘进行镜牢寻路
 
 # 队伍设置
 teams_active_queue: [] # 镜牢启用队伍的执行队列（单一事实源）
 teams:
-  '1':
+  -
     team_system: 0 # 队伍使用的体系
     team_number: 1 # 使用的队伍序号
     shop_strategy: 0 # 商店策略
@@ -197,7 +194,7 @@ teams:
     max_keyword_refresh: 1 # 每次商店访问时定向刷新商品的次数上限
     max_normal_refresh: 1 # 每次商店访问时普通刷新商品的次数上限
     use_custom_theme_pack_weight: False # 使用队伍自定义主题包权重
-    remark_name: # 队伍备注名
+    alias: # 队伍别名
     use_team_code: False # 使用编队码
     team_code: "" # 编队码
     total_mirror_time_hard: [] # 困难镜牢总用时

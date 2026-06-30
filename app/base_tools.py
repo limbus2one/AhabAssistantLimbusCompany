@@ -147,8 +147,7 @@ class BaseCheckBox(BaseLayout):
                 self.check_box.setChecked(cfg.get_value(self.config_name))
         elif "the_team_" in self.config_name:
             number = int(self.config_name.split("_")[-1])
-            teams_be_select = cfg.get_value("teams_be_select")
-            if number <= len(teams_be_select) and teams_be_select[number - 1] is True:
+            if number in cfg.get_value("teams_active_queue", []):
                 self.check_box.setChecked(True)
         elif self.config_name in all_sinners_name:
             mediator.sinner_be_selected.emit()
@@ -178,7 +177,7 @@ class BaseCheckBox(BaseLayout):
         elif self.config_name.startswith("the_team_"):
             team_num = int(self.config_name.split("_")[-1])
             cfg.set_team_enabled(team_num, checked)
-            mediator.refresh_teams_order.emit()
+            mediator.refresh_team_queue.emit()
         elif self.config_name.startswith("autodaily"):
             mediator.autodaily_setting.emit(self.config_name)
         else:
@@ -246,12 +245,8 @@ class ToSettingButton(BaseButton):
         self.button = SplitToolButton(icon, self)
 
         self.menu = RoundMenu(parent=self)
-        self.edit_name = Action(FIF.EDIT, "命名")
-        self.del_action = Action(FIF.DELETE, "删除")
         self.copy_settings = Action(FIF.COPY, "复制")
         self.paste_settings = Action(FIF.PASTE, "粘贴")
-        self.menu.addAction(self.edit_name)
-        self.menu.addAction(self.del_action)
         self.menu.addAction(self.copy_settings)
         self.menu.addAction(self.paste_settings)
         self.button.setFlyout(self.menu)
@@ -271,8 +266,6 @@ class ToSettingButton(BaseButton):
         mediator.switch_team_setting.emit(target)
 
     def retranslateUi(self):
-        self.edit_name.setText(self.tr("命名"))
-        self.del_action.setText(self.tr("删除"))
         self.copy_settings.setText(self.tr("复制"))
         self.paste_settings.setText(self.tr("粘贴"))
 

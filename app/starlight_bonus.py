@@ -354,8 +354,9 @@ class StarlightCard(QFrame):
         super().__init__(parent)
         self.starlight_index: int = int(class_name.split("_")[-1])
         self.bonus_value = 0
-        if team_config := cfg.config.teams.get(str(team_num)):
-            self.bonus_value = team_config.opening_bonus[self.starlight_index - 1]
+        # 这个if条件总是成立的
+        if 0 <= team_num - 1 < len(cfg.config.teams):
+            self.bonus_value = cfg.config.teams[team_num - 1].opening_bonus[self.starlight_index - 1]
 
         self.label_text = label_text
         self.main_layout = QVBoxLayout(self)

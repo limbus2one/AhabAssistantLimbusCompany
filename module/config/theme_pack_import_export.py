@@ -11,12 +11,12 @@ from utils.file_utils import sanitize_filename
 
 def generate_theme_pack_export_filename(team_num: int) -> str:
     """生成主题包权重导出文件名。"""
-    team_setting = cfg.config.teams.get(str(team_num))
-    remark_name = team_setting.remark_name if team_setting else None
+    team_setting = cfg.config.teams[team_num - 1] if 0 <= team_num - 1 < len(cfg.config.teams) else None
+    alias = team_setting.alias if team_setting else None
     date_str = datetime.date.today().isoformat()
 
-    if remark_name:
-        safe_name = sanitize_filename(remark_name)
+    if alias:
+        safe_name = sanitize_filename(alias)
         return f"theme_pack_weight_team_{safe_name}_{date_str}.yaml"
 
     return f"theme_pack_weight_team_{team_num}_{date_str}.yaml"

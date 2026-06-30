@@ -557,32 +557,28 @@ class FarmingInterfaceLeft(QWidget):
                     cfg.set_value("hard_mirror", True)
                     log.debug(f"困难镜牢模式启用中，剩余次数：{cfg.hard_mirror_chance}")
 
-            # 检查队伍配置状况
-            teams_be_select = sum(1 for team in cfg.teams_be_select if team)
-            if teams_be_select != cfg.teams_be_select_num:
-                cfg.normalize_and_sync_team_state()
-                cfg.flush()
 
-            if cfg.teams_be_select_num == 0:
+            if not cfg.teams_active_queue:
                 message = self.tr("没有启用任何队伍，请选择一个队伍进行镜牢任务")
                 mediator.warning.emit(message)
                 return False
 
             # 检测是否有未配置角色选择的队伍
-            teams_be_select = cfg.get_value("teams_be_select")
-            for index in (i for i, t in enumerate(teams_be_select) if t is True):
-                team_setting: TeamSetting = cfg.config.teams[f"{index + 1}"]
+            for team_num in cfg.teams_active_queue:
+                # 假设队伍编号都是合法的，移除这个检测
+                if team_num - 1 >= len(cfg.config.teams):
+                    continue
+                team_setting: TeamSetting = cfg.config.teams[team_num - 1]
                 if team_setting.sinners_be_select == 0:
                     message = self.tr("存在未配置角色选择的队伍：TEAM_{0}")
-                    mediator.warning.emit(message.format(index + 1))
+                    mediator.warning.emit(message.format(team_num))
                     return False
 
             # 检测配置的队伍能否顺利执行
             useful = False
             hard = bool(cfg.hard_mirror)
-            teams_be_select = cfg.get_value("teams_be_select")
-            for index in (i for i, t in enumerate(teams_be_select) if t is True):
-                team_setting: TeamSetting = cfg.config.teams[f"{index + 1}"]
+            for team_num in cfg.teams_active_queue:
+                team_setting: TeamSetting = cfg.config.teams[team_num - 1]
                 if team_setting.fixed_team_use is False:
                     useful = True
                     break
@@ -645,7 +641,7 @@ class FarmingInterfaceLeft(QWidget):
             self.link_start_button.set_text("Link Start!")
             self._enable_setting(self.parent())
             self.reset_pause_resume_button()
-            mediator.refresh_teams_order.emit()
+            mediator.refresh_team_queue.emit()
             # 检查线程是否仍在运行，如果仍在运行则执行清理，否则跳过（因为脚本已自行清理）
             thread_was_running = self.my_script is not None and self.my_script.isRunning()
             self.stop_script()
@@ -659,7 +655,7 @@ class FarmingInterfaceLeft(QWidget):
         self.link_start_button.set_text("Link Start!")
         self._enable_setting(self.parent())
         self.reset_pause_resume_button()
-        mediator.refresh_teams_order.emit()
+        mediator.refresh_team_queue.emit()
         mediator.mirror_bar_kill_signal.emit()
 
     def _disable_setting(self, parent):
