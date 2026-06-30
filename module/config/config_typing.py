@@ -10,7 +10,7 @@ class TeamSetting(BaseModel):
     """队伍使用的体系"""
 
     team_number: int = 1
-    """使用的队伍序号"""
+    """游戏内编队序号"""
 
     shop_strategy: int = 0
     """商店策略"""
@@ -517,7 +517,7 @@ class ConfigModel(BaseModel):
     mirror_keyboard_navigation: bool
     """使用键盘进行镜牢寻路"""
 
-    teams: dict[str, TeamSetting]
+    teams: List[TeamSetting] = [TeamSetting() for _ in range(20)]
     """队伍设置"""
 
     @field_validator("use_continuous_combat_select")
