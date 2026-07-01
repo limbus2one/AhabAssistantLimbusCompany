@@ -793,6 +793,9 @@ class CustomizeSettingsModule(QFrame):
             "after_level_IV_select",
         )
         self.after_level_IV.add_items(after_fuse_level_IV)
+        self.after_level_IV.hBoxLayout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.after_level_IV.combo_box.setFixedWidth(220)
+        self.after_level_IV.combo_box.combo_box.setFixedWidth(220)
         self.shopping_strategy = CheckBoxWithComboBox(
             "shopping_strategy",
             QT_TRANSLATE_NOOP("CheckBoxWithComboBox", "购物策略"),
@@ -800,6 +803,9 @@ class CustomizeSettingsModule(QFrame):
             "shopping_strategy_select",
         )
         self.shopping_strategy.add_items(shopping_strategy)
+        self.shopping_strategy.hBoxLayout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.shopping_strategy.combo_box.setFixedWidth(190)
+        self.shopping_strategy.combo_box.combo_box.setFixedWidth(190)
 
         self.opening_items = CheckBoxWithComboBox(
             "opening_items",
@@ -810,6 +816,11 @@ class CustomizeSettingsModule(QFrame):
         self.opening_items.add_items(all_systems)
         self.opening_items.add_combobox("opening_items_select")
         self.opening_items.add_times_for_additional(start_gift)
+        self.opening_items.hBoxLayout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.opening_items.combo_box.setFixedWidth(90)
+        self.opening_items.combo_box.combo_box.setFixedWidth(90)
+        self.opening_items.additional_combo_box.setFixedWidth(110)
+        self.opening_items.additional_combo_box.combo_box.setFixedWidth(110)
 
         self.second_system = CheckBoxWithComboBox(
             "second_system",
@@ -820,6 +831,11 @@ class CustomizeSettingsModule(QFrame):
         self.second_system.add_items(all_systems)
         self.second_system.add_combobox("second_system_setting")
         self.second_system.add_times_for_additional(second_systems)
+        self.second_system.hBoxLayout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.second_system.combo_box.setFixedWidth(90)
+        self.second_system.combo_box.combo_box.setFixedWidth(90)
+        self.second_system.additional_combo_box.setFixedWidth(220)
+        self.second_system.additional_combo_box.combo_box.setFixedWidth(220)
 
         self.second_system_fuse_IV = BaseCheckBox(
             "second_system_fuse_IV", None, QT_TRANSLATE_NOOP("BaseCheckBox", "合成四级")
@@ -845,6 +861,11 @@ class CustomizeSettingsModule(QFrame):
         self.skill_replacement.add_items(skill_replacement_sinner)
         self.skill_replacement.add_combobox("skill_replacement_mode")
         self.skill_replacement.add_times_for_additional(skill_replacement_mode)
+        self.skill_replacement.hBoxLayout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.skill_replacement.combo_box.setFixedWidth(140)
+        self.skill_replacement.combo_box.combo_box.setFixedWidth(140)
+        self.skill_replacement.additional_combo_box.setFixedWidth(90)
+        self.skill_replacement.additional_combo_box.combo_box.setFixedWidth(90)
 
         QT_TRANSLATE_NOOP("BaseLabel", "忽略商店")
         self.ignore_shop = BaseLabel("忽略商店")
