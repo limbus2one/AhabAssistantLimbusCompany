@@ -175,6 +175,28 @@ class Config(metaclass=SingletonMeta):
             elif isinstance(teams, list):
                 for index, settings in enumerate(list(teams)):
                     teams[index] = migrate_legacy_team_setting_data(settings)
+        if saved_version < 1781049600:
+            old_teams = loaded_config.get("teams", {}) or {}
+            new_teams = [TeamSetting(team_number=i).model_dump() for i in range(1, 21)]
+            assigned_team_numbers: set[int] = set()
+
+            for team in old_teams.values():
+                team_data = team.model_dump() if isinstance(team, TeamSetting) else dict(team or {})
+                if "alias" not in team_data and "remark_name" in team_data:
+                    team_data["alias"] = team_data.get("remark_name")
+                team_data.pop("remark_name", None)
+
+                team_number = team_data.get("team_number")
+                if not isinstance(team_number, int) or not 1 <= team_number <= 20:
+                    continue
+                if team_number in assigned_team_numbers:
+                    continue
+
+                new_teams[team_number - 1] = team_data
+                assigned_team_numbers.add(team_number)
+
+            loaded_config["teams"] = new_teams
+
         log.info("配置升级完成")
 
     def _load_version(self, version_path: str) -> str:
@@ -634,8 +656,11 @@ class Config(metaclass=SingletonMeta):
 
 
 def migrate_legacy_team_setting_data(data: dict) -> dict:
-    """Return team setting data with legacy starlight fields folded into opening_bonus."""
+    """Return team setting data with legacy fields migrated to the current schema."""
     migrated = dict(data)
+    if "alias" not in migrated and "remark_name" in migrated:
+        migrated["alias"] = migrated.get("remark_name")
+    migrated.pop("remark_name", None)
 
     if migrated.get("choose_opening_bonus", False):
         opening_bonus = np.array(migrated.get("opening_bonus"), dtype=int)
