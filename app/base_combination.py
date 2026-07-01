@@ -477,8 +477,8 @@ class SinnerSelect(QFrame):
         )
 
         # sinner card size in game: 537 x 827
-        self.setFixedHeight(239)
-        self.setFixedWidth(155)
+        self.setFixedHeight(207)
+        self.setFixedWidth(134)
 
         # 遮罩层
         self.mask_widget = QFrame(self)

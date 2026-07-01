@@ -39,8 +39,10 @@ from app.common.ui_config import (
 )
 from app.language_manager import LanguageManager
 from app.starlight_bonus import StarlightCard, StarlightLevelSelector
+from app.team_setting_blank_column import TeamSettingBlankColumn
 from app.theme_pack_setting_interface import ThemePackSettingDialog
 from module.config import TeamSetting, cfg, theme_list
+from module.logger import log
 from app.observe_ego_gift_selection import (
     MAX_OBSERVE_GIFT_SELECTIONS,
     ObserveGiftSelection,
@@ -72,6 +74,8 @@ class TeamSettingCard(QFrame):
         LanguageManager().register_component(self)
         self.select_system.retranslateUi()
         self.select_shop_strategy.retranslateUi()
+        QTimer.singleShot(0, self.log_team_setting_page_params)
+        QTimer.singleShot(300, self.log_team_setting_page_params)
 
     def set_team_num(self, team_num: int):
         """切换常驻队伍设置页当前编辑的编队。"""
@@ -83,8 +87,79 @@ class TeamSettingCard(QFrame):
         self.read_settings()
         self.refresh_starlight_select()
 
+    @staticmethod
+    def _format_margins(margins) -> str:
+        return (
+            f"(left={margins.left()}, top={margins.top()}, "
+            f"right={margins.right()}, bottom={margins.bottom()})"
+        )
+
+    def _format_layout_params(self, layout) -> str:
+        return (
+            f"geometry={layout.geometry()}, "
+            f"margins={self._format_margins(layout.contentsMargins())}, "
+            f"spacing={layout.spacing()}"
+        )
+
+    def log_team_setting_page_params(self):
+        window = self.window()
+        viewport = self.scroll_general.viewport()
+        log.info(
+            "队伍设置页参数："
+            f"team_num={self.team_num}, "
+            f"window_size={window.size() if window else None}, "
+            f"page_size={self.size()}, "
+            f"page_geometry={self.geometry()}, "
+            f"main_layout=({self._format_layout_params(self.main_layout)}), "
+            f"content_layout=({self._format_layout_params(self.content_layout)}), "
+            f"blank_column_size={self.blank_column.size()}, "
+            f"blank_column_geometry={self.blank_column.geometry()}"
+        )
+        log.info(
+            "队伍设置页主体参数："
+            f"scroll_size={self.scroll_general.size()}, "
+            f"scroll_geometry={self.scroll_general.geometry()}, "
+            f"viewport_size={viewport.size()}, "
+            f"viewport_geometry={viewport.geometry()}, "
+            f"body_width={viewport.width()}, "
+            f"page_widget_size={self.page_widget.size()}, "
+            f"page_widget_geometry={self.page_widget.geometry()}, "
+            f"page_widget_size_hint={self.page_widget.sizeHint()}, "
+            f"content_layout=({self._format_layout_params(self.layout_)})"
+        )
+        log.info(
+            "队伍设置页罪人网格参数："
+            f"geometry={self.sinner_layout.geometry()}, "
+            f"margins={self._format_margins(self.sinner_layout.contentsMargins())}, "
+            f"spacing={self.sinner_layout.spacing()}, "
+            f"horizontal_spacing={self.sinner_layout.horizontalSpacing()}, "
+            f"vertical_spacing={self.sinner_layout.verticalSpacing()}, "
+            f"row_count={self.sinner_layout.rowCount()}, "
+            f"column_count={self.sinner_layout.columnCount()}, "
+            f"minimum_size={self.sinner_layout.minimumSize()}"
+        )
+        for index in range(self.sinner_layout.count()):
+            item = self.sinner_layout.itemAt(index)
+            widget = item.widget() if item else None
+            if widget is None:
+                continue
+            row, column, row_span, column_span = self.sinner_layout.getItemPosition(index)
+            log.info(
+                "队伍设置页罪人卡片参数："
+                f"name={widget.objectName()}, "
+                f"row={row}, column={column}, row_span={row_span}, column_span={column_span}, "
+                f"size={widget.size()}, "
+                f"geometry={widget.geometry()}, "
+                f"minimum_size={widget.minimumSize()}, "
+                f"maximum_size={widget.maximumSize()}, "
+                f"size_hint={widget.sizeHint()}"
+            )
+
     def __init_widget(self):
         self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0) # 移除页面边距
+        self.content_layout = QHBoxLayout()
+        self.blank_column = TeamSettingBlankColumn(self)
         self.scroll_general = ScrollArea()
         self.scroll_general.setSmoothMode(SmoothMode.LINEAR, Qt.Orientation.Vertical)
         self.scroll_general.scrollDelagate.verticalSmoothScroll.duration = 100
@@ -96,7 +171,9 @@ class TeamSettingCard(QFrame):
 
         self.layout_ = QVBoxLayout(self.page_widget)
 
-        self.main_layout.addWidget(self.scroll_general)
+        self.content_layout.addWidget(self.blank_column)
+        self.content_layout.addWidget(self.scroll_general, 1)
+        self.main_layout.addLayout(self.content_layout, 1)
 
         self.combobox_layout = BaseSettingLayout(box_type=1)
         self.combobox_layout.setMaximumHeight(75)
@@ -280,7 +357,8 @@ class TeamSettingCard(QFrame):
         self.sinner_layout.addWidget(self.sinner_Ryoshu, 0, 3)
         self.sinner_layout.addWidget(self.sinner_Meursault, 0, 4)
         self.sinner_layout.addWidget(self.sinner_HongLu, 0, 5)
-        self.sinner_layout.setVerticalSpacing(10)
+        self.sinner_layout.setVerticalSpacing(13) # 罪人卡片之间的垂直间距 （向下取整
+        self.sinner_layout.setHorizontalSpacing(6) # 罪人卡片之间的水平间距（向下取整
         self.sinner_layout.addWidget(self.sinner_Heathcliff, 1, 0)
         self.sinner_layout.addWidget(self.sinner_Ishmael, 1, 1)
         self.sinner_layout.addWidget(self.sinner_Rodion, 1, 2)
