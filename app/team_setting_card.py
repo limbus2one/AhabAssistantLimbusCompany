@@ -615,13 +615,17 @@ class CustomizeSettingsModule(QFrame):
 
     def __init_widget(self):
         self.first_line_widget = QWidget()
+        self.first_line_widget.setFixedWidth(900)
         self.first_line = QHBoxLayout(self.first_line_widget)
         self.second_line_widget = QWidget()
+        self.second_line_widget.setFixedWidth(900)
         self.second_line = QHBoxLayout(self.second_line_widget)
         self.third_line_widget = QWidget()
+        self.third_line_widget.setFixedWidth(900)
         self.third_line = QHBoxLayout(self.third_line_widget)
 
         self.features_patch_widget_1 = QWidget()
+        self.features_patch_widget_1.setFixedWidth(900)
         self.features_patch_line_1 = QHBoxLayout(self.features_patch_widget_1)
 
         self.star_layout = BaseSettingLayout(box_type=2)
