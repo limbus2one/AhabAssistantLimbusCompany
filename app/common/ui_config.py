@@ -401,16 +401,15 @@ def get_starlight_bonus_tips(index: int, language: str | None = None) -> dict[st
     tips = STARLIGHT_BONUS_TIPS_EN if _is_starlight_english(language) else STARLIGHT_BONUS_TIPS
     return tips[index]
 
-
-
+# 星光加成右上方总费用数字的样式。
 STARLIGHT_TOTAL_COST_STYLES = {
     "light": """
         QLabel#starlightTotalCostLabel {
             background: transparent;
             border: none;
             color: rgba(0, 0, 0, 0.82);
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 18px; /* 总费用数字的字号 */
+            font-weight: 600; /* 总费用数字的粗细 */
         }
     """,
     "dark": """
@@ -418,8 +417,8 @@ STARLIGHT_TOTAL_COST_STYLES = {
             background: transparent;
             border: none;
             color: rgba(255, 255, 255, 0.92);
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 18px; /* 总费用数字的字号 */
+            font-weight: 600; /* 总费用数字的粗细 */
         }
     """,
 }
@@ -428,15 +427,15 @@ STARLIGHT_TOTAL_COST_STYLES = {
 def get_starlight_total_cost_qss() -> tuple[str, str]:
     return STARLIGHT_TOTAL_COST_STYLES["light"], STARLIGHT_TOTAL_COST_STYLES["dark"]
 
-
+# 单个星光选择框名称段右上角费用数字的样式。
 STARLIGHT_COST_LABEL_STYLES = {
     "light": """
         QLabel {
             background: transparent;
             border: none;
             color: rgba(0, 0, 0, 0.82);
-            font-size: 11px;
-            font-weight: 500;
+            font-size: 11px; /* 每个星光项右上角费用数字的字号 */
+            font-weight: 500; /* 每个星光项右上角费用数字的粗细 */
         }
     """,
     "dark": """
@@ -444,50 +443,52 @@ STARLIGHT_COST_LABEL_STYLES = {
             background: transparent;
             border: none;
             color: rgba(255, 255, 255, 0.92);
-            font-size: 11px;
-            font-weight: 500;
+            font-size: 11px; /* 每个星光项右上角费用数字的字号 */
+            font-weight: 500; /* 每个星光项右上角费用数字的粗细 */
         }
     """,
 }
 
+# 星光加成悬浮提示框的样式。
 STARLIGHT_TOOLTIP_STYLES = {
     "light": """
         QFrame#starlightToolTipPopup {
-            background-color: rgb(255, 255, 255);
-            border: 1px solid rgba(0, 0, 0, 38);
-            border-radius: 6px;
+            background-color: rgb(255, 255, 255); /* 提示框背景色 */
+            border: 1px solid rgba(0, 0, 0, 38); /* 提示框边框 */
+            border-radius: 6px; /* 提示框圆角 */
         }
         QLabel#starlightToolTipText {
             background: transparent;
             border: none;
             color: rgba(0, 0, 0, 0.82);
-            padding: 0;
+            padding: 0; /* 提示文字自身内边距 */
         }
     """,
     "dark": """
         QFrame#starlightToolTipPopup {
-            background-color: rgb(45, 45, 45);
-            border: 1px solid rgba(255, 255, 255, 46);
-            border-radius: 6px;
+            background-color: rgb(45, 45, 45); /* 提示框背景色 */
+            border: 1px solid rgba(255, 255, 255, 46); /* 提示框边框 */
+            border-radius: 6px; /* 提示框圆角 */
         }
         QLabel#starlightToolTipText {
             background: transparent;
             border: none;
             color: rgba(255, 255, 255, 0.92);
-            padding: 0;
+            padding: 0; /* 提示文字自身内边距 */
         }
     """,
 }
 
+# 星光三段式按钮本体的样式，影响“星光名称 / + / ++”三段。
 STARLIGHT_LEVEL_BUTTON_STYLES = {
     "light": """
         QPushButton {
             border: none;
             background: transparent;
-            padding: 5px 6px;
-            min-height: 32px;
+            padding: 5px 0px; /* 按钮文字到按钮边缘的上下、左右留白 */
+            min-height: 32px; /* 星光选择框的最小视觉高度 */
             color: rgba(0, 0, 0, 0.82);
-            font-size: 13px;
+            font-size: 12px; /* 星光名称、+、++ 的字号 */
         }
         QPushButton:hover {
             background: transparent;
@@ -496,17 +497,17 @@ STARLIGHT_LEVEL_BUTTON_STYLES = {
             color: rgba(0, 0, 0, 0.82);
         }
         QPushButton[segment="left"] {
-            padding-right: 24px;
+            padding-right: 24px; /* 左侧名称段右侧留白，用来避开右上角费用数字 */
         }
     """,
     "dark": """
         QPushButton {
             border: none;
             background: transparent;
-            padding: 5px 6px;
-            min-height: 32px;
+            padding: 5px 0px; /* 按钮文字到按钮边缘的上下、左右留白 */
+            min-height: 32px; /* 星光选择框的最小视觉高度 */
             color: rgba(255, 255, 255, 0.92);
-            font-size: 13px;
+            font-size: 12px; /* 星光名称、+、++ 的字号 */
         }
         QPushButton:hover {
             background: transparent;
@@ -515,16 +516,19 @@ STARLIGHT_LEVEL_BUTTON_STYLES = {
             color: rgba(255, 255, 255, 0.92);
         }
         QPushButton[segment="left"] {
-            padding-right: 24px;
+            padding-right: 24px; /* 左侧名称段右侧留白，用来避开右上角费用数字 */
         }
     """,
 }
 
+# 星光选择框外层自身的样式；背景色由 paintEvent 手动画。
 STARLIGHT_SELECTOR_STYLES = {
     "light": "StarlightLevelSelector { background: transparent; }",
     "dark": "StarlightLevelSelector { background: transparent; }",
 }
 
+# 星光选择框的手绘背景色，格式是 (R, G, B, Alpha)。
+# empty 是未选择背景；left/middle/right 分别对应选择 1/2/3 段后的填充色。
 STARLIGHT_PAINT_COLORS = {
     "light": {
         "empty": (120, 120, 120, 20),

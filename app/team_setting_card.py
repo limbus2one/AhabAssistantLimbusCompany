@@ -630,10 +630,15 @@ class CustomizeSettingsModule(QFrame):
 
         self.star_layout = BaseSettingLayout(box_type=2)
         self.star_layout.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # 星光加成外框的最大高度。
         self.star_layout.setMaximumHeight(240)
-        self.star_layout.setMaximumWidth(950)
+        # 星光加成外框的最大宽度，影响一行 5 个星光选择框可分到的总空间。
+        self.star_layout.setMaximumWidth(850)
         self.star_list = QGridLayout()
+        # 两行星光选择框之间的上下间距。
         self.star_list.setVerticalSpacing(10)
+        # 同一行内相邻星光选择框之间的左右间距。
+        self.star_list.setHorizontalSpacing(10)
 
         self.fourth_line_widget = QWidget()
         self.fourth_line = QHBoxLayout(self.fourth_line_widget)
@@ -766,7 +771,8 @@ class CustomizeSettingsModule(QFrame):
 
         self.starlight_select_all_wrapper = QWidget(self)
         select_all_layout = QVBoxLayout(self.starlight_select_all_wrapper)
-        select_all_layout.setContentsMargins(10, 0, 0, 0)
+        # 全选选择框在自己网格单元内的左、上、右、下留白。
+        select_all_layout.setContentsMargins(0, 0, 0, 0)
         select_all_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         select_all_layout.addWidget(self.starlight_select_all)
 
@@ -774,6 +780,7 @@ class CustomizeSettingsModule(QFrame):
 
         self.starlight_clear_button_wrapper = QWidget(self)
         clear_btn_layout = QVBoxLayout(self.starlight_clear_button_wrapper)
+        # 清空按钮在自己网格单元内的左、上、右、下留白。
         clear_btn_layout.setContentsMargins(10, 0, 0, 0)
         clear_btn_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         clear_btn_layout.addWidget(self.starlight_clear_button, 0, Qt.AlignmentFlag.AlignLeft)
@@ -929,6 +936,7 @@ class CustomizeSettingsModule(QFrame):
         self.features_patch_line_1.addWidget(self.aggressive_save_systems)
         self.features_patch_line_1.addWidget(self.defense_first_round)
 
+        # 第 0 行是全选、清空和总费用；第 1、2 行是 10 个星光选择框。
         self.star_list.addWidget(self.starlight_select_all_wrapper, 0, 0)
         self.star_list.addWidget(self.starlight_clear_button_wrapper, 0, 1)
         self.star_list.addWidget(self.starlight_total_cost_label, 0, 4, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
