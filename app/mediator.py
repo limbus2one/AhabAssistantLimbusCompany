@@ -5,6 +5,7 @@ class Mediator(QObject):
     switch_page = Signal(str)
     switch_team_setting = Signal(str)
     team_setting = Signal(dict)
+    team_alias_changed = Signal(int)
     close_setting = Signal()
     refresh_team_queue = Signal()
     autodaily_setting = Signal(str)

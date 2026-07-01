@@ -211,6 +211,16 @@ class TeamSettingCard(QFrame):
         self.select_shop_strategy = LabelWithComboBox(
             self.tr("选择商店策略"), "shop_strategy", shop_strategy, vbox=False
         )
+        self.alias_layout = QHBoxLayout()
+        self.alias_layout.setContentsMargins(0, 0, 0, 0)
+        self.alias_layout.setSpacing(10)
+        self.alias_label = BaseLabel(self.tr("备注名"))
+        self.alias_input = BaseLineEdit("alias", self)
+        self.alias_input.setFixedWidth(160)
+        self.alias_input.line_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.alias_input.line_edit.setPlaceholderText(self.tr("备注名"))
+        self.alias_layout.addWidget(self.alias_label)
+        self.alias_layout.addWidget(self.alias_input)
 
         self.sinner_YiSang = SinnerSelect(
             "YiSang",
@@ -351,6 +361,7 @@ class TeamSettingCard(QFrame):
 
     def __init_layout(self):
         self.combobox_layout.add(self.select_system)
+        self.combobox_layout.add(self.alias_layout)
         self.combobox_layout.add(self.select_shop_strategy)
 
         self.sinner_layout.setContentsMargins(15, 10, 15, 20)
@@ -407,11 +418,13 @@ class TeamSettingCard(QFrame):
     def connect_mediator(self):
         # 连接所有可能信号
         mediator.team_setting.connect(self.setting_team)
+        mediator.team_alias_changed.connect(self.refresh_alias_input)
         mediator.sinner_be_selected.connect(self.refresh_sinner_order)
 
     def disconnect_mediator(self):
         """断开所有 mediator 信号连接"""
         mediator.team_setting.disconnect(self.setting_team)
+        mediator.team_alias_changed.disconnect(self.refresh_alias_input)
         mediator.sinner_be_selected.disconnect(self.refresh_sinner_order)
 
     def setting_team(self, data_dict: dict):
@@ -460,6 +473,8 @@ class TeamSettingCard(QFrame):
 
         if changed:
             cfg.save()
+            if keys == "alias":
+                mediator.team_alias_changed.emit(self.team_num)
 
     def open_theme_pack_weight_dialog(self):
         # 先确保当前队伍的自定义权重文件已创建
@@ -552,10 +567,19 @@ class TeamSettingCard(QFrame):
         if team_code_input := self.findChild(BaseLineEdit, "team_code"):
             team_code_input.setText(self.team_setting.team_code)
 
+        self.refresh_alias_input(self.team_num)
+
         # 回显观测EGO饰品选中状态
         observe_module = self.findChild(ObserveEgoGiftModule, "ObserveEgoGiftModule")
         if observe_module:
             observe_module.load_selected(self.team_setting.observe_ego_gift_selected)
+
+    def refresh_alias_input(self, team_num: int):
+        if team_num != self.team_num:
+            return
+        self.team_setting = cfg.config.teams[team_num - 1]
+        if alias_input := self.findChild(BaseLineEdit, "alias"):
+            alias_input.setText(self.team_setting.alias or "")
 
     def foolproof(self, team_system):
         for checkbox in all_checkbox_config_name:
@@ -575,6 +599,8 @@ class TeamSettingCard(QFrame):
         self.select_system.retranslateUi()
         self.select_shop_strategy.retranslateUi()
         self.select_system.label.label.setText(self.tr("选择队伍体系"))
+        self.alias_label.label.setText(self.tr("备注名"))
+        self.alias_input.line_edit.setPlaceholderText(self.tr("备注名"))
         self.select_shop_strategy.label.label.setText(self.tr("选择商店策略"))
         self.sinner_YiSang.name_label.setText(self.tr("李箱"))
         self.sinner_Faust.name_label.setText(self.tr("浮士德"))

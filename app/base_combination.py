@@ -265,6 +265,7 @@ class MirrorTeamCombination(QFrame):
         self.alias.setPlaceholderText("别名")
         self.alias.setMaximumWidth(100)
         self.alias.textChanged.connect(self.alias_changed)
+        mediator.team_alias_changed.connect(self.refresh_alias_if_current_team)
 
         self.order = LineEdit()
         self.order.setAlignment(Qt.AlignCenter)
@@ -347,6 +348,7 @@ class MirrorTeamCombination(QFrame):
 
         cfg.config.teams[self.team_number - 1] = team_config
         cfg.save()
+        mediator.team_alias_changed.emit(self.team_number)
         BaseInfoBar.success(
             title=QT_TRANSLATE_NOOP("BaseInfoBar", "已粘贴设置"),
             content="",
@@ -360,12 +362,19 @@ class MirrorTeamCombination(QFrame):
     def alias_changed(self, text):
         cfg.config.teams[self.team_number - 1].alias = text
         cfg.save()
+        mediator.team_alias_changed.emit(self.team_number)
 
     def refresh_alias(self):
         # 从当前配置编队读取别名，并回填到别名输入框。
         if self.team_number <= len(cfg.config.teams):
             team_setting = cfg.config.teams[self.team_number - 1]
+            self.alias.blockSignals(True)
             self.alias.setText(team_setting.alias or "")
+            self.alias.blockSignals(False)
+
+    def refresh_alias_if_current_team(self, team_number: int):
+        if team_number == self.team_number:
+            self.refresh_alias()
 
     def retranslateUi(self):
         self.alias.setPlaceholderText(self.tr("备注名"))
