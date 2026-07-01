@@ -64,8 +64,10 @@ class TeamSettingCard(QFrame):
 
         if team_num > 0:
             self.team_setting = cfg.config.teams[team_num - 1]
+            self.team_setting.team_number = team_num
         else:
             self.team_setting = TeamSetting(team_number=team_num)
+        self.blank_column.set_current_team(team_num)
 
         self.read_settings()
         self.refresh_starlight_select()
@@ -81,9 +83,11 @@ class TeamSettingCard(QFrame):
         """切换常驻队伍设置页当前编辑的编队。"""
         self.team_num = team_num
         self.team_setting = cfg.config.teams[team_num - 1]
+        self.team_setting.team_number = team_num
         self.customize_settings_module.team_num = team_num
         self.observe_ego_gift_module.team_num = team_num
         self.customize_info_module.set_team_num(team_num)
+        self.blank_column.set_current_team(team_num)
         self.read_settings()
         self.refresh_starlight_select()
 
@@ -160,6 +164,7 @@ class TeamSettingCard(QFrame):
         self.main_layout.setContentsMargins(0, 0, 0, 0) # 移除页面边距
         self.content_layout = QHBoxLayout()
         self.blank_column = TeamSettingBlankColumn(self)
+        self.blank_column.team_selected.connect(self.set_team_num)
         self.scroll_general = ScrollArea()
         self.scroll_general.setSmoothMode(SmoothMode.LINEAR, Qt.Orientation.Vertical)
         self.scroll_general.scrollDelagate.verticalSmoothScroll.duration = 100
@@ -202,7 +207,6 @@ class TeamSettingCard(QFrame):
         self.scroll_general.enableTransparentBackground()
 
     def __init_card(self):
-        self.select_team = LabelWithComboBox(self.tr("选择队伍名称"), "team_number", all_teams, vbox=False)
         self.select_system = LabelWithComboBox(self.tr("选择队伍体系"), "team_system", all_systems, vbox=False)
         self.select_shop_strategy = LabelWithComboBox(
             self.tr("选择商店策略"), "shop_strategy", shop_strategy, vbox=False
@@ -346,7 +350,6 @@ class TeamSettingCard(QFrame):
         self.cancel_button.clicked.connect(self.cancel_team_setting)
 
     def __init_layout(self):
-        self.combobox_layout.add(self.select_team)
         self.combobox_layout.add(self.select_system)
         self.combobox_layout.add(self.select_shop_strategy)
 
@@ -412,7 +415,9 @@ class TeamSettingCard(QFrame):
         keys = list(data_dict.keys())[0]
         values = list(data_dict.values())[0]
         changed = True
-        if hasattr(self.team_setting, f"{keys}"):
+        if keys == "team_number":
+            changed = False
+        elif hasattr(self.team_setting, f"{keys}"):
             setattr(self.team_setting, keys, values)
             if keys == "team_system":
                 self.foolproof(values)
@@ -536,12 +541,9 @@ class TeamSettingCard(QFrame):
 
         for combobox in all_combobox_config_name:
             if self.findChild(BaseComboBox, combobox):
-                if combobox == "team_number":
-                    self.findChild(BaseComboBox, combobox).set_options(getattr(self.team_setting, combobox) - 1)
-                else:
-                    self.findChild(BaseComboBox, combobox).set_options(getattr(self.team_setting, combobox))
-                    if combobox == "team_system":
-                        self.foolproof(getattr(self.team_setting, combobox))
+                self.findChild(BaseComboBox, combobox).set_options(getattr(self.team_setting, combobox))
+                if combobox == "team_system":
+                    self.foolproof(getattr(self.team_setting, combobox))
 
         # 读取编队码设置
         if team_code_input := self.findChild(BaseLineEdit, "team_code"):
@@ -569,7 +571,6 @@ class TeamSettingCard(QFrame):
     def retranslateUi(self):
         self.select_system.retranslateUi()
         self.select_shop_strategy.retranslateUi()
-        self.select_team.label.label.setText(self.tr("选择队伍名称"))
         self.select_system.label.label.setText(self.tr("选择队伍体系"))
         self.select_shop_strategy.label.label.setText(self.tr("选择商店策略"))
         self.sinner_YiSang.name_label.setText(self.tr("李箱"))
