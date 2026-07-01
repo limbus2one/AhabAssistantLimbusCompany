@@ -53,9 +53,15 @@ class PageCard(QFrame):
         self.vbox_advanced = QVBoxLayout(self.page_advanced)
 
         self.scroll_general = ScrollArea(self)
+        self.scroll_general.setSmoothMode(SmoothMode.LINEAR, Qt.Orientation.Vertical)
+        self.scroll_general.scrollDelagate.verticalSmoothScroll.duration = 100
         self.scroll_general.setWidgetResizable(True)
+        self.scroll_general.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_advanced = ScrollArea(self)
+        self.scroll_advanced.setSmoothMode(SmoothMode.LINEAR, Qt.Orientation.Vertical)
+        self.scroll_advanced.scrollDelagate.verticalSmoothScroll.duration = 100
         self.scroll_advanced.setWidgetResizable(True)
+        self.scroll_advanced.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self.set_pivot()
 
