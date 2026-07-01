@@ -400,6 +400,9 @@ class TeamSettingCard(QFrame):
         self.custom_layout.viewLayout.addWidget(self.customize_settings_module)
         self.observe_ego_gift_layout.viewLayout.addWidget(self.observe_ego_gift_module)
         self.custom_layout2.viewLayout.addWidget(self.customize_info_module)
+        self.custom_layout.setExpand(True)
+        self.observe_ego_gift_layout.setExpand(True)
+        self.custom_layout2.setExpand(True)
 
     def connect_mediator(self):
         # 连接所有可能信号
