@@ -8,6 +8,7 @@ from PySide6.QtCore import (
     QObject,
     QPropertyAnimation,
     QRect,
+    QSize,
     QTime,
     QUrl,
     Signal,
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QWidget,
 )
 from qfluentwidgets import (
@@ -477,8 +479,13 @@ class SinnerSelect(QFrame):
         )
 
         # sinner card size in game: 537 x 827
-        self.setFixedHeight(207)
-        self.setFixedWidth(134)
+        self.base_width = 134
+        self.base_height = 207
+        self.zoom_factor = 1.1  # 原地放大倍率
+        self.setMinimumSize(self.base_width, self.base_height)
+        self.setMaximumSize(int(self.base_width * self.zoom_factor), int(self.base_height * self.zoom_factor))
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.resize(self.base_width, self.base_height)
 
         # 遮罩层
         self.mask_widget = QFrame(self)
@@ -514,7 +521,6 @@ class SinnerSelect(QFrame):
         self.ani_time = 100  # ms
         self.ani.setDuration(self.ani_time)
         self.ani.setEasingCurve(QEasingCurve.InOutQuad)
-        self.zoom_factor = 1.1  # 原地放大倍率
         self.raw_geom = None
         self._end_geom = None
 
@@ -531,7 +537,6 @@ class SinnerSelect(QFrame):
         new_y = self.raw_geom.y() - (new_height - self.raw_geom.height()) / 2
 
         self._end_geom = QRect(int(new_x), int(new_y), int(new_width), int(new_height))
-        self.setMaximumSize(int(new_width), int(new_height))
         return self._end_geom
 
     @end_geom.setter
@@ -593,6 +598,12 @@ class SinnerSelect(QFrame):
     def set_checkbox(self, checked):
         self.box.set_checked(checked)
 
+    def sizeHint(self):
+        return QSize(self.base_width, self.base_height)
+
+    def minimumSizeHint(self):
+        return QSize(self.base_width, self.base_height)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.hover_overlay.lower()
@@ -634,8 +645,8 @@ class SinnerSelect(QFrame):
         """
         self.hover_overlay.stackUnder(self.mask_widget)
         super().enterEvent(event)
-        if self.raw_geom is None:
-            self.raw_geom = self.geometry()
+        self.raw_geom = self.geometry()
+        self._end_geom = None
         self.ani.stop()
         self.ani.setStartValue(self.raw_geom)
         self.ani.setEndValue(self.end_geom)
