@@ -31,7 +31,6 @@ from app.page_card import (
     PageMirror,
     PageSetWindows,
 )
-from app.team_setting_card import TeamSettingCard
 from module.after_completion_types import (
     ACTION_EXIT_AALC,
     ACTION_EXIT_EMULATOR,
@@ -532,12 +531,6 @@ class FarmingInterfaceLeft(QWidget):
         sys.exit(0)
 
     def check_setting(self):
-        # 检测是否有未保存的镜牢队伍设置
-        if self.parent().parent().findChild(TeamSettingCard):
-            list(self.parent().parent().parent().pivot.items.values())[-1].click()
-            mediator.save_warning.emit()
-            return False
-
         if cfg.mirror:
             # 判断是否启用了自动切换困牢
             if cfg.auto_hard_mirror:

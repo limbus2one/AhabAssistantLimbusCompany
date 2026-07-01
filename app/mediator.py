@@ -10,7 +10,6 @@ class Mediator(QObject):
     autodaily_setting = Signal(str)
     sinner_be_selected = Signal()
     link_start = Signal()
-    save_warning = Signal()
     tasks_warning = Signal()
     update_progress = Signal(int)
     download_complete = Signal(str)

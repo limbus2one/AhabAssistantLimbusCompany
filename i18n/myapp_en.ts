@@ -1900,11 +1900,6 @@ Entering a formation code will overwrite your current team configuration.</trans
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../app/my_app.py" line="529"/>
-        <source>设置未保存</source>
-        <translation>SETTINGS UNSAVE</translation>
-    </message>
-    <message>
         <location filename="../app/my_app.py" line="303"/>
         <source>打开主窗口</source>
         <translation>Open Main Window</translation>
@@ -1935,11 +1930,6 @@ Entering a formation code will overwrite your current team configuration.</trans
         <translation>There are tools running, are you sure you want to exit the program?</translation>
     </message>
     <message>
-        <location filename="../app/my_app.py" line="530"/>
-        <source>存在未保存的设置，请执行保存或取消操作</source>
-        <translation>Didn&apos;t save settings, please do save or cancel</translation>
-    </message>
-    <message>
         <location filename="../app/my_app.py" line="624"/>
         <source>小工具</source>
         <translation>Gadget</translation>
@@ -1968,11 +1958,6 @@ Entering a formation code will overwrite your current team configuration.</trans
         <location filename="../app/my_app.py" line="535"/>
         <source>警告！</source>
         <translation>Warning！</translation>
-    </message>
-    <message>
-        <location filename="../app/my_app.py" line="496"/>
-        <source>存在未保存的队伍设置</source>
-        <translation>There are unsaved team settings</translation>
     </message>
 </context>
 <context>

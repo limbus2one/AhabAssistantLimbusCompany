@@ -73,6 +73,16 @@ class TeamSettingCard(QFrame):
         self.select_system.retranslateUi()
         self.select_shop_strategy.retranslateUi()
 
+    def set_team_num(self, team_num: int):
+        """切换常驻队伍设置页当前编辑的编队。"""
+        self.team_num = team_num
+        self.team_setting = cfg.config.teams[team_num - 1]
+        self.customize_settings_module.team_num = team_num
+        self.observe_ego_gift_module.team_num = team_num
+        self.customize_info_module.set_team_num(team_num)
+        self.read_settings()
+        self.refresh_starlight_select()
+
     def __init_widget(self):
         self.main_layout = QVBoxLayout(self)
         self.scroll_general = ScrollArea()
@@ -437,12 +447,10 @@ class TeamSettingCard(QFrame):
         second_system_action = self.team_setting.second_system_action
         ignore_shop = self.team_setting.ignore_shop
         for i in range(4):
-            if second_system_action[i]:
-                self.findChild(BaseCheckBox, second_system_mode[i]).set_checked(True)
+            self.findChild(BaseCheckBox, second_system_mode[i]).set_checked(bool(second_system_action[i]))
 
         for i in range(1, 6):
-            if ignore_shop[i - 1]:
-                self.findChild(BaseCheckBox, f"ignore_shop_{i}").set_checked(True)
+            self.findChild(BaseCheckBox, f"ignore_shop_{i}").set_checked(bool(ignore_shop[i - 1]))
 
         for checkbox in all_checkbox_config_name:
             if self.findChild(BaseCheckBox, checkbox):
@@ -1294,6 +1302,8 @@ class ObserveEgoGiftModule(QFrame):
             )
 
     def load_selected(self, selected: list[str]):
+        for system_button in self._system_buttons.values():
+            system_button.set_active(False)
         self._row_selections = parse_observe_ego_gift_values(selected)
         self._rebuild_rows()
 
@@ -1492,3 +1502,7 @@ class CustomizeInfoModule(QFrame):
     def fresh_data(self):
         self.info = self.get_info(self.team_num)
         self.update_data()
+
+    def set_team_num(self, team_num: int):
+        self.team_num = team_num
+        self.fresh_data()
