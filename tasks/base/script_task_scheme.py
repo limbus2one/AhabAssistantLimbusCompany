@@ -78,7 +78,7 @@ def onetime_thread_process(combat_count: int = 1):
 
 @begin_and_finish_time_log(task_name="一次镜牢")
 # 一次镜牢的过程
-def onetime_mir_process(team_setting: TeamSetting, active_team: int):
+def onetime_mir_process(team_setting: TeamSetting, active_team_order: int):
     # 实时检查是否需要切换到困难镜牢
     if cfg.auto_hard_mirror and check_hard_mirror_time():
         log.info("检测到新的困牢周期，实时切换困难镜牢，设置困牢次数为3")
@@ -88,7 +88,7 @@ def onetime_mir_process(team_setting: TeamSetting, active_team: int):
 
     # 进行一次镜牢
     try:
-        mirror_adventure = Mirror(team_setting, active_team)
+        mirror_adventure = Mirror(team_setting, active_team_order)
         if mirror_adventure.run():
             del mirror_adventure
             mirror_adventure = None
@@ -274,10 +274,10 @@ def Mirror_task():
         # 检测配置的队伍能否顺利执行
         useful = False
         hard = bool(cfg.hard_mirror)
-        for active_team in cfg.teams_active_queue:
-            if active_team - 1 >= len(cfg.config.teams):
+        for active_team_order in cfg.teams_active_queue:
+            if active_team_order - 1 >= len(cfg.config.teams):
                 continue
-            team_setting = cfg.config.teams[active_team - 1]
+            team_setting = cfg.config.teams[active_team_order - 1]
             if team_setting.fixed_team_use is False:
                 useful = True
                 break
@@ -293,11 +293,11 @@ def Mirror_task():
         if not cfg.teams_active_queue:
             break
 
-        active_team = cfg.teams_active_queue[0]
-        if active_team - 1 >= len(cfg.config.teams):
-            cfg.remove_team_from_queue(active_team)
+        active_team_order = cfg.teams_active_queue[0]
+        if active_team_order - 1 >= len(cfg.config.teams):
+            cfg.remove_team_from_queue(active_team_order)
             continue
-        team_setting = cfg.config.teams[active_team - 1]
+        team_setting = cfg.config.teams[active_team_order - 1]
         # 如果该队伍固定了用途，且用途不符合当前情况，将队首队伍轮转到队尾
         if team_setting.fixed_team_use:
             if (team_setting.fixed_team_use_select == 0 and not cfg.hard_mirror) or (
@@ -306,7 +306,7 @@ def Mirror_task():
                 cfg.rotate_team_queue()
                 continue
         # 执行一次镜牢任务，根据执行结果进行处理
-        mirror_result = onetime_mir_process(team_setting, active_team)
+        mirror_result = onetime_mir_process(team_setting, active_team_order)
         if mirror_result:
             cfg.rotate_team_queue()
             mir_times -= 1

@@ -1588,14 +1588,12 @@ class CustomizeInfoModule(QFrame):
         return return_dict
 
     def clear_data(self):
-        team_index = self.team_num - 1
-        if 0 <= team_index < len(cfg.config.teams):
-            team = cfg.config.teams[team_index]
-            team.total_mirror_time_hard = [0.0, 0.0, 0.0]
-            team.mirror_hard_count = 0
-            team.total_mirror_time_normal = [0.0, 0.0, 0.0]
-            team.mirror_normal_count = 0
-            cfg.save()
+        team = cfg.config.teams[self.team_num - 1]
+        team.total_mirror_time_hard = [0.0, 0.0, 0.0]
+        team.mirror_hard_count = 0
+        team.total_mirror_time_normal = [0.0, 0.0, 0.0]
+        team.mirror_normal_count = 0
+        cfg.save()
         self.fresh_data()
 
     def update_data(self):

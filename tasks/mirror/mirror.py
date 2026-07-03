@@ -660,7 +660,7 @@ class Mirror:
         elapsed_time = end_time - start_time
 
         if all(self.floor_times[i] > 0 for i in range(5)):  # 判断是否完整走了五层
-            team = cfg.config.teams[self.team_order - 1] if 0 <= self.team_order - 1 < len(cfg.config.teams) else None
+            team = cfg.config.teams[self.team_order - 1]
             if team:
                 team_history = {
                     "total_mirror_time_hard": team.total_mirror_time_hard,
@@ -1031,9 +1031,7 @@ class Mirror:
                 log.error("无法寻得队伍")
                 raise unableToFindTeamError("无法寻得队伍，请检查队伍名称是否为默认名称")
         # 加载编队码（如果启用）
-        team_setting = (
-            cfg.config.teams[self.team_order - 1] if 0 <= self.team_order - 1 < len(cfg.config.teams) else None
-        )
+        team_setting = cfg.config.teams[self.team_order - 1]
         if team_setting and team_setting.use_team_code and team_setting.team_code:
             if not load_team_code_in_game(team_setting.team_code):
                 log.warning("编队码加载失败，继续使用当前队伍配置")
