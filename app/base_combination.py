@@ -360,16 +360,7 @@ class MirrorTeamCombination(QFrame):
         self.hBoxLayout.addWidget(self.order)
         self.hBoxLayout.addWidget(self.button)
 
-        self.button.copy_settings.triggered.connect(self.copy_team_settings)
-        self.button.paste_settings.triggered.connect(self.paste_team_settings)
-
         self.refresh_alias()
-
-    def copy_team_settings(self):
-        copy_team_settings_to_clipboard(self.team_number, self.parent().parent())
-
-    def paste_team_settings(self):
-        paste_team_settings_from_clipboard(self.team_number, self.parent().parent())
 
     def alias_changed(self, text):
         cfg.config.teams[self.team_number - 1].alias = text

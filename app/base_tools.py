@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from qfluentwidgets import (
-    Action,
     BodyLabel,
     CheckBox,
     ComboBox,
@@ -19,9 +18,7 @@ from qfluentwidgets import (
     FluentIconBase,
     LineEdit,
     PushButton,
-    RoundMenu,
     SpinBox,
-    SplitToolButton,
     ToggleToolButton,
     ToolButton,
     ToolTipFilter,
@@ -242,14 +239,7 @@ class ToSettingButton(BaseButton):
         self.setFixedHeight(30)
         self.setFixedWidth(50)
 
-        self.button = SplitToolButton(icon, self)
-
-        self.menu = RoundMenu(parent=self)
-        self.copy_settings = Action(FIF.COPY, "复制")
-        self.paste_settings = Action(FIF.PASTE, "粘贴")
-        self.menu.addAction(self.copy_settings)
-        self.menu.addAction(self.paste_settings)
-        self.button.setFlyout(self.menu)
+        self.button = ToolButton(icon, self)
 
         team_toggle_button_group.append(self.button)
 
@@ -266,8 +256,7 @@ class ToSettingButton(BaseButton):
         mediator.switch_team_setting.emit(target)
 
     def retranslateUi(self):
-        self.copy_settings.setText(self.tr("复制"))
-        self.paste_settings.setText(self.tr("粘贴"))
+        pass
 
 
 class ChangePageButton(BaseButton):
