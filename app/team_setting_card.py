@@ -141,18 +141,14 @@ class TeamSettingCard(QFrame):
     def __init_card(self):
         self.copy_team_button = PushButton(self)
         self.copy_team_button.setText(self.tr("复制"))
-        self.copy_team_button.setFixedWidth(72)
         self.copy_team_button.clicked.connect(self.copy_team_settings)
         self.reset_team_button = PushButton(self)
         self.reset_team_button.setText(self.tr("重置"))
-        self.reset_team_button.setFixedWidth(72)
         self.reset_team_button.clicked.connect(self.reset_team_settings)
         self.paste_team_button = PushButton(self)
         self.paste_team_button.setText(self.tr("粘贴"))
-        self.paste_team_button.setFixedWidth(72)
         self.paste_team_button.clicked.connect(self.paste_team_settings)
         self.team_clipboard_layout = QHBoxLayout()
-        self.team_clipboard_layout.setContentsMargins(0, 0, 0, 0)
         self.team_clipboard_layout.setSpacing(8)
         self.team_clipboard_layout.addWidget(self.copy_team_button)
         self.team_clipboard_layout.addWidget(self.paste_team_button)
@@ -163,13 +159,11 @@ class TeamSettingCard(QFrame):
             self.tr("商店策略"), "shop_strategy", shop_strategy, vbox=False
         )
         self.alias_layout = QHBoxLayout()
-        self.alias_layout.setContentsMargins(0, 0, 0, 0)
         self.alias_layout.setSpacing(10)
         self.alias_label = BaseLabel(self.tr("备注"))
         self.alias_input = BaseLineEdit("alias", self)
-        self.alias_input.setFixedWidth(160)
         self.alias_input.line_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.alias_input.line_edit.setPlaceholderText(self._default_alias_text())
+        self.alias_input.line_edit.setPlaceholderText(f"{self.tr('编队')}{self.team_num}")
         self.alias_layout.addWidget(self.alias_label)
         self.alias_layout.addWidget(self.alias_input)
 
@@ -373,12 +367,14 @@ class TeamSettingCard(QFrame):
         mediator.team_alias_changed.disconnect(self.refresh_alias_input)
         mediator.sinner_be_selected.disconnect(self.refresh_sinner_order)
 
+
     def setting_team(self, data_dict: dict):
+        """接收UI信号，更新编队配置信息"""
         keys = list(data_dict.keys())[0]
         values = list(data_dict.values())[0]
-        changed = True
-        if keys == "team_number":
-            changed = False
+        if keys == "alias":
+            self.team_setting.alias = values
+            mediator.team_alias_changed.emit(self.team_num)
         elif hasattr(self.team_setting, f"{keys}"):
             setattr(self.team_setting, keys, values)
             if keys == "team_system":
@@ -414,13 +410,8 @@ class TeamSettingCard(QFrame):
         elif "ignore_shop_" in keys:
             shop_index = int(keys.split("_")[-1]) - 1
             self.team_setting.ignore_shop[shop_index] = values
-        else:
-            changed = False
+        cfg.save()
 
-        if changed:
-            cfg.save()
-            if keys == "alias":
-                mediator.team_alias_changed.emit(self.team_num)
 
     def open_theme_pack_weight_dialog(self):
         # 先确保当前队伍的自定义权重文件已创建
@@ -493,9 +484,11 @@ class TeamSettingCard(QFrame):
 
         second_system_action = self.team_setting.second_system_action
         ignore_shop = self.team_setting.ignore_shop
+        # 显示第二体系的各个选项
         for i in range(4):
             self.findChild(BaseCheckBox, second_system_mode[i]).set_checked(bool(second_system_action[i]))
 
+        # 显示需要忽略商店的楼层
         for i in range(1, 6):
             self.findChild(BaseCheckBox, f"ignore_shop_{i}").set_checked(bool(ignore_shop[i - 1]))
 
@@ -520,9 +513,6 @@ class TeamSettingCard(QFrame):
         if observe_module:
             observe_module.load_selected(self.team_setting.observe_ego_gift_selected)
 
-    def _default_alias_text(self) -> str:
-        return f"{self.tr('编队')}{self.team_num}"
-
     def copy_team_settings(self):
         copy_team_settings_to_clipboard(self.team_num, self.window())
 
@@ -545,7 +535,7 @@ class TeamSettingCard(QFrame):
             return
         self.team_setting = cfg.config.teams[team_num - 1]
         if alias_input := self.findChild(BaseLineEdit, "alias"):
-            alias_input.line_edit.setPlaceholderText(self._default_alias_text())
+            alias_input.line_edit.setPlaceholderText(f"{self.tr('编队')}{self.team_num}")
             alias_input.setText(self.team_setting.alias or "")
 
     def foolproof(self, team_system):
@@ -567,7 +557,7 @@ class TeamSettingCard(QFrame):
         self.paste_team_button.setText(self.tr("粘贴"))
         self.select_system.label.label.setText(self.tr("体系"))
         self.alias_label.label.setText(self.tr("备注"))
-        self.alias_input.line_edit.setPlaceholderText(self._default_alias_text())
+        self.alias_input.line_edit.setPlaceholderText(f"{self.tr('编队')}{self.team_num}")
         self.select_shop_strategy.label.label.setText(self.tr("商店策略"))
         self.sinner_YiSang.name_label.setText(self.tr("李箱"))
         self.sinner_Faust.name_label.setText(self.tr("浮士德"))
