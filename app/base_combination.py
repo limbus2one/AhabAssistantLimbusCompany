@@ -156,6 +156,26 @@ def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
     return True
 
 
+def reset_team_settings_to_default(team_number: int, parent=None) -> bool:
+    from module.config import TeamSetting
+
+    team_config = TeamSetting(team_number=team_number)
+    team_config.opening_bonus = [0] * 10
+    cfg.config.teams[team_number - 1] = team_config
+    cfg.save()
+    mediator.team_alias_changed.emit(team_number)
+    BaseInfoBar.success(
+        title=QT_TRANSLATE_NOOP("BaseInfoBar", "已重置设置"),
+        content="",
+        orient=Qt.Horizontal,
+        isClosable=True,
+        position=InfoBarPosition.TOP,
+        duration=500,
+        parent=parent,
+    )
+    return True
+
+
 class CheckBoxWithButton(QFrame):
     def __init__(
         self,

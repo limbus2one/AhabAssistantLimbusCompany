@@ -35,8 +35,9 @@ class TeamSettingTeamLabel(QLabel):
     """
 
     def __init__(self, team_number: int, parent=None):
-        super().__init__(f"team{team_number}", parent)
+        super().__init__(parent)
         self.team_number = team_number
+        self.retranslateUi()
         self.setFixedWidth(100)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -49,6 +50,9 @@ class TeamSettingTeamLabel(QLabel):
 
     def set_selected(self, selected: bool):
         self.setStyleSheet(self.SELECTED_STYLE if selected else self.NORMAL_STYLE)
+
+    def retranslateUi(self):
+        self.setText(self.tr("编队") + str(self.team_number))
 
 
 class TeamSettingBlankColumn(QFrame):

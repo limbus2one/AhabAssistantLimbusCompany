@@ -33,6 +33,7 @@ from app.base_combination import (
     SinnerSelect,
     copy_team_settings_to_clipboard,
     paste_team_settings_from_clipboard,
+    reset_team_settings_to_default,
 )
 from app.base_tools import BaseCheckBox, BaseComboBox, BaseLabel, BaseLineEdit, BaseSettingLayout
 from app.common.ui_config import (
@@ -239,6 +240,10 @@ class TeamSettingCard(QFrame):
         self.copy_team_button.setText(self.tr("复制"))
         self.copy_team_button.setFixedWidth(72)
         self.copy_team_button.clicked.connect(self.copy_team_settings)
+        self.reset_team_button = PushButton(self)
+        self.reset_team_button.setText(self.tr("重置"))
+        self.reset_team_button.setFixedWidth(72)
+        self.reset_team_button.clicked.connect(self.reset_team_settings)
         self.paste_team_button = PushButton(self)
         self.paste_team_button.setText(self.tr("粘贴"))
         self.paste_team_button.setFixedWidth(72)
@@ -248,15 +253,16 @@ class TeamSettingCard(QFrame):
         self.team_clipboard_layout.setSpacing(8)
         self.team_clipboard_layout.addWidget(self.copy_team_button)
         self.team_clipboard_layout.addWidget(self.paste_team_button)
+        self.team_clipboard_layout.addWidget(self.reset_team_button)
 
-        self.select_system = LabelWithComboBox(self.tr("队伍体系"), "team_system", all_systems, vbox=False)
+        self.select_system = LabelWithComboBox(self.tr("体系"), "team_system", all_systems, vbox=False)
         self.select_shop_strategy = LabelWithComboBox(
             self.tr("商店策略"), "shop_strategy", shop_strategy, vbox=False
         )
         self.alias_layout = QHBoxLayout()
         self.alias_layout.setContentsMargins(0, 0, 0, 0)
         self.alias_layout.setSpacing(10)
-        self.alias_label = BaseLabel(self.tr("备注名"))
+        self.alias_label = BaseLabel(self.tr("备注"))
         self.alias_input = BaseLineEdit("alias", self)
         self.alias_input.setFixedWidth(160)
         self.alias_input.line_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -400,8 +406,8 @@ class TeamSettingCard(QFrame):
 
     def __init_layout(self):
         self.combobox_layout.add(self.team_clipboard_layout)
-        self.combobox_layout.add(self.select_system)
         self.combobox_layout.add(self.alias_layout)
+        self.combobox_layout.add(self.select_system)
         self.combobox_layout.add(self.select_shop_strategy)
 
         self.sinner_layout.setContentsMargins(15, 10, 15, 20)
@@ -624,6 +630,13 @@ class TeamSettingCard(QFrame):
             self.read_settings()
             self.refresh_starlight_select()
 
+    def reset_team_settings(self):
+        if reset_team_settings_to_default(self.team_num, self.window()):
+            self.team_setting = cfg.config.teams[self.team_num - 1]
+            self.team_setting.team_number = self.team_num
+            self.read_settings()
+            self.refresh_starlight_select()
+
     def refresh_alias_input(self, team_num: int):
         if team_num != self.team_num:
             return
@@ -647,9 +660,10 @@ class TeamSettingCard(QFrame):
         self.select_system.retranslateUi()
         self.select_shop_strategy.retranslateUi()
         self.copy_team_button.setText(self.tr("复制"))
+        self.reset_team_button.setText(self.tr("重置"))
         self.paste_team_button.setText(self.tr("粘贴"))
-        self.select_system.label.label.setText(self.tr("队伍体系"))
-        self.alias_label.label.setText(self.tr("备注名"))
+        self.select_system.label.label.setText(self.tr("体系"))
+        self.alias_label.label.setText(self.tr("备注"))
         self.alias_input.line_edit.setPlaceholderText(self._default_alias_text())
         self.select_shop_strategy.label.label.setText(self.tr("商店策略"))
         self.sinner_YiSang.name_label.setText(self.tr("李箱"))
