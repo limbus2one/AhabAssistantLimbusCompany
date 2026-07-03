@@ -1,4 +1,7 @@
 import os
+from io import StringIO
+
+import pyperclip
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -13,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import (
     ExpandSettingCard,
+    InfoBarPosition,
     PrimaryPushButton,
     PushButton,
     ScrollArea,
@@ -29,11 +33,9 @@ from app.base_combination import (
     LabelWithComboBox,
     ObserveGiftSelectionRow,
     SinnerSelect,
-    copy_team_settings_to_clipboard,
-    paste_team_settings_from_clipboard,
-    reset_team_settings_to_default,
 )
 from app.base_tools import BaseCheckBox, BaseComboBox, BaseLabel, BaseLineEdit, BaseSettingLayout
+from app.card.messagebox_custom import BaseInfoBar
 from app.common.ui_config import (
     STARLIGHT_BONUS_COSTS,
     get_starlight_action_label,
@@ -514,21 +516,84 @@ class TeamSettingCard(QFrame):
             observe_module.load_selected(self.team_setting.observe_ego_gift_selected)
 
     def copy_team_settings(self):
-        copy_team_settings_to_clipboard(self.team_num, self.window())
+        stream = StringIO()
+        cfg.yaml.dump(cfg.config.teams[self.team_num - 1].model_dump(), stream)
+        pyperclip.copy(stream.getvalue())
+        BaseInfoBar.success(
+            title=self.tr("已复制到剪切板"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=self.window(),
+        )
 
     def paste_team_settings(self):
-        if paste_team_settings_from_clipboard(self.team_num, self.window()):
-            self.team_setting = cfg.config.teams[self.team_num - 1]
-            self.team_setting.team_number = self.team_num
-            self.read_settings()
-            self.refresh_starlight_select()
+        setting = pyperclip.paste().strip()
+        if not setting:
+            BaseInfoBar.error(
+                title=self.tr("剪贴板为空"),
+                content="",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=500,
+                parent=self.window(),
+            )
+            return
+
+        try:
+            data: dict = cfg.yaml.load(setting)
+            team_config = TeamSetting(**data)
+            team_config.team_number = self.team_num
+            cfg.config.teams[self.team_num - 1] = team_config
+            cfg.save()
+            mediator.team_alias_changed.emit(self.team_num)
+            BaseInfoBar.success(
+                title=self.tr("已粘贴设置"),
+                content="",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=500,
+                parent=self.window(),
+            )
+        except Exception:
+            BaseInfoBar.error(
+                title=self.tr("不是合法的格式"),
+                content="",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=500,
+                parent=self.window(),
+            )
+            return
+
+        self.team_setting = cfg.config.teams[self.team_num - 1]
+        self.team_setting.team_number = self.team_num
+        self.read_settings()
+        self.refresh_starlight_select()
 
     def reset_team_settings(self):
-        if reset_team_settings_to_default(self.team_num, self.window()):
-            self.team_setting = cfg.config.teams[self.team_num - 1]
-            self.team_setting.team_number = self.team_num
-            self.read_settings()
-            self.refresh_starlight_select()
+        team_config = TeamSetting(team_number=self.team_num)
+        cfg.config.teams[self.team_num - 1] = team_config
+        cfg.save()
+        mediator.team_alias_changed.emit(self.team_num)
+        BaseInfoBar.success(
+            title=self.tr("已重置设置"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=self.window(),
+        )
+        self.team_setting = cfg.config.teams[self.team_num - 1]
+        self.team_setting.team_number = self.team_num
+        self.read_settings()
+        self.refresh_starlight_select()
 
     def refresh_alias_input(self, team_num: int):
         if team_num != self.team_num:

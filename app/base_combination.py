@@ -1,8 +1,6 @@
 import datetime
-from io import StringIO
 from typing import Callable
 
-import pyperclip
 from PySide6.QtCore import (
     QEasingCurve,
     QObject,
@@ -34,7 +32,6 @@ from qfluentwidgets import (
     ComboBox,
     FlyoutViewBase,
     IndicatorPosition,
-    InfoBarPosition,
     LineEdit,
     MessageBox,
     PopupTeachingTip,
@@ -54,7 +51,6 @@ from qfluentwidgets import (
 from app.base_tools import *
 from app.base_tools import FluentIconBase, QIcon
 from app.card.messagebox_custom import (
-    BaseInfoBar,
     MessageBoxDate,
     MessageBoxEdit,
     MessageBoxSpinbox,
@@ -70,89 +66,6 @@ from app.observe_ego_gift_selection import (
     ObserveGiftSelection,
 )
 from utils.utils import decrypt_string, encrypt_string
-
-
-def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
-    stream = StringIO()
-    cfg.yaml.dump(cfg.config.teams[team_number - 1].model_dump(), stream)
-    setting = stream.getvalue()
-    pyperclip.copy(setting)
-    BaseInfoBar.success(
-        title=QT_TRANSLATE_NOOP("BaseInfoBar", "已复制到剪切板"),
-        content="",
-        orient=Qt.Horizontal,
-        isClosable=True,
-        position=InfoBarPosition.TOP,
-        duration=500,
-        parent=parent,
-    )
-    return True
-
-
-def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
-    setting = pyperclip.paste().strip()
-    if not setting:
-        BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "剪贴板为空"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
-        return False
-
-    from module.config import TeamSetting
-
-    try:
-        data: dict = cfg.yaml.load(setting)
-        team_config = TeamSetting(**data)
-        team_config.team_number = team_number
-        cfg.config.teams[team_number - 1] = team_config
-        cfg.save()
-        mediator.team_alias_changed.emit(team_number)
-        BaseInfoBar.success(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "已粘贴设置"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
-    except Exception:
-        BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
-        return False
-
-    return True
-
-
-def reset_team_settings_to_default(team_number: int, parent=None) -> bool:
-    from module.config import TeamSetting
-
-    team_config = TeamSetting(team_number=team_number)
-    cfg.config.teams[team_number - 1] = team_config
-    cfg.save()
-    mediator.team_alias_changed.emit(team_number)
-    BaseInfoBar.success(
-        title=QT_TRANSLATE_NOOP("BaseInfoBar", "已重置设置"),
-        content="",
-        orient=Qt.Horizontal,
-        isClosable=True,
-        position=InfoBarPosition.TOP,
-        duration=500,
-        parent=parent,
-    )
-    return True
 
 
 class CheckBoxWithButton(QFrame):
