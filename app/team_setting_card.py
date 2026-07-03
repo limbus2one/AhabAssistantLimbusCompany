@@ -20,8 +20,6 @@ from qfluentwidgets import (
     ToolButton,
     ToolTipFilter,
     ToolTipPosition,
-    isDarkTheme,
-    qconfig,
 )
 from qfluentwidgets import FluentIcon as FIF
 
@@ -41,8 +39,6 @@ from app.common.ui_config import (
     get_starlight_action_label,
     get_starlight_bonus_name,
     get_starlight_total_cost_qss,
-    get_team_setting_card_qss,
-    get_team_setting_title_label_color,
 )
 from app.language_manager import LanguageManager
 from app.starlight_bonus import StarlightCard, StarlightLevelSelector
@@ -67,9 +63,6 @@ class TeamSettingCard(QFrame):
         self.__init_widget()
         self.__init_card()
         self.__init_layout()
-        self._apply_theme_style()
-        qconfig.themeChanged.connect(self._apply_theme_style)
-        qconfig.themeChangedFinished.connect(self._apply_theme_style)
 
         # 编队设置数据切换到当前编队team_num
         self.team_setting = cfg.config.teams[team_num - 1]
@@ -144,23 +137,6 @@ class TeamSettingCard(QFrame):
         self.setting_layout = QHBoxLayout()
 
         self.scroll_general.enableTransparentBackground()
-
-    def _apply_theme_style(self, *_):
-        light_qss, dark_qss = get_team_setting_card_qss()
-        is_dark = isDarkTheme()
-        qss = dark_qss if is_dark else light_qss
-        for widget in (
-            self,
-            self.blank_column,
-            self.blank_column.scroll_area,
-            self.blank_column.scroll_widget,
-            self.scroll_general,
-            self.page_widget,
-        ):
-            widget.setStyleSheet(qss)
-        title_style = "font-size: 16px; " if cfg.zoom_scale != 0 else ""
-        title_style += f"color: {get_team_setting_title_label_color(is_dark)};"
-        self.blank_column.title_label.label.setStyleSheet(title_style)
 
     def __init_card(self):
         self.copy_team_button = PushButton(self)
