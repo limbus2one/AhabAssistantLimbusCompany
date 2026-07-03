@@ -2534,6 +2534,35 @@ These fields will be populated with default values. Do you wish to continue?</tr
 <context>
     <name>TeamSettingCard</name>
     <message>
+        <location filename="../app/team_setting_card.py" line="238"/>
+        <location filename="../app/team_setting_card.py" line="646"/>
+        <source>复制</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <location filename="../app/team_setting_card.py" line="241"/>
+        <location filename="../app/team_setting_card.py" line="647"/>
+        <source>粘贴</source>
+        <translation>Paste</translation>
+    </message>
+    <message>
+        <location filename="../app/team_setting_card.py" line="250"/>
+        <location filename="../app/team_setting_card.py" line="648"/>
+        <source>队伍体系</source>
+        <translation>Team system</translation>
+    </message>
+    <message>
+        <location filename="../app/team_setting_card.py" line="252"/>
+        <location filename="../app/team_setting_card.py" line="651"/>
+        <source>商店策略</source>
+        <translation>Shop tactic</translation>
+    </message>
+    <message>
+        <location filename="../app/team_setting_card.py" line="613"/>
+        <source>编队</source>
+        <translation>Team </translation>
+    </message>
+    <message>
         <location filename="../app/team_setting_card.py" line="124"/>
         <location filename="../app/team_setting_card.py" line="582"/>
         <source>选择队伍名称</source>
@@ -2543,13 +2572,13 @@ These fields will be populated with default values. Do you wish to continue?</tr
         <location filename="../app/team_setting_card.py" line="125"/>
         <location filename="../app/team_setting_card.py" line="583"/>
         <source>选择队伍体系</source>
-        <translation>Select team system</translation>
+        <translation type="vanished">Select team system</translation>
     </message>
     <message>
         <location filename="../app/team_setting_card.py" line="127"/>
         <location filename="../app/team_setting_card.py" line="584"/>
         <source>选择商店策略</source>
-        <translation>Select Shop Tactic</translation>
+        <translation type="vanished">Select Shop Tactic</translation>
     </message>
     <message>
         <location filename="../app/team_setting_card.py" line="132"/>

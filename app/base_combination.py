@@ -73,6 +73,89 @@ from app.observe_ego_gift_selection import (
 from utils.utils import decrypt_string, encrypt_string
 
 
+TEAM_SETTING_CLIPBOARD_PREFIX = "||AALC_TEAM_SETTING||"
+
+
+def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
+    setting = cfg.config.teams[team_number - 1].model_dump_json()
+    setting = TEAM_SETTING_CLIPBOARD_PREFIX + setting
+    setting = base64.b64encode(setting.encode("utf-8")).decode("utf-8")
+    pyperclip.copy(setting)
+    BaseInfoBar.success(
+        title=QT_TRANSLATE_NOOP("BaseInfoBar", "已复制到剪切板"),
+        content="",
+        orient=Qt.Horizontal,
+        isClosable=True,
+        position=InfoBarPosition.TOP,
+        duration=500,
+        parent=parent,
+    )
+    return True
+
+
+def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
+    setting = pyperclip.paste().strip()
+    try:
+        setting = base64.b64decode(setting).decode("utf-8")
+        if TEAM_SETTING_CLIPBOARD_PREFIX not in setting:
+            raise settingsTypeError("不是有效的AALC设置")
+        setting = setting.replace(TEAM_SETTING_CLIPBOARD_PREFIX, "", 1)
+    except settingsTypeError:
+        BaseInfoBar.error(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "该设置不属于 AALC"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
+        return False
+    except Exception:
+        BaseInfoBar.error(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是有效的 AALC 设置"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
+        return False
+
+    data: dict = cfg.yaml.load(setting)
+    from module.config import TeamSetting
+
+    try:
+        team_config = TeamSetting(**data)
+    except Exception:
+        BaseInfoBar.error(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "导入数据失败，可能是因为设置版本过旧或过新"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
+        return False
+
+    team_config.team_number = team_number
+    cfg.config.teams[team_number - 1] = team_config
+    cfg.save()
+    mediator.team_alias_changed.emit(team_number)
+    BaseInfoBar.success(
+        title=QT_TRANSLATE_NOOP("BaseInfoBar", "已粘贴设置"),
+        content="",
+        orient=Qt.Horizontal,
+        isClosable=True,
+        position=InfoBarPosition.TOP,
+        duration=500,
+        parent=parent,
+    )
+    return True
+
+
 class CheckBoxWithButton(QFrame):
     def __init__(
         self,
@@ -283,81 +366,10 @@ class MirrorTeamCombination(QFrame):
         self.refresh_alias()
 
     def copy_team_settings(self):
-        setting = cfg.config.teams[self.team_number - 1].model_dump_json()
-        setting = "||AALC_TEAM_SETTING||" + setting  # 添加标识符
-        setting = base64.b64encode(setting.encode("utf-8")).decode("utf-8")
-        pyperclip.copy(setting)
-        BaseInfoBar.success(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "已复制到剪切板"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=self.parent().parent(),
-        )
+        copy_team_settings_to_clipboard(self.team_number, self.parent().parent())
 
     def paste_team_settings(self):
-        setting = pyperclip.paste().strip()
-        try:
-            setting = base64.b64decode(setting).decode("utf-8")
-            if "||AALC_TEAM_SETTING||" not in setting:
-                raise settingsTypeError("不是有效的AALC设置")
-            setting = setting.replace("||AALC_TEAM_SETTING||", "", 1)
-        except settingsTypeError:
-            BaseInfoBar.error(
-                title=QT_TRANSLATE_NOOP("BaseInfoBar", "该设置不属于 AALC"),
-                content="",
-                orient=Qt.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=500,
-                parent=self.parent().parent(),
-            )
-            return
-        except Exception:
-            BaseInfoBar.error(
-                title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是有效的 AALC 设置"),
-                content="",
-                orient=Qt.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=500,
-                parent=self.parent().parent(),
-            )
-            return
-
-        data: dict = cfg.yaml.load(setting)
-        from module.config import TeamSetting
-
-        try:
-            team_config = TeamSetting(**data)
-        except Exception:
-            BaseInfoBar.error(
-                title=QT_TRANSLATE_NOOP("BaseInfoBar", "导入数据失败，可能是因为设置版本过旧或过新"),
-                content="",
-                orient=Qt.Horizontal,
-                isClosable=True,
-                position=InfoBarPosition.TOP,
-                duration=500,
-                parent=self.parent().parent(),
-            )
-            return
-        # team_number 这个值不再，完全由teams的需要替代
-        team_config.team_number = self.team_number
-
-        cfg.config.teams[self.team_number - 1] = team_config
-        cfg.save()
-        mediator.team_alias_changed.emit(self.team_number)
-        BaseInfoBar.success(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "已粘贴设置"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=self.parent().parent(),
-        )
+        paste_team_settings_from_clipboard(self.team_number, self.parent().parent())
 
     def alias_changed(self, text):
         cfg.config.teams[self.team_number - 1].alias = text
