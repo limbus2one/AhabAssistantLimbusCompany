@@ -1,5 +1,5 @@
-import base64
 import datetime
+from io import StringIO
 from typing import Callable
 
 import pyperclip
@@ -62,7 +62,6 @@ from app.card.messagebox_custom import (
 from app.language_manager import LanguageManager
 from module.font_manager import font_manager
 from module.logger import log
-from module.my_error.my_error import settingsTypeError
 from module.update.check_update import check_update
 from app.observe_ego_gift_selection import (
     OBSERVE_COL_VALUES,
@@ -73,13 +72,13 @@ from app.observe_ego_gift_selection import (
 from utils.utils import decrypt_string, encrypt_string
 
 
-TEAM_SETTING_CLIPBOARD_PREFIX = "||AALC_TEAM_SETTING||"
+TEAM_SETTING_CLIPBOARD_PREFIX = "AALC_TEAM_SETTING"
 
 
 def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
-    setting = cfg.config.teams[team_number - 1].model_dump_json()
-    setting = TEAM_SETTING_CLIPBOARD_PREFIX + setting
-    setting = base64.b64encode(setting.encode("utf-8")).decode("utf-8")
+    stream = StringIO()
+    cfg.yaml.dump(cfg.config.teams[team_number - 1].model_dump(), stream)
+    setting = TEAM_SETTING_CLIPBOARD_PREFIX + "\n" + stream.getvalue()
     pyperclip.copy(setting)
     BaseInfoBar.success(
         title=QT_TRANSLATE_NOOP("BaseInfoBar", "已复制到剪切板"),
@@ -95,25 +94,9 @@ def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
 
 def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
     setting = pyperclip.paste().strip()
-    try:
-        setting = base64.b64decode(setting).decode("utf-8")
-        if TEAM_SETTING_CLIPBOARD_PREFIX not in setting:
-            raise settingsTypeError("不是有效的AALC设置")
-        setting = setting.replace(TEAM_SETTING_CLIPBOARD_PREFIX, "", 1)
-    except settingsTypeError:
+    if not setting:
         BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "该设置不属于 AALC"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
-        return False
-    except Exception:
-        BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是有效的 AALC 设置"),
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "剪贴板为空"),
             content="",
             orient=Qt.Horizontal,
             isClosable=True,
@@ -123,14 +106,40 @@ def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
         )
         return False
 
-    data: dict = cfg.yaml.load(setting)
+    if not setting.startswith(TEAM_SETTING_CLIPBOARD_PREFIX):
+        BaseInfoBar.error(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
+        return False
+
+    setting = setting.replace(TEAM_SETTING_CLIPBOARD_PREFIX, "", 1)
+    try:
+        data: dict = cfg.yaml.load(setting)
+    except Exception:
+        BaseInfoBar.error(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
+        return False
+
     from module.config import TeamSetting
 
     try:
         team_config = TeamSetting(**data)
     except Exception:
         BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "导入数据失败，可能是因为设置版本过旧或过新"),
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
             content="",
             orient=Qt.Horizontal,
             isClosable=True,
