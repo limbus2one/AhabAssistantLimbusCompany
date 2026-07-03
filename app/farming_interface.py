@@ -557,21 +557,18 @@ class FarmingInterfaceLeft(QWidget):
                 return False
 
             # 检测是否有未配置角色选择的队伍
-            for team_num in cfg.teams_active_queue:
-                # 假设队伍编号都是合法的，移除这个检测
-                if team_num - 1 >= len(cfg.config.teams):
-                    continue
-                team_setting: TeamSetting = cfg.config.teams[team_num - 1]
+            for active_team_order in cfg.teams_active_queue:
+                team_setting: TeamSetting = cfg.config.teams[active_team_order - 1]
                 if team_setting.sinners_be_select == 0:
                     message = self.tr("存在未配置角色选择的队伍：TEAM_{0}")
-                    mediator.warning.emit(message.format(team_num))
+                    mediator.warning.emit(message.format(active_team_order))
                     return False
 
             # 检测配置的队伍能否顺利执行
             useful = False
             hard = bool(cfg.hard_mirror)
-            for team_num in cfg.teams_active_queue:
-                team_setting: TeamSetting = cfg.config.teams[team_num - 1]
+            for active_team_order in cfg.teams_active_queue:
+                team_setting: TeamSetting = cfg.config.teams[active_team_order - 1]
                 if team_setting.fixed_team_use is False:
                     useful = True
                     break

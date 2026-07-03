@@ -255,9 +255,6 @@ class ToSettingButton(BaseButton):
     def send_switch_signal(self, target: str):
         mediator.switch_team_setting.emit(target)
 
-    def retranslateUi(self):
-        pass
-
 
 class ChangePageButton(BaseButton):
     def __init__(

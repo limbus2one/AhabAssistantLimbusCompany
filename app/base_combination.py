@@ -72,13 +72,10 @@ from app.observe_ego_gift_selection import (
 from utils.utils import decrypt_string, encrypt_string
 
 
-TEAM_SETTING_CLIPBOARD_PREFIX = "AALC_TEAM_SETTING"
-
-
 def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
     stream = StringIO()
     cfg.yaml.dump(cfg.config.teams[team_number - 1].model_dump(), stream)
-    setting = TEAM_SETTING_CLIPBOARD_PREFIX + "\n" + stream.getvalue()
+    setting = stream.getvalue()
     pyperclip.copy(setting)
     BaseInfoBar.success(
         title=QT_TRANSLATE_NOOP("BaseInfoBar", "已复制到剪切板"),
@@ -93,8 +90,6 @@ def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
 
 
 def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
-
-
     setting = pyperclip.paste().strip()
     if not setting:
         BaseInfoBar.error(
@@ -111,9 +106,6 @@ def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
     from module.config import TeamSetting
 
     try:
-        if not setting.startswith(TEAM_SETTING_CLIPBOARD_PREFIX):
-            raise ValueError("Invalid AALC team setting prefix")
-        setting = setting.replace(TEAM_SETTING_CLIPBOARD_PREFIX, "", 1)
         data: dict = cfg.yaml.load(setting)
         team_config = TeamSetting(**data)
         team_config.team_number = team_number
@@ -148,7 +140,6 @@ def reset_team_settings_to_default(team_number: int, parent=None) -> bool:
     from module.config import TeamSetting
 
     team_config = TeamSetting(team_number=team_number)
-    team_config.opening_bonus = [0] * 10
     cfg.config.teams[team_number - 1] = team_config
     cfg.save()
     mediator.team_alias_changed.emit(team_number)
@@ -353,7 +344,7 @@ class MirrorTeamCombination(QFrame):
 
         self.alias = LineEdit()
         self.alias.setAlignment(Qt.AlignCenter)
-        self.alias.setPlaceholderText("别名")
+        self.alias.setPlaceholderText("备注名")
         self.alias.setMaximumWidth(100)
         self.alias.textChanged.connect(self.alias_changed)
         mediator.team_alias_changed.connect(self.refresh_alias_if_current_team)
@@ -376,7 +367,6 @@ class MirrorTeamCombination(QFrame):
         mediator.team_alias_changed.emit(self.team_number)
 
     def refresh_alias(self):
-        # 从当前配置编队读取别名，并回填到别名输入框。
         if self.team_number <= len(cfg.config.teams):
             team_setting = cfg.config.teams[self.team_number - 1]
             self.alias.blockSignals(True)
@@ -389,7 +379,6 @@ class MirrorTeamCombination(QFrame):
 
     def retranslateUi(self):
         self.alias.setPlaceholderText(self.tr("备注名"))
-        self.button.retranslateUi()
         if self.team_number == 1:
             self.box.check_box.setText(self.tr(self.box_text))
         elif self.team_number <= 9:
@@ -501,11 +490,6 @@ class SinnerSelect(QFrame):
         # sinner card size in game: 537 x 827
         self.base_width = 134
         self.base_height = 207
-        self.zoom_factor = 1.1  # 原地放大倍率
-        self.setMinimumSize(self.base_width, self.base_height)
-        self.setMaximumSize(int(self.base_width * self.zoom_factor), int(self.base_height * self.zoom_factor))
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.resize(self.base_width, self.base_height)
 
         # 遮罩层
         self.mask_widget = QFrame(self)
@@ -541,6 +525,7 @@ class SinnerSelect(QFrame):
         self.ani_time = 100  # ms
         self.ani.setDuration(self.ani_time)
         self.ani.setEasingCurve(QEasingCurve.InOutQuad)
+        self.zoom_factor = 1.1  # 原地放大倍率
         self.raw_geom = None
         self._end_geom = None
 
@@ -618,6 +603,7 @@ class SinnerSelect(QFrame):
     def set_checkbox(self, checked):
         self.box.set_checked(checked)
 
+# 之后再处理这两个函数
     def sizeHint(self):
         return QSize(self.base_width, self.base_height)
 
