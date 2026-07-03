@@ -2,6 +2,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import ScrollArea, SmoothMode
 
+from app.base_tools import BaseLabel
+
 
 class TeamSettingTeamLabel(QLabel):
     clicked = Signal(int)
@@ -64,12 +66,16 @@ class TeamSettingBlankColumn(QFrame):
         self.layout_.setContentsMargins(0, 0, 0, 0)
         self.layout_.setSpacing(0)
 
-        self.title_label = QLabel("编队", self)
-        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label = BaseLabel("编队", self)
+        self.title_label.setObjectName("teamSettingTitleLabel")
+        self.title_label.hBoxLayout.setContentsMargins(0, 0, 0, 0)
+        self.title_label.hBoxLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout_.addWidget(self.title_label)
         self.layout_.addSpacing(10)
 
         self.scroll_area = ScrollArea(self)
+        self.scroll_area.setObjectName("teamSettingTeamScroll")
         self.scroll_area.setSmoothMode(SmoothMode.LINEAR, Qt.Orientation.Vertical)
         self.scroll_area.scrollDelagate.verticalSmoothScroll.duration = 100
         self.scroll_area.setWidgetResizable(True)
@@ -78,6 +84,7 @@ class TeamSettingBlankColumn(QFrame):
         self.scroll_area.enableTransparentBackground()
 
         self.scroll_widget = QWidget(self)
+        self.scroll_widget.setObjectName("teamSettingScrollWidget")
         self.scroll_layout = QVBoxLayout(self.scroll_widget)
         self.scroll_layout.setContentsMargins(10, 0, 10, 0)
         self.scroll_layout.setSpacing(10)

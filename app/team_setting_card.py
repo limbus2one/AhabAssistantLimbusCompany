@@ -20,6 +20,8 @@ from qfluentwidgets import (
     ToolButton,
     ToolTipFilter,
     ToolTipPosition,
+    isDarkTheme,
+    qconfig,
 )
 from qfluentwidgets import FluentIcon as FIF
 
@@ -36,6 +38,8 @@ from app.common.ui_config import (
     get_starlight_action_label,
     get_starlight_bonus_name,
     get_starlight_total_cost_qss,
+    get_team_setting_card_qss,
+    get_team_setting_title_label_color,
 )
 from app.language_manager import LanguageManager
 from app.starlight_bonus import StarlightCard, StarlightLevelSelector
@@ -60,6 +64,9 @@ class TeamSettingCard(QFrame):
         self.__init_widget()
         self.__init_card()
         self.__init_layout()
+        self._apply_theme_style()
+        qconfig.themeChanged.connect(self._apply_theme_style)
+        qconfig.themeChangedFinished.connect(self._apply_theme_style)
         # self.setStyleSheet("border: 1px solid black;")
 
         if team_num > 0:
@@ -166,12 +173,14 @@ class TeamSettingCard(QFrame):
         self.blank_column = TeamSettingBlankColumn(self)
         self.blank_column.team_selected.connect(self.set_team_num)
         self.scroll_general = ScrollArea()
+        self.scroll_general.setObjectName("teamSettingContentScroll")
         self.scroll_general.setSmoothMode(SmoothMode.LINEAR, Qt.Orientation.Vertical)
         self.scroll_general.scrollDelagate.verticalSmoothScroll.duration = 100
         self.scroll_general.setWidgetResizable(True)
         self.scroll_general.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self.page_widget = QWidget()
+        self.page_widget.setObjectName("teamSettingPageWidget")
         self.scroll_general.setWidget(self.page_widget)
 
         self.layout_ = QVBoxLayout(self.page_widget)
@@ -205,6 +214,23 @@ class TeamSettingCard(QFrame):
         self.setting_layout = QHBoxLayout()
 
         self.scroll_general.enableTransparentBackground()
+
+    def _apply_theme_style(self, *_):
+        light_qss, dark_qss = get_team_setting_card_qss()
+        is_dark = isDarkTheme()
+        qss = dark_qss if is_dark else light_qss
+        for widget in (
+            self,
+            self.blank_column,
+            self.blank_column.scroll_area,
+            self.blank_column.scroll_widget,
+            self.scroll_general,
+            self.page_widget,
+        ):
+            widget.setStyleSheet(qss)
+        title_style = "font-size: 16px; " if cfg.zoom_scale != 0 else ""
+        title_style += f"color: {get_team_setting_title_label_color(is_dark)};"
+        self.blank_column.title_label.label.setStyleSheet(title_style)
 
     def __init_card(self):
         self.select_system = LabelWithComboBox(self.tr("选择队伍体系"), "team_system", all_systems, vbox=False)

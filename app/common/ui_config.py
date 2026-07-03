@@ -802,6 +802,54 @@ def get_setting_interface_qss() -> tuple[str, str]:
     return SETTING_INTERFACE_STYLES["light"], SETTING_INTERFACE_STYLES["dark"]
 
 
+TEAM_SETTING_CARD_STYLES = {
+    "dark": """
+        TeamSettingCard,
+        TeamSettingBlankColumn,
+        #teamSettingPageWidget,
+        #teamSettingScrollWidget {
+            background-color: rgb(28, 28, 28);
+        }
+        QScrollArea#teamSettingContentScroll,
+        QScrollArea#teamSettingContentScroll > QWidget,
+        QScrollArea#teamSettingContentScroll > QWidget > QWidget,
+        QScrollArea#teamSettingTeamScroll,
+        QScrollArea#teamSettingTeamScroll > QWidget,
+        QScrollArea#teamSettingTeamScroll > QWidget > QWidget {
+            background-color: rgb(28, 28, 28);
+            border: none;
+        }
+    """,
+    "light": """
+        TeamSettingCard,
+        TeamSettingBlankColumn,
+        #teamSettingPageWidget,
+        #teamSettingScrollWidget {
+            background-color: rgb(255, 255, 255);
+        }
+        QScrollArea#teamSettingContentScroll,
+        QScrollArea#teamSettingContentScroll > QWidget,
+        QScrollArea#teamSettingContentScroll > QWidget > QWidget,
+        QScrollArea#teamSettingTeamScroll,
+        QScrollArea#teamSettingTeamScroll > QWidget,
+        QScrollArea#teamSettingTeamScroll > QWidget > QWidget {
+            background-color: rgb(255, 255, 255);
+            border: none;
+        }
+    """,
+}
+
+
+def get_team_setting_card_qss() -> tuple[str, str]:
+    """返回 (light_qss, dark_qss) 用于队伍设置页滚动区域。"""
+    return TEAM_SETTING_CARD_STYLES["light"], TEAM_SETTING_CARD_STYLES["dark"]
+
+
+def get_team_setting_title_label_color(is_dark: bool) -> str:
+    """返回队伍设置页左侧标题文字颜色。"""
+    return "white" if is_dark else "black"
+
+
 def set_border_style(qframe: QFrame, is_dark: bool | None = None, border_radius: int = 5):
     """为 QFrame 及子类设置边框样式"""
     if is_dark is None:
