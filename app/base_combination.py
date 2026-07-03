@@ -93,16 +93,7 @@ def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
 
 
 def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
-    def show_invalid_format_error():
-        BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
+
 
     setting = pyperclip.paste().strip()
     if not setting:
@@ -125,23 +116,31 @@ def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
         setting = setting.replace(TEAM_SETTING_CLIPBOARD_PREFIX, "", 1)
         data: dict = cfg.yaml.load(setting)
         team_config = TeamSetting(**data)
+        team_config.team_number = team_number
+        cfg.config.teams[team_number - 1] = team_config
+        cfg.save()
+        mediator.team_alias_changed.emit(team_number)
+        BaseInfoBar.success(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "已粘贴设置"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
     except Exception:
-        show_invalid_format_error()
+        BaseInfoBar.error(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
         return False
 
-    team_config.team_number = team_number
-    cfg.config.teams[team_number - 1] = team_config
-    cfg.save()
-    mediator.team_alias_changed.emit(team_number)
-    BaseInfoBar.success(
-        title=QT_TRANSLATE_NOOP("BaseInfoBar", "已粘贴设置"),
-        content="",
-        orient=Qt.Horizontal,
-        isClosable=True,
-        position=InfoBarPosition.TOP,
-        duration=500,
-        parent=parent,
-    )
     return True
 
 
