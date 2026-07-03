@@ -31,6 +31,7 @@ from app.base_combination import (
     TextProgressBar,
 )
 from app.base_tools import BaseCheckBox
+from app.common.theme_profiler import measure_theme_step
 from app.common.ui_config import get_theme_aware_text_browser_qss
 from app.language_manager import LanguageManager
 from app.widget.custom_segmented_widget import CustomSegmentedWidget
@@ -734,6 +735,7 @@ class MarkdownViewer(QWidget):
 
         layout.addWidget(self.text_browser)
         self.help_path = file_path
+        self._pending_theme_update = False
 
         # 在设置 help_path 后连接主题变化信号
         qconfig.themeChanged.connect(self.updateStyle)
@@ -820,4 +822,14 @@ class MarkdownViewer(QWidget):
 
     def updateStyle(self):
         """主题变化时重新加载 HTML 以应用新的 CSS"""
-        self.reset_viewer()
+        with measure_theme_step("MarkdownViewer.updateStyle"):
+            if not self.isVisible():
+                self._pending_theme_update = True
+                return
+            self.reset_viewer()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._pending_theme_update:
+            self._pending_theme_update = False
+            self.reset_viewer()

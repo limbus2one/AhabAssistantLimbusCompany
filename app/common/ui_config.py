@@ -721,15 +721,13 @@ def get_announcement_footer_qss() -> tuple[str, str]:
 
 
 # 设置界面样式配置
-SETTING_INTERFACE_STYLES = {
+SETTING_INTERFACE_BACKGROUND_COLORS = {
+    "dark": (28, 28, 28),
+    "light": (255, 255, 255),
+}
+
+SETTING_NAV_STYLES = {
     "dark": """
-        SettingInterface, #scrollWidget, QWidget {
-            background-color: rgb(28, 28, 28);
-        }
-        QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {
-            background-color: rgb(28, 28, 28);
-            border: none;
-        }
         /* 导航栏背景 (Navigation Bar Background) */
         #navFrame {
             background-color: rgb(28, 28, 28);
@@ -759,13 +757,6 @@ SETTING_INTERFACE_STYLES = {
         }
     """,
     "light": """
-        SettingInterface, #scrollWidget, QWidget {
-            background-color: rgb(255, 255, 255);
-        }
-        QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {
-            background-color: rgb(255, 255, 255);
-            border: none;
-        }
         /* 导航栏背景 (Navigation Bar Background) */
         #navFrame {
             background-color: rgb(255, 255, 255);
@@ -797,9 +788,14 @@ SETTING_INTERFACE_STYLES = {
 }
 
 
-def get_setting_interface_qss() -> tuple[str, str]:
-    """返回 (light_qss, dark_qss) 用于设置界面"""
-    return SETTING_INTERFACE_STYLES["light"], SETTING_INTERFACE_STYLES["dark"]
+def get_setting_interface_background_color(is_dark: bool) -> tuple[int, int, int]:
+    """返回设置界面背景色。"""
+    return SETTING_INTERFACE_BACKGROUND_COLORS["dark" if is_dark else "light"]
+
+
+def get_setting_nav_qss() -> tuple[str, str]:
+    """返回 (light_qss, dark_qss) 用于设置界面左侧导航栏。"""
+    return SETTING_NAV_STYLES["light"], SETTING_NAV_STYLES["dark"]
 
 
 def set_border_style(qframe: QFrame, is_dark: bool | None = None, border_radius: int = 5):

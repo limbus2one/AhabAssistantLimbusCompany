@@ -22,6 +22,7 @@ from qfluentwidgets import (
 
 from app.base_combination import *
 from app.base_tools import *
+from app.common.theme_profiler import measure_theme_step
 from app.common.ui_config import get_log_text_edit_qss, set_border_style
 from app.language_manager import LanguageManager
 from app.page_card import (
@@ -214,7 +215,8 @@ class AfterCompletionSelector(QFrame):
         qconfig.themeChangedFinished.connect(self.apply_style)
 
     def apply_style(self):
-        set_border_style(self)
+        with measure_theme_step("AfterCompletionSelector.apply_style"):
+            set_border_style(self)
 
     def _summary_text(self, actions: list[str], power_action: str) -> tuple[str, str]:
         exit_names = [self.tr(self._action_text[action]) for action in actions if action in self._action_text]

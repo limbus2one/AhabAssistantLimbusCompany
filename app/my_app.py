@@ -13,7 +13,7 @@ from PySide6.QtCore import (
     QThread,
     QTimer,
 )
-from PySide6.QtGui import QAction, QCursor, QIcon
+from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -71,9 +71,9 @@ class Language(Enum):
 
 from app.common.ui_config import (
     apply_font_config,
-    get_main_window_style,
     get_title_bar_style,
 )
+from app.common.theme_profiler import measure_theme_step
 from app.widget.dev_watermark import DevWatermark
 
 
@@ -408,22 +408,33 @@ class MainWindow(FramelessWindow):
             QTimer.singleShot(3000, mediator.finished_signal.emit)
 
     def _apply_theme_styles(self):
-        is_dark = isDarkTheme()
-        mainWindow_style = get_main_window_style(is_dark)
-        titleBar_style = get_title_bar_style(is_dark)
+        with measure_theme_step("MainWindow._apply_theme_styles"):
+            is_dark = isDarkTheme()
+            titleBar_style = get_title_bar_style(is_dark)
 
-        self.setStyleSheet(f"MainWindow {{ background-color: {mainWindow_style['bg_color']}; }}")
-        self.titleBar.titleLabel.setStyleSheet(
-            f"QLabel {{ background: transparent; font-size: 13px; padding: 0 4px; color: {titleBar_style['text_color']}; }}"
-        )
-        for btn in [self.titleBar.minBtn, self.titleBar.maxBtn, self.titleBar.closeBtn]:
-            btn.setNormalColor(titleBar_style["btn_color"])
-            btn.setHoverColor(titleBar_style["btn_color"])
-            btn.setPressedColor(titleBar_style["btn_color"])
-        if not is_dark:
-            self.titleBar.closeBtn.setHoverColor(Qt.white)
-        if hasattr(self, "resource_sync_coordinator"):
-            self.resource_sync_coordinator.apply_status_style(is_dark)
+            with measure_theme_step("MainWindow.background_palette"):
+                bg_color = QColor(28, 28, 28) if is_dark else QColor(255, 255, 255)
+                palette = self.palette()
+                palette.setColor(QPalette.ColorRole.Window, bg_color)
+                self.setPalette(palette)
+                self.setAutoFillBackground(True)
+
+            with measure_theme_step("MainWindow.titleBar.titleLabel.setStyleSheet"):
+                self.titleBar.titleLabel.setStyleSheet(
+                    f"QLabel {{ background: transparent; font-size: 13px; padding: 0 4px; color: {titleBar_style['text_color']}; }}"
+                )
+
+            with measure_theme_step("MainWindow.titleBar.buttonColors"):
+                for btn in [self.titleBar.minBtn, self.titleBar.maxBtn, self.titleBar.closeBtn]:
+                    btn.setNormalColor(titleBar_style["btn_color"])
+                    btn.setHoverColor(titleBar_style["btn_color"])
+                    btn.setPressedColor(titleBar_style["btn_color"])
+                if not is_dark:
+                    self.titleBar.closeBtn.setHoverColor(Qt.white)
+
+            if hasattr(self, "resource_sync_coordinator"):
+                with measure_theme_step("MainWindow.resource_sync_status_style"):
+                    self.resource_sync_coordinator.apply_status_style(is_dark)
 
     def closeEvent(self, e):
         # 保存窗口位置

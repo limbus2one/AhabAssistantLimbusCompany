@@ -12,6 +12,7 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QWidget
 from qfluentwidgets import Pivot, isDarkTheme, qconfig, themeColor
 
+from app.common.theme_profiler import measure_theme_step
 from app.common.ui_config import get_pivot_item_qss
 
 
@@ -78,15 +79,16 @@ class FullWidthPivot(Pivot):
 
     def _updateTheme(self):
         """主题变化时更新样式"""
-        # 获取当前主题色和对应的QSS
-        color = themeColor().name()
-        light_qss, dark_qss = get_pivot_item_qss(color)
+        with measure_theme_step("FullWidthPivot._updateTheme"):
+            # 获取当前主题色和对应的QSS
+            color = themeColor().name()
+            light_qss, dark_qss = get_pivot_item_qss(color)
 
-        # 更新所有子项的样式
-        for item in self.items.values():
-            item.setTextColor(light_qss, dark_qss)
+            # 更新所有子项的样式
+            for item in self.items.values():
+                item.setTextColor(light_qss, dark_qss)
 
-        self.update()
+            self.update()
 
     def createItem(self, routeKey: str, text: str) -> QPushButton:
         """重写创建item的方法，返回自定义PivotItem"""

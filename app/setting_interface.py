@@ -1,7 +1,7 @@
 import datetime
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QPoint, Qt, QUrl, Signal
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QColor, QDesktopServices, QPalette
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -16,7 +16,6 @@ from qfluentwidgets import (
     Theme,
     isDarkTheme,
     qconfig,
-    setTheme,
 )
 from qfluentwidgets import FluentIcon as FIF
 
@@ -34,7 +33,8 @@ from app.base_combination import (
     SwitchSettingCard,
 )
 from app.card.messagebox_custom import BaseInfoBar
-from app.common.ui_config import get_setting_interface_qss
+from app.common.theme_profiler import measure_theme_step, set_theme_with_profile
+from app.common.ui_config import get_setting_interface_background_color, get_setting_nav_qss
 from app.language_manager import SUPPORTED_LANG_NAME, LanguageManager
 from app.theme_pack_setting_interface import ThemePackSettingDialog
 from app.widget.setting_nav import SettingNav
@@ -53,6 +53,10 @@ class SettingInterface(QWidget):
             parent: Qt 父对象。
         """
         super().__init__(parent=parent)
+        self._current_theme_qss = ""
+        self._current_background_color: tuple[int, int, int] | None = None
+        self._current_scroll_qss = ""
+        self._pending_theme_style = False
         # 先创建基础界面骨架、卡片和导航结构。
         self.__init_widget()
         self.__init_card()
@@ -60,7 +64,7 @@ class SettingInterface(QWidget):
         self.__init_nav()
 
         # 再应用主题样式并注册主题切换监听。
-        self._apply_theme_style()
+        self._apply_theme_style(force=True)
         qconfig.themeChanged.connect(self._apply_theme_style)
 
         # 最后连接交互信号并注册到语言管理器。
@@ -561,9 +565,59 @@ class SettingInterface(QWidget):
         """内容区域滚动，同步高亮导航栏"""
         self.setting_nav.process_content_scrolled(value, self.scroll_widget)
 
-    def _apply_theme_style(self, *_):
-        light_qss, dark_qss = get_setting_interface_qss()
-        self.setStyleSheet(dark_qss if isDarkTheme() else light_qss)
+    def _apply_theme_style(self, *_, force: bool = False):
+        with measure_theme_step("SettingInterface._apply_theme_style"):
+            if not force and not self.isVisible():
+                self._pending_theme_style = True
+                return
+            is_dark = isDarkTheme()
+            bg_color = get_setting_interface_background_color(is_dark)
+            light_qss, dark_qss = get_setting_nav_qss()
+            qss = dark_qss if is_dark else light_qss
+            if qss == self._current_theme_qss and bg_color == self._current_background_color:
+                return
+            self._current_theme_qss = qss
+            self._pending_theme_style = False
+            self._apply_background_color(bg_color)
+            with measure_theme_step("SettingInterface.nav.setStyleSheet"):
+                self.setting_nav.setStyleSheet(qss)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._pending_theme_style:
+            self._pending_theme_style = False
+            is_dark = isDarkTheme()
+            bg_color = get_setting_interface_background_color(is_dark)
+            light_qss, dark_qss = get_setting_nav_qss()
+            qss = dark_qss if is_dark else light_qss
+            if qss != self._current_theme_qss or bg_color != self._current_background_color:
+                self._current_theme_qss = qss
+                self._apply_background_color(bg_color)
+                with measure_theme_step("SettingInterface.nav.setStyleSheet"):
+                    self.setting_nav.setStyleSheet(qss)
+
+    def _apply_background_color(self, color: tuple[int, int, int]):
+        with measure_theme_step("SettingInterface.background.clearRootQss"):
+            if self.styleSheet():
+                self.setStyleSheet("")
+
+        with measure_theme_step("SettingInterface.background.scrollQss"):
+            scroll_qss = "QScrollArea#contentScroll { border: none; background: transparent; }"
+            if scroll_qss != self._current_scroll_qss:
+                self._current_scroll_qss = scroll_qss
+                self.content_scroll.setStyleSheet(scroll_qss)
+
+        with measure_theme_step("SettingInterface.background.palette"):
+            if color == self._current_background_color:
+                return
+            self._current_background_color = color
+            qt_color = QColor(*color)
+            for widget in (self, self.scroll_widget, self.content_scroll.viewport()):
+                palette = widget.palette()
+                palette.setColor(QPalette.ColorRole.Window, qt_color)
+                palette.setColor(QPalette.ColorRole.Base, qt_color)
+                widget.setPalette(palette)
+                widget.setAutoFillBackground(True)
 
     def __connect_signal(self):
         """连接设置页卡片与处理函数之间的信号。"""
@@ -738,8 +792,8 @@ class SettingInterface(QWidget):
     def __onThemeCardChanged(self):
         theme_mode = cfg.get_value("theme_mode")
         if theme_mode == "AUTO":
-            setTheme(Theme.AUTO)
+            set_theme_with_profile(Theme.AUTO, lazy=True)
         elif theme_mode == "LIGHT":
-            setTheme(Theme.LIGHT)
+            set_theme_with_profile(Theme.LIGHT, lazy=True)
         elif theme_mode == "DARK":
-            setTheme(Theme.DARK)
+            set_theme_with_profile(Theme.DARK, lazy=True)

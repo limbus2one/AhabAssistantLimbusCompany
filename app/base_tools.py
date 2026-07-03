@@ -30,6 +30,7 @@ from qfluentwidgets import FluentIcon as FIF
 from qfluentwidgets.components.settings.setting_card import SettingIconWidget
 
 from app import *
+from app.common.theme_profiler import measure_theme_step
 from app.common.ui_config import get_setting_layout_style
 from module.config import cfg
 
@@ -48,6 +49,8 @@ class BaseLayout(QFrame):
 class BaseSettingLayout(QFrame):
     def __init__(self, box_type=0, parent=None):
         super().__init__(parent=parent)
+        self._current_theme_qss = ""
+        self._pending_theme_style = False
         if box_type == 0:
             pass
         elif box_type == 1:
@@ -58,21 +61,33 @@ class BaseSettingLayout(QFrame):
             self.BoxLayout.setContentsMargins(0, 0, 0, 0)
 
         # 监听主题变化
-        self._apply_theme_style()
+        self._apply_theme_style(force=True)
         qconfig.themeChanged.connect(self._apply_theme_style)
 
-    def _apply_theme_style(self):
-        style = get_setting_layout_style(isDarkTheme())
-        self.setStyleSheet(
-            f"""
-            BaseSettingLayout {{
-                border: {style["border"]}; /* 边框 */
-                border-radius: 5px; /* 圆角 */
-                padding: 10px;   /* 内边距 */
-                background-color: transparent; /* 背景透明 */
-            }}
-        """
-        )
+    def _apply_theme_style(self, *_, force: bool = False):
+        with measure_theme_step("BaseSettingLayout._apply_theme_style"):
+            if not force and not self.isVisible():
+                self._pending_theme_style = True
+                return
+            style = get_setting_layout_style(isDarkTheme())
+            qss = f"""
+                BaseSettingLayout {{
+                    border: {style["border"]}; /* 边框 */
+                    border-radius: 5px; /* 圆角 */
+                    padding: 10px;   /* 内边距 */
+                    background-color: transparent; /* 背景透明 */
+                }}
+            """
+            if qss == self._current_theme_qss:
+                return
+            self._current_theme_qss = qss
+            self._pending_theme_style = False
+            self.setStyleSheet(qss)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._pending_theme_style:
+            self._apply_theme_style(force=True)
 
     def add(self, tool):
         if isinstance(tool, QWidget):
@@ -337,14 +352,15 @@ class BaseLabel(BaseLayout):
         self.label.repaint()
 
     def __on_theme_changed(self, theme: str = "AUTO"):
-        # Preserve zoom-based font size when updating theme-dependent color
-        base_style = ""
-        if cfg.zoom_scale != 0:
-            base_style += "font-size: 16px; "
-        if isDarkTheme():
-            self.label.setStyleSheet(f"{base_style}color: white;")
-        else:
-            self.label.setStyleSheet(f"{base_style}color: black;")
+        with measure_theme_step("BaseLabel.__on_theme_changed"):
+            # Preserve zoom-based font size when updating theme-dependent color
+            base_style = ""
+            if cfg.zoom_scale != 0:
+                base_style += "font-size: 16px; "
+            if isDarkTheme():
+                self.label.setStyleSheet(f"{base_style}color: white;")
+            else:
+                self.label.setStyleSheet(f"{base_style}color: black;")
 
 
 class RightClickComboBox(ComboBox):
