@@ -93,6 +93,17 @@ def copy_team_settings_to_clipboard(team_number: int, parent=None) -> bool:
 
 
 def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
+    def show_invalid_format_error():
+        BaseInfoBar.error(
+            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
+            content="",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP,
+            duration=500,
+            parent=parent,
+        )
+
     setting = pyperclip.paste().strip()
     if not setting:
         BaseInfoBar.error(
@@ -106,47 +117,16 @@ def paste_team_settings_from_clipboard(team_number: int, parent=None) -> bool:
         )
         return False
 
-    if not setting.startswith(TEAM_SETTING_CLIPBOARD_PREFIX):
-        BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
-        return False
-
-    setting = setting.replace(TEAM_SETTING_CLIPBOARD_PREFIX, "", 1)
-    try:
-        data: dict = cfg.yaml.load(setting)
-    except Exception:
-        BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
-        return False
-
     from module.config import TeamSetting
 
     try:
+        if not setting.startswith(TEAM_SETTING_CLIPBOARD_PREFIX):
+            raise ValueError("Invalid AALC team setting prefix")
+        setting = setting.replace(TEAM_SETTING_CLIPBOARD_PREFIX, "", 1)
+        data: dict = cfg.yaml.load(setting)
         team_config = TeamSetting(**data)
     except Exception:
-        BaseInfoBar.error(
-            title=QT_TRANSLATE_NOOP("BaseInfoBar", "不是合法的格式"),
-            content="",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP,
-            duration=500,
-            parent=parent,
-        )
+        show_invalid_format_error()
         return False
 
     team_config.team_number = team_number
