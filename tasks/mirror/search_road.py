@@ -7,7 +7,6 @@ from module.automation import auto
 from module.config import cfg
 from module.logger import log
 from module.my_error.my_error import InputAttributeError
-from tasks.base.retry import retry
 
 
 class MirrorMap:
@@ -17,8 +16,12 @@ class MirrorMap:
         self.map = {}
         self.hard_mode = hard_mode
 
-    def get_next_step(self):
+    def get_next_step(self, flow_watchdog=None):
+        """获取下一步寻路方向，必要时重新识别当前楼层路线。"""
+        # 标记是否需要重新截图并识别路线。
         re_identify = False
+
+        # 识别 floor_map 中的路线。
         if len(self.floor_map) > 0:
             next_step = self.floor_map.pop(0)
             if next_step is not None:
@@ -26,20 +29,29 @@ class MirrorMap:
             else:
                 re_identify = True
         else:
+            # 没有缓存路线时，直接进行路线识别。
             re_identify = True
 
         if re_identify is True:
-            self.floor_map, self.floor_nodes = search_road_from_road_map(hard_mode=self.hard_mode)
+            # 重新识别路线，并把 watchdog 传入识别过程以检测长时间无进展。
+            self.floor_map, self.floor_nodes = search_road_from_road_map(
+                hard_mode=self.hard_mode, flow_watchdog=flow_watchdog
+            )
+            # (True, True) 表示识别过程中已经直接点击并进入了下一个节点。
             if self.floor_map is True and self.floor_nodes is True:
                 return True
+            # 统一转换为列表，便于后续按顺序弹出路线步骤和复制缓存。
             if not isinstance(self.floor_map, list):
                 self.floor_map = list(self.floor_map)
+            # 保存本楼层的完整路线和节点信息；切片避免后续 pop 修改缓存。
             self.map[f"floor{self.floor}"] = [self.floor_map[:], self.floor_nodes[:]]
 
+        # 返回新识别路线中的第一步，并从待执行路线中移除。
         if len(self.floor_map) > 0:
             next_step = self.floor_map.pop(0)
             return next_step
         else:
+            # 识别后仍没有可走路线。
             return False
 
     def enter_next_node(self, next_step):
@@ -124,7 +136,7 @@ def get_node_weight(x, y):
 
 
 # 在默认缩放情况下，进行镜牢寻路
-def search_road_default_distance():
+def search_road_default_distance(flow_watchdog=None):
     start_time = time.time()
     scale = cfg.set_win_size / 1440
     three_roads = [
@@ -135,9 +147,8 @@ def search_road_default_distance():
 
     auto.mouse_to_blank()
     while auto.take_screenshot() is None:
-        continue
-    if retry() is False:
-        return False
+        if flow_watchdog is not None and not flow_watchdog.check():
+            return False
     # 判断中、下两个节点是否有权重3的节点，有的话直接选择进入
     node_weight = {}
     if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
@@ -160,6 +171,8 @@ def search_road_default_distance():
         from tasks.base.retry import check_times
 
         while True:
+            if flow_watchdog is not None and not flow_watchdog.check():
+                return False
             if auto.get_restore_time() is not None:
                 start_time = max(start_time, auto.get_restore_time())
             if check_times(start_time, logs=False):
@@ -204,15 +217,14 @@ def search_road_default_distance():
 
 
 # 如果默认缩放无法镜牢寻路，进行滚轮缩放后继续寻路
-def search_road_farthest_distance():
+def search_road_farthest_distance(flow_watchdog=None):
     scale = cfg.set_win_size / 1440
     auto.mouse_click_blank()
     if not auto.mouse_scroll():
         raise InputAttributeError("后台输入不支持滚轮操作!")
     while auto.take_screenshot() is None:
-        continue
-    if retry() is False:
-        return False
+        if flow_watchdog is not None and not flow_watchdog.check():
+            return False
     three_roads = [
         [250 * scale, -200 * scale],
         [250 * scale, 0],
@@ -233,7 +245,7 @@ def search_road_farthest_distance():
     return False
 
 
-def search_road_from_road_map(hard_mode=False):
+def search_road_from_road_map(hard_mode=False, flow_watchdog=None):
     start_time = time.time()
     scale = cfg.set_win_size / 1440
     road = []
@@ -249,6 +261,8 @@ def search_road_from_road_map(hard_mode=False):
 
         change_times = 5
         while True:
+            if flow_watchdog is not None and not flow_watchdog.check():
+                return False, []
             if auto.get_restore_time() is not None:
                 start_time = max(start_time, auto.get_restore_time())
             if check_times(start_time, logs=False):
@@ -303,6 +317,8 @@ def search_road_from_road_map(hard_mode=False):
             from tasks.base.retry import check_times
 
             while True:
+                if flow_watchdog is not None and not flow_watchdog.check():
+                    return False, []
                 if auto.get_restore_time() is not None:
                     start_time = max(start_time, auto.get_restore_time())
                 if check_times(start_time, logs=False):

@@ -17,6 +17,7 @@ from module.my_error.my_error import (
 from module.ocr import ocr
 from tasks import all_systems, observe_system, start_gift
 from tasks.base.back_init_menu import back_init_menu
+from tasks.base.flow_watchdog import FlowRetryWatchdog
 from tasks.base.make_enkephalin_module import make_enkephalin_module
 from tasks.base.retry import retry
 from tasks.battle import battle
@@ -45,10 +46,12 @@ def to_log_with_time(msg, elapsed_time):
 class Mirror:
     def __init__(self, team_setting: TeamSetting, team_num: int):
         self.logger = log
+        # 一次镜牢全程共用一个 watchdog，让跨页面的无进展时间连续累计。
+        self.flow_watchdog = FlowRetryWatchdog("镜牢流程")
         self.team_order = team_num
         self.sinner_team = team_setting.sinner_order  # 选择的罪人序列
         self.team_number = team_setting.team_number  # 选择的编队名
-        self.shop = Shop(team_setting)
+        self.shop = Shop(team_setting, flow_watchdog=self.flow_watchdog)
         self.system = all_systems[team_setting.team_system]  # 选择的体系
         self.avoid_skill_3 = team_setting.avoid_skill_3  # 是否避免使用3技能
         # 开局星光加成
@@ -93,7 +96,6 @@ class Mirror:
         self.pass_coins = None
 
         self.bequest_from_the_previous_game = False
-
     def _time_call(self, fn, *args, **kwargs):
         """调用 fn 并返回 (result, elapsed_time)，用于显式计时替代装饰器返回值。"""
         start = time.time()
@@ -109,12 +111,13 @@ class Mirror:
             if auto.take_screenshot() is None:
                 continue
             auto.mouse_to_blank()
-            if retry() is False:
+            if not self.flow_watchdog.check():
                 return False
             if auto.find_element("home/first_prompt_assets.png", model="clam") and auto.find_element(
                 "home/back_assets.png", model="normal"
             ):
                 auto.click_element("home/back_assets.png")
+                self.flow_watchdog.progress("关闭镜牢入口提示")
                 continue
             if auto.find_element("mirror/claim_reward/clear_assets.png"):
                 self.bequest_from_the_previous_game = True
@@ -124,8 +127,10 @@ class Mirror:
             if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                 break
             if auto.click_element("mirror/road_to_mir/resume_assets.png"):
+                self.flow_watchdog.progress("继续未完成镜牢")
                 break
             if auto.click_element("mirror/road_to_mir/enter_mirror_assets.png", threshold=0.78):
+                self.flow_watchdog.progress("进入镜牢大厅")
                 break
             infinity_bbox = ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/infinity_mirror_bbox.png"))
             infinity_bbox = (
@@ -136,10 +141,13 @@ class Mirror:
             )  # 临时修复措施，调整裁切大小
             if not auto.find_text_element(["off", "ff"], infinity_bbox):
                 auto.click_element("mirror/road_to_mir/infinity_mirror_enter_assets.png")
+                self.flow_watchdog.progress("选择无限镜牢")
             if auto.click_element("mirror/road_to_mir/enter_assets.png"):
+                self.flow_watchdog.progress("确认进入镜牢")
                 sleep(0.5)
                 continue
             if auto.click_element("home/mirror_dungeons_assets.png"):
+                self.flow_watchdog.progress("打开镜牢入口")
                 continue
             if auto.find_element("home/inferno_bus_assets.png") and not auto.find_element(
                 "home/mirror_dungeons_assets.png"
@@ -147,6 +155,7 @@ class Mirror:
                 sleep(1)
                 if not auto.find_element("home/mirror_dungeons_assets.png"):
                     auto.click_element("home/window_assets.png")
+                    self.flow_watchdog.progress("返回主界面窗口")
                     continue
             if auto.find_element("base/renew_confirm_assets.png", model="clam") and auto.find_element(
                 "home/drive_assets.png", model="normal"
@@ -158,6 +167,7 @@ class Mirror:
             # if auto.click_element("mirror/road_to_mir/quick_start_assets.png"):
             #     continue
             if auto.click_element("home/drive_assets.png", model="normal"):
+                self.flow_watchdog.progress("打开驾驶菜单")
                 sleep(0.5)
                 continue
             if auto.find_element("mirror/road_to_mir/select_team_stars_assets.png"):
@@ -182,22 +192,24 @@ class Mirror:
         # 计时开始
         start_time = time.time()
 
+        # 如果在镜牢外，换体
         if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
             sleep(0.5)
             make_enkephalin_module()
 
         main_loop_count = self.LOOP_COUNT
         back_menu_count = 0
+        
         # 未到达奖励页不会停止
         while True:
+            # 奇妙case
             if main_loop_count >= 50:
                 auto.model = "clam"  # 防止函数内修改后未还原
             # 自动截图
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
 
-            retry()
-
+            # 三层镜牢退出
             if cfg.floor_3_exit and self.floor >= 4:
                 if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
                     break
@@ -227,16 +239,18 @@ class Mirror:
                 model="clam",
             ):
                 break
-
+            
             # 离开镜牢的设置页面
             if to_window_position := auto.find_element("mirror/road_in_mir/to_window_assets.png"):
                 auto.mouse_click(to_window_position[0] - 200 * cfg.set_win_size / 1440, to_window_position[1])
+                self.flow_watchdog.progress("离开镜牢设置页面")
                 continue
 
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
                 sleep(2)
                 select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                self.flow_watchdog.progress(f"完成第{self.floor}层主题包选择")
                 if self.re_formation_each_floor:
                     self.first_battle = True
                 try:
@@ -259,6 +273,7 @@ class Mirror:
             # 遇到选择增益事件（少见）
             if auto.click_element("mirror/road_in_mir/event_effect_button.png", threshold=0.75):
                 auto.click_element("mirror/road_in_mir/select_event_effect_confirm.png")
+                self.flow_watchdog.progress("完成镜牢增益选择")
                 continue
 
             # 在镜牢中寻路
@@ -267,6 +282,7 @@ class Mirror:
                 while auto.take_screenshot() is None:
                     continue
                 if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
+                    self.flow_watchdog.progress("确认镜牢EGO饰品")
                     continue
                 if auto.find_element("teams/identify_assets.png"):
                     continue
@@ -276,7 +292,9 @@ class Mirror:
                     "mirror/claim_reward/complete_mirror_100%_assets.png"
                 ):
                     break
-                retry()
+                if not self.flow_watchdog.check():
+                    retry()
+                # 如果不知道镜牢层数，识别镜牢层数
                 if self.get_floor_num:
                     self.get_which_floor()
 
@@ -297,6 +315,7 @@ class Mirror:
             # 选择镜牢队伍
             if auto.find_element("mirror/road_to_mir/select_team_stars_assets.png"):
                 self.select_mirror_team()
+                self.flow_watchdog.progress("完成镜牢队伍选择")
                 continue
 
             if battle.fail_times >= 5:
@@ -341,34 +360,48 @@ class Mirror:
             if auto.find_element("battle/more_information_assets.png") or auto.find_element(
                 "battle/in_mirror_assets.png"
             ):
-                _, elapsed = self._time_call(battle.fight, self.avoid_skill_3, self.defense_first_round)
+                _, elapsed = self._time_call(
+                    battle.fight, self.avoid_skill_3, self.defense_first_round,
+                    flow_watchdog=self.flow_watchdog,
+                )
                 self.battle_total_time += elapsed
                 continue
             elif battle.identify_keyword_turn and self.LOOP_COUNT - main_loop_count < 5:
                 if auto.find_element("battle/turn_assets.png") or auto.find_element("battle/in_mirror_assets.png"):
-                    _, elapsed = self._time_call(battle.fight, self.avoid_skill_3, self.defense_first_round)
+                    _, elapsed = self._time_call(
+                        battle.fight, self.avoid_skill_3, self.defense_first_round,
+                        flow_watchdog=self.flow_watchdog,
+                    )
                     self.battle_total_time += elapsed
                     continue
             else:
                 turn_bbox = ImageUtils.get_bbox(ImageUtils.load_image("battle/turn_assets.png"))
                 turn_ocr_result = auto.find_text_element("turn", turn_bbox)
                 if turn_ocr_result is not False:
-                    _, elapsed = self._time_call(battle.fight, self.avoid_skill_3, self.defense_first_round)
+                    _, elapsed = self._time_call(
+                        battle.fight, self.avoid_skill_3, self.defense_first_round,
+                        flow_watchdog=self.flow_watchdog,
+                    )
                     self.battle_total_time += elapsed
                     continue
             if auto.find_element("battle/win_rate_card.png") and auto.find_element("battle/gear_right.png"):
-                _, elapsed = self._time_call(battle.fight, self.avoid_skill_3, self.defense_first_round)
+                _, elapsed = self._time_call(
+                    battle.fight, self.avoid_skill_3, self.defense_first_round,
+                    flow_watchdog=self.flow_watchdog,
+                )
                 self.battle_total_time += elapsed
                 continue
 
             # 镜牢星光
             if auto.find_element("mirror/road_to_mir/dreaming_star/coins_assets.png", threshold=0.9):
                 self.enter_mir_with_star()
+                self.flow_watchdog.progress("完成星光选择")
                 continue
 
             # 如果遇到选择ego饰品的情况
             if auto.find_element("mirror/road_in_mir/acquire_ego_gift_card.png"):
                 self.acquire_ego_gift()
+                self.flow_watchdog.progress("完成EGO饰品选择")
                 continue
             if (
                 main_loop_count < 50
@@ -391,12 +424,14 @@ class Mirror:
             # 遇到事件
             if auto.click_element("event/skip_assets.png", times=6):
                 self.event_handling()
+                self.flow_watchdog.progress("完成镜牢事件")
                 continue
 
             # 商店事件
             if auto.find_element("mirror/shop/shop_coins_assets.png"):
                 _, elapsed = self._time_call(self.in_shop)
                 self.shop_total_time += elapsed
+                self.flow_watchdog.progress("完成镜牢商店")
                 continue
 
             # 选择奖励卡
@@ -405,6 +440,7 @@ class Mirror:
                     get_reward_card(self.reward_cards_select)
                 else:
                     get_reward_card()
+                self.flow_watchdog.progress("完成战斗奖励卡选择")
                 continue
 
             # 在主界面时，开始进入镜牢
@@ -444,7 +480,8 @@ class Mirror:
 
             # 防卡死
             auto.mouse_click_blank()
-            retry()
+            if not self.flow_watchdog.check():
+                return False
             main_loop_count -= 1
             if main_loop_count % 10 == 0:
                 log.debug(f"镜牢道中识别次数剩余{main_loop_count}次")
@@ -493,8 +530,10 @@ class Mirror:
             if auto.find_element("home/drive_assets.png"):
                 break
             if auto.click_element("battle/battle_finish_confirm_assets.png"):
+                self.flow_watchdog.progress("确认战斗结束")
                 continue
             if auto.click_element("mirror/claim_reward/rewards_acquired_assets.png"):
+                self.flow_watchdog.progress("确认奖励已领取")
                 continue
             if auto.click_element(
                 "mirror/claim_reward/claim_rewards_confirm_assets.png",
@@ -502,6 +541,7 @@ class Mirror:
                 model="clam",
                 take_screenshot=True,
             ):
+                self.flow_watchdog.progress("确认领取镜牢奖励")
                 continue
             if failed:
                 auto.mouse_click_blank()
@@ -602,15 +642,19 @@ class Mirror:
                         take_screenshot=True,
                     ):
                         sleep(1)
-                    retry()
+                    if not self.flow_watchdog.check():
+                        return False
                     continue
             if auto.click_element("mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75):  # 降低识别阈值
                 sleep(1)
+                self.flow_watchdog.progress("使用脑啡肽领取奖励")
                 continue
             # 处理周年活动弹出的窗口
             if auto.click_element("home/close_anniversary_event_assets.png"):
+                self.flow_watchdog.progress("关闭周年活动窗口")
                 continue
-            retry()
+            if not self.flow_watchdog.check():
+                return False
             main_loop_count -= 1
             if main_loop_count % 3 == 0:
                 log.debug(f"镜牢奖励识别次数剩余{main_loop_count}次")
@@ -1043,10 +1087,12 @@ class Mirror:
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
         try:
-            if next_node := self.mirror_map.get_next_step():
+            if next_node := self.mirror_map.get_next_step(self.flow_watchdog):
                 if next_node is True:
+                    self.flow_watchdog.progress("镜牢地图已进入下一节点")
                     return True
                 if self.mirror_map.enter_next_node(next_node):
+                    self.flow_watchdog.progress("选择并进入镜牢节点")
                     return True
             log.debug("未能构建路线图，尝试使用最近节点法重新寻路")
         except Exception as e:
@@ -1057,22 +1103,26 @@ class Mirror:
             for _ in range(3):
                 while auto.take_screenshot() is None:
                     continue
-                if search_road_default_distance():
+                if search_road_default_distance(self.flow_watchdog):
+                    self.flow_watchdog.progress("完成默认视距寻路")
                     sleep(1)
                     return True
                 if auto.click_element("mirror/road_in_mir/enter_assets.png"):
+                    self.flow_watchdog.progress("确认进入寻路节点")
                     return True
-                if retry() is False:
+                if not self.flow_watchdog.check():
                     return False
             for _ in range(3):
                 if cfg.background_click:
                     continue
                 while auto.take_screenshot() is None:
-                    continue
-                if search_road_farthest_distance():
+                    if not self.flow_watchdog.check():
+                        return False
+                if search_road_farthest_distance(self.flow_watchdog):
+                    self.flow_watchdog.progress("完成最远视距寻路")
                     sleep(1)
                     return True
-                if retry() is False:
+                if not self.flow_watchdog.check():
                     return False
         except InputAttributeError as e:
             log.error(f"寻路出错:{e}, 尝试重进镜牢")
@@ -1090,6 +1140,8 @@ class Mirror:
             # 自动截图
             if auto.take_screenshot() is None:
                 continue
+            if not self.flow_watchdog.check():
+                return False
             if auto.get_restore_time() is not None:
                 start_time = max(start_time, auto.get_restore_time())
             if check_times(start_time):
@@ -1108,8 +1160,6 @@ class Mirror:
             if auto.click_element("mirror/road_in_mir/setting_assets.png"):
                 sleep(1)
                 continue
-            if retry() is False:
-                return False
 
     def re_start(self):
         while True:
@@ -1145,7 +1195,7 @@ class Mirror:
             if auto.take_screenshot() is None:
                 continue
 
-            if retry() is False:
+            if not self.flow_watchdog.check():
                 return False
 
             # 如果在战斗中或回到镜牢路线图中，则跳出循环
@@ -1157,9 +1207,11 @@ class Mirror:
             if event_chance == 0:
                 if key_word_position := auto.find_language_text("判定", "check"):
                     auto.mouse_action_with_pos(key_word_position, offset=False)
+                    self.flow_watchdog.progress("点击判定关键词")
                     event_chance += 5
             if 5 <= event_chance < 10:
-                auto.click_element("event/select_first_option_assets.png")
+                if auto.click_element("event/select_first_option_assets.png"):
+                    self.flow_watchdog.progress("点击事件首选项")
                 event_chance -= 1
             elif 5 > event_chance > 0:
                 if coordinates := auto.find_element(
@@ -1167,7 +1219,7 @@ class Mirror:
                 ):
                     for coordinate in coordinates:
                         auto.mouse_click(coordinate[0], coordinate[1])
-                    retry()
+                    self.flow_watchdog.progress("点击全部事件首选项")
                 event_chance -= 1
             if event_chance < 0:
                 finishes_bbox = ImageUtils.get_bbox(ImageUtils.load_image("event/continue_assets.png"))
@@ -1194,7 +1246,7 @@ class Mirror:
                 ):
                     for coordinate in coordinates:
                         auto.mouse_click(coordinate[0], coordinate[1])
-                    retry()
+                    self.flow_watchdog.progress("事件结束阶段点击候选项")
                 else:
                     msg = "事件卡死，尝试返回主界面"
                     log.error(msg)
@@ -1203,6 +1255,7 @@ class Mirror:
 
             # 针对不同事件进行处理，优先选???与直接获取的，再选需要判定的，再选后续事件的，最后第一个事项
             if auto.click_element("event/unknown_event.png"):
+                self.flow_watchdog.progress("选择未知事件选项")
                 event_chance -= 1
                 continue
             if positions_list := auto.find_element(
@@ -1212,12 +1265,15 @@ class Mirror:
             ):
                 positions_list = sorted(positions_list, key=lambda x: (x[1], x[0]))
                 auto.mouse_click(positions_list[0][0], positions_list[0][1])
+                self.flow_watchdog.progress("选择直接获得EGO选项")
                 event_chance -= 1
                 continue
             if auto.click_element("event/advantage_check.png"):
+                self.flow_watchdog.progress("选择优势判定")
                 event_chance -= 1
                 continue
             if auto.click_element("event/gain_a_ego_depending_on_result.png"):
+                self.flow_watchdog.progress("选择判定后获得EGO")
                 event_chance -= 1
                 continue
 
@@ -1226,22 +1282,30 @@ class Mirror:
                 "event/select_first_option_assets.png"
             ):
                 auto.click_element("event/select_first_option_assets.png")
+                self.flow_watchdog.progress("选择判定罪人")
                 event_chance -= 1
             if auto.find_element("event/perform_the_check_feature_assets.png"):
                 event_handling.decision_event_handling()
+                self.flow_watchdog.progress("完成罪人判定选择")
             if auto.click_element("event/continue_assets.png"):
+                self.flow_watchdog.progress("点击事件继续")
                 continue
             if auto.click_element("event/proceed_assets.png"):
+                self.flow_watchdog.progress("点击事件推进")
                 continue
             if auto.click_element("event/commence_assets.png"):
+                self.flow_watchdog.progress("点击事件开始")
                 continue
             if auto.click_element("event/commence_battle_assets.png"):
+                self.flow_watchdog.progress("点击事件开始战斗")
                 continue
 
             if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
+                self.flow_watchdog.progress("确认事件EGO饰品")
                 continue
 
             if auto.click_element("event/skip_assets.png", times=6):
+                self.flow_watchdog.progress("跳过事件文本")
                 continue
 
             loop_count -= 1

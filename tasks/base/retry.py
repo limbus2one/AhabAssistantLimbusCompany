@@ -116,7 +116,7 @@ def kill_game():
         sleep(1)
 
 
-def check_times(start_time, timeout=90, logs=True):
+def check_times(start_time, timeout=300, logs=True):
     """检查是否卡死超时，若是则尝试关闭重启游戏"""
     now_time = time.time()
     if logs and int(now_time - start_time) > 9 and int(now_time - start_time) % 10 == 0:
@@ -131,10 +131,13 @@ def check_times(start_time, timeout=90, logs=True):
         return False
 
 
-def retry():
+def retry(timeout=300,source=None):
     """重试连接。
 
     为保证稳定性，retry 内循环始终刷新截图，避免复用旧帧导致误判。
+
+    ``timeout`` 是本次公共恢复自身的最长等待时间。大流程看门狗已经等待
+    300 秒后会传入更短的恢复窗口，避免再额外等待完整的 300 秒。
     """
     start_time = time.time()
     is_windows = not cfg.config.simulator
@@ -150,7 +153,7 @@ def retry():
             start_time = time.time()
         if auto.get_restore_time() is not None:
             start_time = max(start_time, auto.get_restore_time())
-        if check_times(start_time):
+        if check_times(start_time, timeout=timeout):
             return False
         if auto.take_screenshot() is None:
             continue

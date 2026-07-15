@@ -13,7 +13,7 @@ from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from module.ocr import ocr
 from tasks import sins
-from tasks.base.retry import retry
+from tasks.base.flow_watchdog import FlowRetryWatchdog
 from tasks.event import event_handling
 from utils.image_utils import ImageUtils
 from utils.utils import find_skill3
@@ -154,6 +154,7 @@ class Battle:
         defense_on_turn1=False,
         choice_event_handling=True,
         combat_count=1,
+        flow_watchdog=None,
     ):
         chance = self.INIT_CHANCE
         waiting = self._update_wait_time()
@@ -170,6 +171,7 @@ class Battle:
 
         first_turn = True
         start_time = time.time()
+        flow_watchdog = flow_watchdog or FlowRetryWatchdog("战斗")
 
         self.fail_times = 0
         while self.running:
@@ -178,8 +180,12 @@ class Battle:
             # 自动截图
             if auto.take_screenshot() is None:
                 continue
+            
+            # 恢复暂停的时间
             if auto.get_restore_time() is not None:
                 start_time = max(start_time, auto.get_restore_time())
+            
+            # 如果战斗超时，
             if infinite_battle is False and check_times(start_time, timeout=900 + 300 * combat_count, logs=False):
                 from tasks.base.back_init_menu import back_init_menu
 
@@ -188,6 +194,7 @@ class Battle:
 
             total_count += 1
 
+            # 判断是否回到镜牢寻路页面
             if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                 if infinite_battle:
                     continue
@@ -201,7 +208,9 @@ class Battle:
             # 判断是否为镜牢战斗
             if in_mirror is False and auto.find_element("battle/in_mirror_assets.png", model="aggressive"):
                 in_mirror = True
+                flow_watchdog.progress("确认镜牢战斗")
 
+            # 奇妙case
             if view_status := auto.find_element("battle/view_status_assets.png", model="clam"):
                 my_scale = cfg.set_win_size / 1440
                 auto.mouse_click(view_status[0] + 100 * my_scale, view_status[1] - 500 * my_scale)
@@ -234,11 +243,13 @@ class Battle:
                 auto.click_element("battle/dead_all_confirm_assets.png")
                 sleep(1)
                 start_time = time.time()
+                flow_watchdog.progress("全灭后重新开始战斗")
                 self.fail_times += 1
                 if self.fail_times >= 5:
                     return False
                 continue
 
+            # 如果镜牢有人阵亡，放弃战斗
             if in_mirror and not cfg.fight_to_last_man:
                 if dead_position := auto.find_element("battle/dead.png"):
                     my_scale = cfg.set_win_size / 1440
@@ -294,6 +305,7 @@ class Battle:
                     ocr_result = ""
                 if "turn" in ocr_result:
                     self._battle_operation(first_turn, defense_first_round, avoid_skill_3)
+                    flow_watchdog.progress("Turn文字兜底提交回合")
                     chance = self.INIT_CHANCE
                     waiting = self._update_wait_time(waiting, False, total_count)
                     self.identify_keyword_turn = False
@@ -301,6 +313,7 @@ class Battle:
             elif fail_count >= 5:
                 if auto.click_element("battle/turn_assets.png") or auto.find_element("battle/win_rate_assets.png"):
                     self._battle_operation(first_turn, defense_first_round, avoid_skill_3)
+                    flow_watchdog.progress("战斗标记兜底提交回合")
                     chance = self.INIT_CHANCE
                     waiting = self._update_wait_time(waiting, False, total_count)
                     continue
@@ -313,6 +326,7 @@ class Battle:
                         defense_first_round,
                         avoid_skill_3,
                     )
+                    flow_watchdog.progress("正常待机提交回合")
                     chance = self.INIT_CHANCE
                     waiting = self._update_wait_time(waiting, False, total_count)
                     continue
@@ -335,6 +349,7 @@ class Battle:
                     or auto.find_element("battle/win_rate_card.png", threshold=0.75)
                 ):
                     self._battle_operation(first_turn, defense_first_round, avoid_skill_3)
+                    flow_watchdog.progress("低机会兜底提交回合")
                     chance = self.INIT_CHANCE
                     waiting = self._update_wait_time(waiting, False, total_count)
                     continue
@@ -343,6 +358,7 @@ class Battle:
                     auto.mouse_to_blank()
                 if auto.find_language_text("胜率", "rate"):
                     self._battle_operation(first_turn, defense_first_round, avoid_skill_3)
+                    flow_watchdog.progress("胜率OCR兜底提交回合")
                     chance = self.INIT_CHANCE
                     waiting = self._update_wait_time(waiting, False, total_count)
                     sleep(1)
@@ -352,6 +368,7 @@ class Battle:
             if self.mouse_click_rate:
                 if auto.find_element("battle/win_rate_card.png", threshold=0.75):
                     self._battle_operation(first_turn, defense_first_round, avoid_skill_3)
+                    flow_watchdog.progress("胜率卡兜底提交回合")
                     chance = self.INIT_CHANCE
                     waiting = self._update_wait_time(waiting, False, total_count)
 
@@ -363,12 +380,14 @@ class Battle:
             ):
                 if event_chance > 5:
                     auto.click_element("event/select_first_option_assets.png")
+                    flow_watchdog.progress("战斗中事件选择")
                     event_chance -= 1
                 elif event_chance > 0:
                     auto.click_element(
                         "event/select_first_option_assets.png",
                         find_type="image_with_multiple_targets",
                     )
+                    flow_watchdog.progress("战斗中事件多目标选择")
                     event_chance -= 1
                 else:
                     auto.click_element(
@@ -414,6 +433,7 @@ class Battle:
                 if infinite_battle:
                     continue
                 break
+            # 如果不在小工具，也就是无意义
             if not self.is_tool:
                 # 点击中心以跳过播报员播报加速结算动画
                 random_number = random.randint(-10, 10)
@@ -447,10 +467,12 @@ class Battle:
                     continue
                 break
 
+            # 如果回到镜牢寻路页面
             if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                 if infinite_battle:
                     continue
                 break
+            # 如果在领取ego
             if auto.find_element("mirror/road_in_mir/acquire_ego_gift_card.png"):
                 if infinite_battle:
                     continue
@@ -462,11 +484,10 @@ class Battle:
 
             # 如果交战过程误触，导致战斗暂停
             if auto.click_element("battle/continue_assets.png"):
+                flow_watchdog.progress("解除战斗暂停")
                 continue
-                # 如果网络波动，需要点击重试
-            if retry() is False:
+            if not flow_watchdog.check():
                 return False
-
             chance -= 1
             sleep(waiting)
             # 更新等待时间

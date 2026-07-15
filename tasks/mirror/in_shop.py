@@ -8,13 +8,14 @@ from module.logger import log
 from module.ocr import ocr
 from tasks import all_sinners_name, all_sinners_name_zh, all_systems, system_cn_zh
 from tasks.base.back_init_menu import back_init_menu
-from tasks.base.retry import retry
+from tasks.base.flow_watchdog import FlowRetryWatchdog
 from tasks.mirror import fusion_result, must_be_abandoned, must_purchase
 from utils.image_utils import ImageUtils
 
 
 class Shop:
-    def __init__(self, team_setting: TeamSetting):
+    def __init__(self, team_setting: TeamSetting, flow_watchdog=None):
+        self.watchdog = flow_watchdog or FlowRetryWatchdog("商店")
         self.system = all_systems[team_setting.team_system]  # 队伍体系
         self.sinner_team = team_setting.sinner_order  # 选择的罪人序列
         # 获取舍弃的饰品体系列表
@@ -75,7 +76,7 @@ class Shop:
         auto.model = "clam"
         while True:
             # 自动截图
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
             auto.mouse_to_blank()
             if auto.click_element("mirror/shop/power_up_assets.png"):
@@ -84,7 +85,7 @@ class Shop:
                 if auto.click_element("mirror/shop/power_up_confirm_assets.png", take_screenshot=True) is False:
                     return True
                 sleep(3)
-                if retry() is False:
+                if not self.watchdog.check():
                     raise self.RestartGame()
             if auto.find_element("mirror/shop/power_up_confirm_assets.png"):
                 return False
@@ -147,7 +148,7 @@ class Shop:
         complete_count = 0
         while True:
             # 自动截图
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
             if self.shopping_strategy is False or (
                 self.shopping_strategy and self.shopping_strategy_select in (0, 1, 5)
@@ -160,7 +161,9 @@ class Shop:
                         while auto.click_element("mirror/shop/purchase_assets.png") is False:
                             while auto.take_screenshot() is None:
                                 continue
-                            if retry() is False:
+                                
+                                
+                            if not self.watchdog.check():
                                 raise self.RestartGame()
                             if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
                                 complete_count += 1
@@ -192,7 +195,7 @@ class Shop:
                             sleep(1)
                             while auto.take_screenshot() is None:
                                 continue
-                            if retry() is False:
+                            if not self.watchdog.check():
                                 raise self.RestartGame()
                             auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png")
                             complete_count += 1
@@ -204,7 +207,7 @@ class Shop:
                         sleep(1)
                         if auto.click_element("mirror/shop/purchase_assets.png", take_screenshot=True):
                             sleep(1)
-                            if retry() is False:
+                            if not self.watchdog.check():
                                 raise self.RestartGame()
                             auto.click_element(
                                 "mirror/road_in_mir/ego_gift_get_confirm_assets.png",
@@ -287,7 +290,7 @@ class Shop:
                             auto.mouse_click_blank(times=3)
                             sleep(1)
 
-            if retry() is False:
+            if not self.watchdog.check():
                 raise self.RestartGame()
 
             my_remaining_money = self._get_cost()
@@ -325,7 +328,7 @@ class Shop:
                     keyword_refresh_count += 1
                     auto.mouse_click_blank()
                     sleep(3)
-                    if retry() is False:
+                    if not self.watchdog.check():
                         raise self.RestartGame()
                     if self.skill_replacement and self.replacement < 3:
                         self.replacement_skill()
@@ -336,7 +339,7 @@ class Shop:
                 if auto.click_element("mirror/shop/refresh_assets.png"):
                     normal_refresh_count += 1
                     sleep(3)
-                    if retry() is False:
+                    if not self.watchdog.check():
                         raise self.RestartGame()
                     if self.skill_replacement and self.replacement < 3:
                         self.replacement_skill()
@@ -384,7 +387,7 @@ class Shop:
         log.debug("开始执行激进合成模块")
         while True:
             auto.mouse_to_blank()
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
 
             fuse = False
@@ -464,7 +467,7 @@ class Shop:
             fuse_use_starlight_chance = 5
             while True:
                 auto.mouse_to_blank()
-                if auto.take_screenshot() is None:
+                while auto.take_screenshot() is None:
                     continue
 
                 if ego_gift_get_confirm := auto.find_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
@@ -501,7 +504,7 @@ class Shop:
                     loop_times -= 1
                     continue
 
-                if retry() is False:
+                if not self.watchdog.check():
                     raise self.RestartGame()
 
             if fuse:
@@ -511,7 +514,7 @@ class Shop:
 
             break
 
-        if retry() is False:
+        if not self.watchdog.check():
             raise self.RestartGame()
 
     def fuse_useless_gifts(self):
@@ -553,7 +556,7 @@ class Shop:
         block = True
         while True:
             auto.mouse_to_blank()
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
 
             fuse = False
@@ -611,7 +614,7 @@ class Shop:
                 fuse_IV = False
                 while True:
                     auto.mouse_to_blank()
-                    if auto.take_screenshot() is None:
+                    while auto.take_screenshot() is None:
                         continue
 
                     if loop_times < 0:
@@ -659,7 +662,7 @@ class Shop:
                     if auto.click_element("mirror/shop/fuse_ego_gift_assets.png"):
                         continue
 
-                    if retry() is False:
+                    if not self.watchdog.check():
                         raise self.RestartGame()
 
             if fuse:
@@ -677,7 +680,7 @@ class Shop:
             auto.mouse_click_blank(times=3)
             break
 
-        if retry() is False:
+        if not self.watchdog.check():
             raise self.RestartGame()
 
     def fuse_system_gifts(self):
@@ -747,7 +750,7 @@ class Shop:
 
             chance = 5
             while fusion:
-                if auto.take_screenshot() is None:
+                while auto.take_screenshot() is None:
                     continue
 
                 if chance < 0:
@@ -759,7 +762,7 @@ class Shop:
                         auto.mouse_click_blank(times=3)
                         return
                 else:
-                    retry()
+                    self.watchdog.check()
                     chance -= 1
 
                 auto.mouse_to_blank()
@@ -773,7 +776,7 @@ class Shop:
                 ):
                     continue
 
-                if retry() is False:
+                if not self.watchdog.check():
                     raise self.RestartGame()
 
             if fusion:
@@ -800,12 +803,12 @@ class Shop:
         log.debug("开始执行饰品出售模块")
         while True:
             # 自动截图
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
 
             gift_sell = False
 
-            if retry() is False:
+            if not self.watchdog.check():
                 raise self.RestartGame()
 
             if self.second_system and self.second_system_action[0] and second is None:
@@ -835,7 +838,7 @@ class Shop:
                             model="normal",
                         )
                         sleep(1)
-                        if retry() is False:
+                        if not self.watchdog.check():
                             raise self.RestartGame()
                         gift_sell = True
                         sell_chance -= 1
@@ -878,7 +881,7 @@ class Shop:
         auto.mouse_to_blank()
         log.debug("开始执行饰品合成前置模块")
         while True:
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
 
             if (
@@ -967,7 +970,7 @@ class Shop:
         sinner_be_heal = False
         while True:
             # 自动截图
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
 
             loop_count -= 1
@@ -1003,7 +1006,7 @@ class Shop:
             if auto.click_element("mirror/shop/heal_sinner/heal_sinner_assets.png"):
                 continue
 
-            if retry() is False:
+            if not self.watchdog.check():
                 raise self.RestartGame()
 
     def enhance_gifts(self):
@@ -1045,7 +1048,7 @@ class Shop:
         loop_try_count = 10
         while True:
             # 自动截图
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
             if button := auto.find_element("mirror/shop/sort_button_assets.png"):
                 auto.mouse_click(button[0], button[1])
@@ -1057,7 +1060,7 @@ class Shop:
             auto.mouse_click_blank()
             loop_try_count -= 1
             if loop_try_count < 0:  # issue 171
-                if retry() is False:
+                if not self.watchdog.check():
                     raise self.RestartGame()
                 return False
 
@@ -1072,7 +1075,7 @@ class Shop:
         stale_count = 0
         while True:
             # 自动截图
-            if auto.take_screenshot() is None:
+            while auto.take_screenshot() is None:
                 continue
 
             next_gift = True
@@ -1158,7 +1161,7 @@ class Shop:
                 log.error("升级ego饰品失败")
                 break
 
-        if retry() is False:
+        if not self.watchdog.check():
             raise self.RestartGame()
 
     def after_fuse_IV(self):
@@ -1235,7 +1238,7 @@ class Shop:
                 auto.click_element("mirror/shop/skill_replacement_confirm_assets.png")
                 auto.click_element("mirror/shop/skill_replacement_confirm_assets.png")
                 # 检测游戏是否异常，若异常则重启游戏
-                if retry() is False:
+                if not self.watchdog.check():
                     raise self.RestartGame()
 
     def selected_id_skill_replacement(self, image_path):
@@ -1288,7 +1291,7 @@ class Shop:
             sleep(0.5)
             auto.click_element("mirror/shop/skill_replacement_confirm_assets.png")
             auto.click_element("mirror/shop/skill_replacement_confirm_assets.png")
-            if retry() is False:
+            if not self.watchdog.check():
                 raise self.RestartGame()
         # 如果所有优先罪人都没有技能可替换，则点击返回按钮退出该界面
         auto.click_element("mirror/shop/ID_skill_replace_search_return_assets.png")
@@ -1348,7 +1351,9 @@ class Shop:
                     break
 
                 # 自动截图
-                if auto.take_screenshot() is None:
+                while auto.take_screenshot() is None:
+                    if not self.watchdog.check():
+                        raise self.RestartGame()
                     continue
 
                 auto.mouse_click_blank(times=3)
@@ -1358,6 +1363,7 @@ class Shop:
                 if self.skill_replacement and skill is False:
                     self.replacement_skill()
                     skill = True
+                    self.watchdog.progress("完成技能替换阶段")
                     continue
 
                 if heal is False:
@@ -1366,6 +1372,7 @@ class Shop:
                     else:
                         self.heal_sinner()
                         heal = True
+                        self.watchdog.progress("完成治疗阶段")
                         continue
 
                 if sell is False:
@@ -1376,6 +1383,7 @@ class Shop:
                         if self.fuse_switch is False:
                             self.sell_gifts()
                         sell = True
+                        self.watchdog.progress("完成出售阶段")
                         continue
 
                 if buy is False:
@@ -1384,6 +1392,7 @@ class Shop:
                     else:
                         self.buy_gifts()
                         buy = True
+                        self.watchdog.progress("完成购买阶段")
                         continue
 
                 if fuse is False:
@@ -1394,6 +1403,7 @@ class Shop:
                         if self.fuse_switch:
                             self.fuse_gift()
                         fuse = True
+                        self.watchdog.progress("完成合成阶段")
                         continue
 
                 if enhance is False:
@@ -1405,6 +1415,7 @@ class Shop:
                         # 升级体系ego饰品
                         self.enhance_gifts()
                         enhance = True
+                        self.watchdog.progress("完成强化阶段")
                         continue
 
                 break
@@ -1415,16 +1426,18 @@ class Shop:
             auto.model = "clam"
             while True:
                 # 自动截图
-                if auto.take_screenshot() is None:
+                while auto.take_screenshot() is None:
                     continue
 
-                if retry() is False:
+                if not self.watchdog.check():
                     raise self.RestartGame()
                 if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                     break
                 if auto.click_element("mirror/shop/leave_shop_confirm_assets.png"):
+                    self.watchdog.progress("点击离开确认")
                     continue
                 if auto.click_element("mirror/shop/leave_assets.png"):
+                    self.watchdog.progress("点击离开商店")
                     sleep(1)
                     continue
                 if auto.click_element("mirror/shop/heal_sinner/heal_sinner_return_assets.png"):
