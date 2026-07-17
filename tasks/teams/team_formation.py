@@ -62,10 +62,14 @@ def select_battle_team(num):
     find = False
     while auto.take_screenshot() is None:
         continue
-    if auto.find_element("home/first_prompt_assets.png", model="clam") and auto.find_element(
+    # 离开帮助页面
+    if auto.find_element("home/first_prompt_assets.png", model="clam") and auto.click_element(
         "home/back_assets.png", model="normal"
     ):
-        auto.click_element("home/back_assets.png")
+        pass
+    # 离开人格编辑页面
+    if auto.click_element("teams/identify_filter_assets.png"):
+        pass
     if identify_position := auto.find_element("teams/identify_assets.png", take_screenshot=True):
         position = [identify_position[0] - 2150 * scale, identify_position[1] + 215 * scale]
         auto.mouse_click(1, 1)

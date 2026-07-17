@@ -85,6 +85,11 @@ class Mirror:
         self.shop_total_time = 0
         self.event_total_time = 0
         self.event_times = 0
+        # 统计卡包
+        self.pack = ""
+        self.pack_time = 0
+        self.last_select_theme_pack_time = None
+
 
         self.floor = 0
         self.get_floor_num = True
@@ -249,7 +254,23 @@ class Mirror:
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
                 sleep(2)
-                select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                select_theme_pack_time = time.time()
+                if self.last_select_theme_pack_time is None:
+                    self.pack_time = 0
+                else:
+                    self.pack_time = select_theme_pack_time - self.last_select_theme_pack_time
+                    log.info(f"主题卡包 {self.pack} 持续时间: {self.pack_time:.2f}秒")
+                self.last_select_theme_pack_time = select_theme_pack_time
+
+                selected_pack = select_theme_pack(
+                    self.hard_switch,
+                    self.floor,
+                    self.team_order,
+                    self.use_custom_theme_pack_weight,
+                )
+                if selected_pack is not None:
+                    self.pack = selected_pack
+                log.info(f"当前主题卡包: {self.pack}")
                 self.flow_watchdog.progress(f"完成第{self.floor}层主题包选择")
                 if self.re_formation_each_floor:
                     self.first_battle = True
@@ -1087,6 +1108,7 @@ class Mirror:
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
         try:
+            self.mirror_map.set_node_context(self.pack, self.team_number, self.floor)
             if next_node := self.mirror_map.get_next_step(self.flow_watchdog):
                 if next_node is True:
                     self.flow_watchdog.progress("镜牢地图已进入下一节点")

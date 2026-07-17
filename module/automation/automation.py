@@ -250,51 +250,50 @@ class Automation(metaclass=SingletonMeta):
 
         return True
 
-    def take_screenshot(self, gray: bool = True) -> Image | None:
+    def take_screenshot(self, gray: bool = True, timeout: float = 60.0) -> Image | None:
         """
-        截取当前屏幕并返回图像对象。
+        持续截取当前屏幕，直到成功或超时。
         Args:
             gray (bool): 是否将图像转换为灰度图，默认为True。
+            timeout (float): 截图超时时间（秒），默认为60秒。
         Returns:
-            Image: 截取当前屏幕的图像对象
+            Image | None: 截图成功时返回图像对象，超时时重启
         """
-        start_time = time.time()
-        screenshot_interval_time = cfg.screenshot_interval if cfg.screenshot_interval else 0.85
-        while True:
+        start_time = time.monotonic()
+        # 允许间隔=0
+        screenshot_interval_time = cfg.screenshot_interval
+        while time.monotonic() - start_time < timeout:
             try:
-                if time.time() - self.last_screenshot_time < screenshot_interval_time:
-                    wait_time = max(
-                        screenshot_interval_time - (time.time() - self.last_screenshot_time),
-                        0,
-                    )
-                    time.sleep(wait_time)
+                wait_time = max(0, screenshot_interval_time - (time.monotonic() - self.last_screenshot_time))
+                time.sleep(wait_time)
 
                 result = ScreenShot.take_screenshot(gray)
-                if result:
-                    self.screenshot = result
-                    self.last_screenshot_time = time.time()
-                    return result
+                if result is None:
+                    time.sleep(screenshot_interval_time)
+                    self.last_screenshot_time = time.monotonic()
+                    continue
                 else:
-                    return None
+                    self.screenshot = result
+                    self.last_screenshot_time = time.monotonic()
+                    return result
             except Exception as e:
                 log.error(f"截图失败:{e}")
-            time.sleep(1)
-            if time.time() - start_time > 60:
-                log.error("截图超时，尝试重启游戏")
-                import os
+                time.sleep(screenshot_interval_time)
+        log.error("截图超时，尝试重启游戏")
+        import os
 
-                import win32process
+        import win32process
 
-                from module.game_and_screen import screen
+        from module.game_and_screen import screen
 
-                try:
-                    _, pid = win32process.GetWindowThreadProcessId(screen.handle.hwnd)
-                    os.system(f"taskkill /F /PID {pid}")
-                except:
-                    pass
-                from tasks.base.script_task_scheme import init_game
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(screen.handle.hwnd)
+            os.system(f"taskkill /F /PID {pid}")
+        except:
+            pass
+        from tasks.base.script_task_scheme import init_game
 
-                init_game()
+        init_game()
 
     def find_element(
         self,
