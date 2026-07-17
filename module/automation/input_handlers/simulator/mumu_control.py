@@ -805,7 +805,7 @@ class MumuControl(AbstractInput):
 
         # image = np.ctypeslib.as_array(pixels_pointer, shape=(self.height, self.width, 4))
         image = np.ctypeslib.as_array(pixels_pointer.contents).reshape((self.height, self.width, 4))
-        image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGB)
+        # image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGB)
         cv2.flip(image, 0, dst=image)
         return image
 

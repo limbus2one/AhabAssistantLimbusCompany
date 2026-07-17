@@ -252,7 +252,7 @@ class Automation(metaclass=SingletonMeta):
 
     def take_screenshot(self, gray: bool = True, timeout: float = 60.0) -> Image | None:
         """
-        持续截取当前屏幕，直到成功或超时。
+        持续截取当前屏幕，直到成功或超时。可能会额外等待一个screenshot_interval
         Args:
             gray (bool): 是否将图像转换为灰度图，默认为True。
             timeout (float): 截图超时时间（秒），默认为60秒。
@@ -269,7 +269,6 @@ class Automation(metaclass=SingletonMeta):
 
                 result = ScreenShot.take_screenshot(gray)
                 if result is None:
-                    time.sleep(screenshot_interval_time)
                     self.last_screenshot_time = time.monotonic()
                     continue
                 else:
@@ -278,7 +277,6 @@ class Automation(metaclass=SingletonMeta):
                     return result
             except Exception as e:
                 log.error(f"截图失败:{e}")
-                time.sleep(screenshot_interval_time)
         log.error("截图超时，尝试重启游戏")
         import os
 

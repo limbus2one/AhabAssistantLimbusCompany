@@ -315,7 +315,11 @@ def search_road_from_road_map(
         ):
             return True, True
 
-    result = road_map.onnx(flow_watchdog)
+    result = road_map.onnx(
+        flow_watchdog,
+        theme_pack=theme_pack,
+        floor=floor,
+    )
     if result is None:
         return [], []
 

@@ -9,11 +9,15 @@ from module.logger import log
 from tasks.base.script_task_scheme import init_game
 from tasks.tools.infinite_battle import InfiniteBattles
 from tasks.tools.production_module import ProductionModule
+from tasks.tools.screenshot_benchmark import ScreenshotBenchmarkWorker
 from tasks.tools.screenshot_module import ScreenshotGet
 
 
+ToolName = Literal["battle", "production", "screenshot", "screenshot_benchmark"]
+
+
 class ToolManager:
-    def __init__(self, tool: Literal["battle", "production", "screenshot"]):
+    def __init__(self, tool: ToolName):
         self.tool = tool
         self.initialized = False
         self.w: QObject = None
@@ -26,7 +30,7 @@ class ToolManager:
             self.initialized = None  # 启动失败返回
 
     def run_tools(self):
-        """自动战斗：在主线程事件循环中展示新窗口"""
+        """在主线程事件循环中创建小工具窗口或工作线程。"""
         app = QApplication.instance()
         if app is None:
             # 无运行中的 Qt 应用，无法安全创建窗口
@@ -42,6 +46,8 @@ class ToolManager:
                     self.w = ProductionModule()
                 elif self.tool == "screenshot":
                     self.w = ScreenshotGet()
+                elif self.tool == "screenshot_benchmark":
+                    self.w = ScreenshotBenchmarkWorker()
                 if self.w is None:
                     log.error(f"工具 {self.tool} 未能成功启动")
                     self.initialized = None  # 失败返回
@@ -63,10 +69,10 @@ class ToolManager:
         QTimer.singleShot(0, app, create_and_show)
 
 
-def start(tool: Literal["battle", "production", "screenshot"]):
+def start(tool: ToolName):
     """
     启动工具管理器的方法。
-    :param tool: 启动工具，可以是"battle"。
+    :param tool: 要启动的小工具名称。
     """
     tool_manager = ToolManager(tool)
     tool_gui_thread = threading.Thread(target=tool_manager.run, daemon=True)

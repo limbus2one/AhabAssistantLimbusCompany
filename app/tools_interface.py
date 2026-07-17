@@ -61,11 +61,22 @@ class ToolsInterface(ScrollArea):
             QT_TRANSLATE_NOOP("BasePushSettingCard", "辅助截图小工具"),
             parent=self.tools_group,
         )
+        self.screenshot_benchmark_card = BasePushSettingCard(
+            QT_TRANSLATE_NOOP("BasePushSettingCard", "运行"),
+            FIF.CAFE,
+            QT_TRANSLATE_NOOP("BasePushSettingCard", "截图性能测试"),
+            QT_TRANSLATE_NOOP(
+                "BasePushSettingCard",
+                "仅模拟器；测试60秒，目标30 FPS，结果输出到日志",
+            ),
+            parent=self.tools_group,
+        )
 
     def __initLayout(self):
         self.tools_group.addSettingCard(self.auto_battle_card)
         self.tools_group.addSettingCard(self.auto_production_card)
         self.tools_group.addSettingCard(self.get_screenshot_card)
+        self.tools_group.addSettingCard(self.screenshot_benchmark_card)
 
         self.expand_layout.addWidget(self.tools_group)
 
@@ -89,6 +100,9 @@ class ToolsInterface(ScrollArea):
         )
         self.auto_production_card.clicked.connect(lambda: self._tool_start("production", self.auto_production_card))
         self.get_screenshot_card.clicked.connect(lambda: self._tool_start("screenshot", self.get_screenshot_card))
+        self.screenshot_benchmark_card.clicked.connect(
+            lambda: self._tool_start("screenshot_benchmark", self.screenshot_benchmark_card)
+        )
 
     def _tool_start(self, tool_name: str, card: BasePushSettingCard):
         if tool_name in self.tools:
@@ -140,3 +154,4 @@ class ToolsInterface(ScrollArea):
         self.auto_battle_card.retranslateUi()
         self.auto_production_card.retranslateUi()
         self.get_screenshot_card.retranslateUi()
+        self.screenshot_benchmark_card.retranslateUi()

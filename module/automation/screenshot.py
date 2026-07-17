@@ -326,7 +326,8 @@ class ScreenShot:
 
         if MumuControl.connection_device is not None:
             image = MumuControl.connection_device.screenshot()
-            mumu_image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            mumu_image = image
+            # mumu_image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             mumu_image = Image.fromarray(mumu_image)
             if gray:
                 mumu_image = mumu_image.convert("L")

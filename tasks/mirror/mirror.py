@@ -134,7 +134,7 @@ class Mirror:
             if auto.click_element("mirror/road_to_mir/resume_assets.png"):
                 self.flow_watchdog.progress("继续未完成镜牢")
                 break
-            if auto.click_element("mirror/road_to_mir/enter_mirror_assets.png", threshold=0.78):
+            if auto.click_element("mirror/road_to_mir/enter_mirror_assets.png"):
                 self.flow_watchdog.progress("进入镜牢大厅")
                 break
             infinity_bbox = ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/infinity_mirror_bbox.png"))
@@ -149,7 +149,7 @@ class Mirror:
                 self.flow_watchdog.progress("选择无限镜牢")
             if auto.click_element("mirror/road_to_mir/enter_assets.png"):
                 self.flow_watchdog.progress("确认进入镜牢")
-                sleep(0.5)
+                sleep(1)
                 continue
             if auto.click_element("home/mirror_dungeons_assets.png"):
                 self.flow_watchdog.progress("打开镜牢入口")
@@ -472,6 +472,7 @@ class Mirror:
                 continue
             # 在镜牢界面，进入镜牢
             if auto.click_element("mirror/road_to_mir/enter_assets.png"):
+                sleep(1)
                 if self.road_to_mir() and self.bequest_from_the_previous_game:
                     break
                 continue
@@ -1105,6 +1106,27 @@ class Mirror:
 
         time.sleep(3)
 
+    def _wait_for_node_transition(self, timeout=15):
+        """进入节点后等待路线图退出，避免在页面切换期间再次触发寻路。"""
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < timeout:
+            if auto.take_screenshot() is None:
+                continue
+
+            # 编队页面可能在路线图图例残影消失前已经可以识别。
+            if auto.find_element("teams/identify_assets.png"):
+                self.flow_watchdog.progress("进入战斗编队页面")
+                return True
+            if not auto.find_element("mirror/road_in_mir/legend_assets.png"):
+                self.flow_watchdog.progress("进入节点后离开路线图")
+                return True
+            if not self.flow_watchdog.check():
+                return False
+            sleep(0.25)
+
+        log.warning("进入节点后等待路线图退出超时，交回主循环继续识别")
+        return False
+
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
         try:
@@ -1112,9 +1134,11 @@ class Mirror:
             if next_node := self.mirror_map.get_next_step(self.flow_watchdog):
                 if next_node is True:
                     self.flow_watchdog.progress("镜牢地图已进入下一节点")
+                    self._wait_for_node_transition()
                     return True
                 if self.mirror_map.enter_next_node(next_node):
                     self.flow_watchdog.progress("选择并进入镜牢节点")
+                    self._wait_for_node_transition()
                     return True
             log.debug("未能构建路线图，尝试使用最近节点法重新寻路")
         except Exception as e:
@@ -1127,10 +1151,11 @@ class Mirror:
                     continue
                 if search_road_default_distance(self.flow_watchdog):
                     self.flow_watchdog.progress("完成默认视距寻路")
-                    sleep(1)
+                    self._wait_for_node_transition()
                     return True
                 if auto.click_element("mirror/road_in_mir/enter_assets.png"):
                     self.flow_watchdog.progress("确认进入寻路节点")
+                    self._wait_for_node_transition()
                     return True
                 if not self.flow_watchdog.check():
                     return False
@@ -1142,7 +1167,7 @@ class Mirror:
                         return False
                 if search_road_farthest_distance(self.flow_watchdog):
                     self.flow_watchdog.progress("完成最远视距寻路")
-                    sleep(1)
+                    self._wait_for_node_transition()
                     return True
                 if not self.flow_watchdog.check():
                     return False
@@ -1153,6 +1178,8 @@ class Mirror:
             log.error(f"寻路出错:{e}")
             return False
         if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
+            self.flow_watchdog.progress("确认进入寻路节点")
+            self._wait_for_node_transition()
             return True
         start_time = time.time()
         log.info("寻路出错, 尝试重进镜牢")
@@ -1162,6 +1189,13 @@ class Mirror:
             # 自动截图
             if auto.take_screenshot() is None:
                 continue
+            # 已经离开路线图时，说明节点切换成功。立即返回主循环，
+            # 由主循环识别编队、战斗、事件或商店页面。
+            if auto.find_element("teams/identify_assets.png") or not auto.find_element(
+                "mirror/road_in_mir/legend_assets.png"
+            ):
+                self.flow_watchdog.progress("寻路恢复时确认已离开路线图")
+                return True
             if not self.flow_watchdog.check():
                 return False
             if auto.get_restore_time() is not None:

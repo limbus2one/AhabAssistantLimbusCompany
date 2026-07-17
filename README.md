@@ -255,6 +255,7 @@ git pull
 ## 参与开发
 
 - 参与程序[开发](assets/doc/zh/develop_guide.md)（施工中）
+- 输入延迟分析：参考 [输入操作 Sleep 审计](assets/doc/zh/input_operation_sleep.md)
 - 多语言 (i18n)：参考 [多语言支持](assets/doc/zh/translateGuide.md)
 
 ---

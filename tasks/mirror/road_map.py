@@ -1,5 +1,8 @@
 import heapq
+import re
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from time import sleep
 
 import cv2
@@ -13,6 +16,7 @@ Y_GAP = 437
 VISIBLE_COLUMN_COUNT = 4
 CONNECTION_X_RADIUS = 150
 CONNECTION_Y_RADIUS = 120
+ONNX_SCREENSHOT_DIR = Path("logs/mirror_analysis/screenshots")
 
 NODE_WEIGHT = {
     "battle": 30,
@@ -163,7 +167,32 @@ def move_bus(bus_position, bus_row):
     return [bus_position, bus_row]
 
 
-def onnx(flow_watchdog=None):
+def _safe_filename_component(value, fallback="unknown"):
+    """将镜牢上下文转换为可用于 Windows 文件名的文本。"""
+    text = str(value).strip() if value is not None else ""
+    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", text).strip(" .")
+    return text or fallback
+
+
+def _save_onnx_screenshot(image, theme_pack="", floor=None):
+    """保存实际送入 ONNX 的截图；失败时不影响寻路。"""
+    theme_name = _safe_filename_component(theme_pack)
+    floor_name = _safe_filename_component(floor)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    output_path = ONNX_SCREENSHOT_DIR / (
+        f"mirror_{theme_name}_floor_{floor_name}_{timestamp}.png"
+    )
+    try:
+        ONNX_SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+        image.save(output_path, format="PNG")
+        log.info(f"ONNX 输入截图已保存: {output_path}")
+        return output_path
+    except Exception as error:
+        log.warning(f"保存 ONNX 输入截图失败: {error}")
+        return None
+
+
+def onnx(flow_watchdog=None, theme_pack="", floor=None):
     """完成 bus 定位和画面归一化，然后运行 ONNX 节点识别。"""
     bus_position, bus_row = find_bus()
     if bus_position is None or bus_row is None:
@@ -181,6 +210,7 @@ def onnx(flow_watchdog=None):
     if auto.take_screenshot(gray=False) is None:
         log.warning("拖动 bus 后截图失败")
         return None
+    _save_onnx_screenshot(auto.screenshot, theme_pack=theme_pack, floor=floor)
     points = identify_nodes(bus_position[0], image=auto.screenshot)
     if not points:
         log.warning("ONNX 未识别到镜牢节点")
@@ -215,7 +245,7 @@ def identify_nodes(bus_x, image=None):
     square[:height, :width] = original[:, :, :3]
     image_scale = length / 640
     blob = cv2.dnn.blobFromImage(
-        square, scalefactor=1 / 255, size=(640, 640), swapRB=True
+        square, scalefactor=1 / 255, size=(640, 640), swapRB=False
     )
 
     session = ort.InferenceSession("./assets/model/best.onnx")
@@ -225,20 +255,40 @@ def identify_nodes(bus_x, image=None):
     boxes = []
     scores = []
     class_ids = []
+    raw_candidates = []
     for output in outputs:
         _, max_score, _, (_, class_id) = cv2.minMaxLoc(output[4:])
+        raw_box = [
+            output[0] - output[2] / 2,
+            output[1] - output[3] / 2,
+            output[2],
+            output[3],
+        ]
+        raw_center = (
+            int((raw_box[0] + raw_box[2] / 2) * image_scale),
+            int((raw_box[1] + raw_box[3] / 2) * image_scale),
+        )
+        screen_box = tuple(int(value * image_scale) for value in raw_box)
+        raw_candidates.append(
+            (float(max_score), classes[class_id], raw_center, screen_box)
+        )
         if max_score < 0.25:
             continue
-        boxes.append(
-            [
-                output[0] - output[2] / 2,
-                output[1] - output[3] / 2,
-                output[2],
-                output[3],
-            ]
-        )
+        boxes.append(raw_box)
         scores.append(float(max_score))
         class_ids.append(class_id)
+
+    top_candidates = [
+        [node_type, round(score, 4), center, box]
+        for score, node_type, center, box in sorted(
+            raw_candidates, key=lambda candidate: candidate[0], reverse=True
+        )[:50]
+    ]
+    log.info(
+        "ONNX 过滤前置信度前%d候选框（类别, 置信度, 中心坐标, 边框x/y/w/h）: %s",
+        len(top_candidates),
+        top_candidates,
+    )
 
     result_boxes = cv2.dnn.NMSBoxes(boxes, scores, 0, 0.4, 0.5)
     node_list = []
