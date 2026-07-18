@@ -9,7 +9,6 @@ from module.config import TeamSetting, cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from module.my_error.my_error import (
-    InputAttributeError,
     backMainWinError,
     cannotOperateGameError,
     unableToFindTeamError,
@@ -23,11 +22,7 @@ from tasks.battle import battle
 from tasks.event import event_handling
 from tasks.mirror.in_shop import Shop
 from tasks.mirror.reward_card import get_reward_card
-from tasks.mirror.search_road import (
-    MirrorMap,
-    search_road_default_distance,
-    search_road_farthest_distance,
-)
+from tasks.mirror.search_road import MirrorMap
 from tasks.mirror.select_theme_pack import select_theme_pack
 from tasks.teams.team_formation import check_team, load_team_code_in_game, select_battle_team, team_formation
 from utils.image_utils import ImageUtils
@@ -88,7 +83,13 @@ class Mirror:
         self.floor_times = [-9999.0 for i in range(5)]  # 负值代表缺失值
         self.LOOP_COUNT = 250
 
-        self.mirror_map = MirrorMap(hard_mode=self.hard_switch)
+        # MirrorMap 使用游戏内编队编号 team_number 保存寻路上下文；team_order 只是
+        # AALC 的配置方案序号，不能代替实际进入战斗时选择的编队编号。
+        self.mirror_map = MirrorMap(
+            floor=self.floor,
+            hard_mode=self.hard_switch,
+            team_number=self.team_number,
+        )
 
         self.pass_coins = None
 
@@ -236,7 +237,15 @@ class Mirror:
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
                 sleep(2)
-                select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                # 选卡函数返回实际命中的卡包名称。名称先写入 MirrorMap，之后识别出
+                # 新楼层时再由 refresh_floor() 更新楼层；下一次构图会把两者复制到 Node。
+                theme_pack_name = select_theme_pack(
+                    self.hard_switch,
+                    self.floor,
+                    self.team_order,
+                    self.use_custom_theme_pack_weight,
+                )
+                self.mirror_map.refresh_theme_pack(theme_pack_name)
                 if self.re_formation_each_floor:
                     self.first_battle = True
                 try:
@@ -1042,74 +1051,20 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
-        try:
-            if next_node := self.mirror_map.get_next_step():
-                if next_node is True:
-                    return True
-                if self.mirror_map.enter_next_node(next_node):
-                    return True
-            log.debug("未能构建路线图，尝试使用最近节点法重新寻路")
-        except Exception as e:
-            log.debug(f"使用onnx模型寻路出错:{e}")
-        finally:
-            auto.mouse_to_blank()
-        try:
-            for _ in range(3):
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_default_distance():
-                    sleep(1)
-                    return True
-                if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                    return True
-                if retry() is False:
-                    return False
-            for _ in range(3):
-                if cfg.background_click:
-                    continue
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_farthest_distance():
-                    sleep(1)
-                    return True
-                if retry() is False:
-                    return False
-        except InputAttributeError as e:
-            log.error(f"寻路出错:{e}, 尝试重进镜牢")
-            pass
-        except Exception as e:
-            log.error(f"寻路出错:{e}")
-            return False
-        if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-            return True
-        start_time = time.time()
-        log.info("寻路出错, 尝试重进镜牢")
-        while True:
-            from tasks.base.retry import check_times
+        if bus := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
+            auto.mouse_action_with_pos(bus, interval=1)
 
-            # 自动截图
-            if auto.take_screenshot() is None:
-                continue
-            if auto.get_restore_time() is not None:
-                start_time = max(start_time, auto.get_restore_time())
-            if check_times(start_time):
-                back_init_menu()
-                return False
-            auto.mouse_to_blank()
-            if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                return True
-            if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
-                sleep(0.5)
-                break
-            if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
-                break
-            if auto.click_element("mirror/road_in_mir/to_window_assets.png"):
-                continue
-            if auto.click_element("mirror/road_in_mir/setting_assets.png"):
-                sleep(1)
-                continue
-            if retry() is False:
-                return False
+        if auto.click_element(
+            "mirror/road_in_mir/enter_assets.png",
+            take_screenshot=True,
+        ):
+            return True
+
+        log.debug("使用路线图寻路")
+        next_node_direction = self.mirror_map.get_next_node_direction()
+        if not next_node_direction:
+            return False
+        return self.mirror_map.enter_next_node(next_node_direction)
 
     def re_start(self):
         while True:

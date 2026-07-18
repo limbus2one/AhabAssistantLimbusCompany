@@ -1,4 +1,6 @@
-import time
+import heapq
+from enum import Enum
+from functools import lru_cache
 from time import sleep
 
 import cv2
@@ -6,361 +8,541 @@ import cv2
 from module.automation import auto
 from module.config import cfg
 from module.logger import log
-from module.my_error.my_error import InputAttributeError
-from tasks.base.retry import retry
+
+
+class Position(Enum):
+    # 三个枚举值表示“Bus 在三行地图中的标准屏幕位置”，不是下一步移动方向。
+    UP = "up"
+    MID = "mid"
+    DOWN = "down"
+
+
+# 1440 高度基准下，相邻列和相邻行的节点中心距离；实际使用时按窗口高度缩放。
+X_GAP = 520
+Y_GAP = 437
+# ONNX 画面通常只能完整覆盖四列，普通镜牢缺失的末尾固定节点由代码补齐。
+VISIBLE_COLUMN_COUNT = 4
+# 连线模板只在两节点中点附近搜索，缩小范围可降低误匹配和模板匹配耗时。
+CONNECTION_X_RADIUS = 150
+CONNECTION_Y_RADIUS = 120
+# 为三个候选画面统一 Bus 的 X 基准和中间行 Y 基准。
+BUS_TARGET_X = 120
+BUS_TARGET_Y = 700
+# 探测顺序固定为上、中、下；并列选择顺序单独由 BUS_TIE_PRIORITY 决定。
+BUS_PROBE_ORDER = (Position.UP, Position.MID, Position.DOWN)
+BUS_TIE_PRIORITY = {
+    Position.MID: 0,
+    Position.UP: 1,
+    Position.DOWN: 2,
+}
+
+
+# Dijkstra 会累加“进入节点”的代价，因此数值越小越优先选择。
+NODE_WEIGHT = {
+    "battle": 30,
+    "boss_battle": 999,
+    "event": 18,
+    "hard_battle": 75,
+    "hard_battle_2": 100,
+    "shop": 1,
+    "small_boss_battle": 999,
+    "bus": 0,
+}
+
+
+class Node:
+    """镜牢地图中的一个节点及其运行上下文快照。
+
+    `coord` 和 `screen_pos` 分别用于逻辑寻路与实际点击；`type` 和 `value`
+    用于计算路线权重。`team_number`、`floor`、`theme_pack_name` 是构图当时
+    从 `MirrorMap` 复制来的上下文。它们存放在每个节点中，是为了让节点在
+    离开当前楼层或 `MirrorMap` 更新后，仍能明确属于哪次编队、楼层和卡包。
+
+    Args:
+        coord: 以 Bus 为 `(0, 0)` 的逻辑网格坐标，格式为 `(列, 行)`。
+        node_type: ONNX 识别出的节点类型，例如 `event`、`battle` 或 `shop`。
+        screen_pos: 节点中心在当前游戏客户区中的像素坐标。
+        value: 自定义寻路权重；为 `None` 时从 `NODE_WEIGHT` 读取默认值。
+        synthetic: 是否为代码补出的虚拟节点，而不是 ONNX 直接识别的节点。
+        team_number: 游戏内编队编号，即 `TeamSetting.team_number`。
+        floor: 构建该节点时所在的镜牢楼层。
+        theme_pack_name: 构建该节点时当前楼层选择的卡包名称。
+    """
+
+    def __init__(
+        self,
+        coord,
+        node_type,
+        screen_pos,
+        value=None,
+        synthetic=False,
+        team_number=None,
+        floor=None,
+        theme_pack_name=None,
+    ):
+        # 寻路坐标与屏幕坐标用途不同：前者参与连边和方向计算，后者用于点击。
+        self.coord = coord
+        self.type = node_type
+        self.screen_pos = screen_pos
+        self.value = NODE_WEIGHT.get(node_type, 999) if value is None else value
+        self.next = []
+        self.synthetic = synthetic
+
+        # 保存构图时的运行上下文。这里按值复制，不引用 MirrorMap，避免后续换层
+        # 或换卡包时，已经生成的历史节点被新的运行状态覆盖。
+        self.team_number = team_number
+        self.floor = floor
+        self.theme_pack_name = theme_pack_name
+
+    def add_next(self, next_node):
+        # 同一条连线可能被重复检查；去重可以避免 Dijkstra 重复扩展相同后继。
+        if next_node not in self.next:
+            self.next.append(next_node)
+
+    def __repr__(self):
+        # 只输出后继坐标，不递归输出 Node 对象，防止调试日志形成巨大嵌套结构。
+        next_coords = [node.coord for node in self.next]
+        return (
+            f"Node(coord={self.coord}, type={self.type!r}, value={self.value}, "
+            f"team_number={self.team_number}, floor={self.floor}, "
+            f"theme_pack_name={self.theme_pack_name!r}, next={next_coords})"
+        )
+
+
+def get_node_direction(current_node, next_node):
+    """根据两个相邻节点的行差返回 U/M/D。"""
+    # 行号向下增大：-1 是上方节点，0 是同一行，+1 是下方节点。
+    row_delta = next_node.coord[1] - current_node.coord[1]
+    # 相邻列正常只会出现 -1/0/+1；其他差值说明节点吸附或连边结果无效。
+    return {-1: "U", 0: "M", 1: "D"}.get(row_delta)
+
+
+def _wait_page_load(targets, model=None):
+    """兼容当前分支自动化层：持续截图，直到任一目标出现。"""
+    while True:
+        # take_screenshot() 自身遵守配置中的截图间隔；失败时直接进入下一轮重试。
+        if auto.take_screenshot() is None:
+            continue
+        # 多个目标共享同一张截图，避免为每个页面标志分别截图。
+        for target in targets:
+            if auto.find_element(target, model=model):
+                # 返回命中的资源名，让调用者区分“确认按钮”和“事件入口”等页面。
+                return target
 
 
 class MirrorMap:
-    def __init__(self, floor=1, hard_mode=False):
+    """管理当前镜牢运行上下文、ONNX 节点图和最优路线缓存。
+
+    `MirrorMap` 保存的是“当前状态”，而 `Node` 保存的是“构图时的快照”。
+    当楼层或卡包变化时，本对象更新对应字段并清空旧路线；下次构图时，再把
+    当前 `team_number`、`floor`、`theme_pack_name` 复制到所有新节点。
+
+    Args:
+        floor: 当前镜牢楼层；创建 `Mirror` 时为 0，识别楼层后更新为 1—5。
+        hard_mode: 是否为困难镜牢，决定是否需要补齐固定商店和 BOSS 节点。
+        team_number: 游戏内实际选择的编队编号，不是 AALC 配置方案序号。
+        theme_pack_name: 当前楼层已选择的卡包名称；尚未选择时为 `None`。
+    """
+
+    def __init__(self, floor=1, hard_mode=False, team_number=None, theme_pack_name=None):
+        # 运行上下文：构图时会原样传给 search_road_from_road_map()。
         self.floor = floor
-        self.floor_map = []
-        self.map = {}
         self.hard_mode = hard_mode
+        self.team_number = team_number
+        self.theme_pack_name = theme_pack_name
 
-    def get_next_step(self):
-        re_identify = False
-        if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
-            if next_step is not None:
-                return next_step
-            else:
-                re_identify = True
-        else:
-            re_identify = True
+        # floor_route 是按顺序执行的最优节点路线；floor_map 是坐标到节点的完整映射。
+        self.floor_route = []
+        self.floor_map = {}
 
-        if re_identify is True:
-            self.floor_map, self.floor_nodes = search_road_from_road_map(hard_mode=self.hard_mode)
-            if self.floor_map is True and self.floor_nodes is True:
-                return True
-            if not isinstance(self.floor_map, list):
-                self.floor_map = list(self.floor_map)
-            self.map[f"floor{self.floor}"] = [self.floor_map[:], self.floor_nodes[:]]
+    def get_next_node_direction(self):
+        """返回最优路线中下一个节点的 U/M/D 方向。
 
-        if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
-            return next_step
-        else:
-            return False
+        路线至少需要包含“当前位置 + 下一节点”两个节点。缓存不足时重新识别整张
+        地图；ONNX 构图失败时退化为只匹配 Bus 到首列节点的三种连线模板。
+        """
+        if len(self.floor_route) < 2:
+            try:
+                # 缓存不足时才重新截图构图。运行上下文会继续传入 generate_map()，
+                # 最终固化在此次创建的每个 Node 上。
+                floor_route, floor_map = search_road_from_road_map(
+                    hard_mode=self.hard_mode,
+                    team_number=self.team_number,
+                    floor=self.floor,
+                    theme_pack_name=self.theme_pack_name,
+                )
+            except Exception as error:
+                # 模型加载、截图或构图任一阶段异常都不能继续使用可能残缺的缓存。
+                log.warning(f"镜牢 ONNX 寻路出错: {error}")
+                self._clear_floor_data()
+                return self._find_first_node_direction()
 
-    def enter_next_node(self, next_step):
+            if len(floor_route) < 2 or not floor_map:
+                # 有效路线必须至少含 Bus 和下一节点；否则只能退化为首列连线识别。
+                self._clear_floor_data()
+                log.warning("镜牢 ONNX 未识别到有效路线，直接识别首个方向")
+                return self._find_first_node_direction()
+            # 复制容器，避免后续 pop() 消费路线时修改构图函数持有的原始返回对象。
+            self.floor_route = list(floor_route)
+            self.floor_map = dict(floor_map)
+
+        # floor_route[0] 始终代表当前 Bus/已到达节点，[1] 才是本次要进入的节点。
+        next_node_direction = get_node_direction(
+            self.floor_route[0],
+            self.floor_route[1],
+        )
+        if next_node_direction is None:
+            # 无效方向不能继续点击；丢弃整条缓存后只尝试识别当前首列连线。
+            log.warning("缓存路线方向无效，直接识别首个方向")
+            self._clear_floor_data()
+            return self._find_first_node_direction()
+        return next_node_direction
+
+    def enter_next_node(self, next_node_direction):
+        """按 U/M/D 选择、确认并进入下一节点，成功后才消费路线缓存。
+
+        键盘模式发送方向键；鼠标模式根据 Bus 坐标和固定网格间距计算目标位置。
+        点击后等待“进入按钮”或“事件入口”，再等待战斗编队页或事件页完成加载。
+        """
+
+        # 第一步只负责在地图上选择目标节点，让 Bus 沿连线移动过去。
         if cfg.mirror_keyboard_navigation:
-            log.debug(f"通过键盘按键寻路: {next_step}")
-            if next_step == "U":
-                auto.key_press("up")
-            elif next_step == "D":
-                auto.key_press("down")
-            elif next_step == "M":
-                auto.key_press("right")
-            sleep(0.5)
-            auto.key_press("enter")
-            sleep(1.25)
-            if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                return True
-            return True
+            # 游戏键位中，中路通过向右键选择，而不是不存在的“middle”键。
+            key = {"U": "up", "M": "right", "D": "down"}[next_node_direction]
+            auto.key_press(key)
+        else:
+            # 鼠标模式先重新定位 Bus，避免使用构图时可能已经过期的屏幕坐标。
+            next_node_position = self._get_next_node_position(next_node_direction)
+            auto.mouse_action_with_pos(next_node_position)
 
-        if next_position := self._get_next_position(next_step):
-            auto.mouse_click(next_position[0], next_position[1])
-            sleep(1.25)
-            if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                return True
-        if auto.click_element("mirror/mybus_default_distance.png", take_screenshot=True):
-            sleep(1.25)
-            if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                return True
-        return False
+         #等待进入enter节点页面
+        sleep(0.75)
+        if auto.click_element("mirror/road_in_mir/enter_assets.png"):
+            pass
+        else:
+            # 如果没有enter界面，说明当前bus所在节点还没有完成，进入当前节点
+            auto.click_element("mirror/mybus_default_distance.png")
+            sleep(0.75)
+            auto.click_element("mirror/road_in_mir/enter_assets.png")
+        # 节点选择后，战斗/商店会出现进入按钮，事件则直接出现事件入口标志。
+        target = _wait_page_load(
+            ["mirror/road_in_mir/enter_assets.png", "mirror/road_in_mir/event_in_assets.png"],
+        )
+        # 战斗或商店还需要第二次确认；事件节点已经进入，不需要额外点击。
+        if target == "mirror/road_in_mir/enter_assets.png":
+            if cfg.mirror_keyboard_navigation:
+                auto.key_press("enter")
+            else:
+                auto.click_element("mirror/road_in_mir/enter_assets.png")
 
-    def _get_next_position(self, direction):
-        scale = cfg.set_win_size / 1440
-        three_roads = [
-            [500 * scale, 50 * scale],
-            [500 * scale, 450 * scale],
-            [500 * scale, -400 * scale],
-        ]
-        if direction == "M":
-            position = 0
-        elif direction == "D":
-            position = 1
-        elif direction == "U":
-            position = 2
-        for _ in range(3):
-            if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-                return [
-                    bus_position[0] + three_roads[position][0],
-                    bus_position[1] + three_roads[position][1],
-                ]
-            sleep(1)
-        return None
+        # 商店停留在商店入口，由后续商店流程处理；战斗和事件需等待内部页面稳定。
+        next_node = self._get_next_node()
+        if next_node is not None and next_node.type != "shop":
+            _wait_page_load(
+                [
+                    "teams/identify_assets.png",
+                    "mirror/road_in_mir/event_in_assets.png",
+                ],
+                model="clam",
+            )
+        # 必须等页面确实进入后再弹出路线首节点；提前消费会让失败重试跳过节点。
+        self._consume_route_node()
+        return True
+
+    def _get_next_node(self):
+        """返回路线中的下一个节点；无路线缓存时返回 None。"""
+        # 索引 0 是当前位置，所以路线少于两个元素时没有可进入的下一节点。
+        if len(self.floor_route) < 2:
+            return None
+        return self.floor_route[1]
 
     def refresh_floor(self, floor):
+        """更新当前楼层，并清空不能跨楼层复用的节点图和路线。"""
+        # 重复识别出同一楼层不需要破坏仍可用的路线缓存。
         if self.floor == floor:
             return
         log.debug(f"镜牢地图楼层缓存更新: {self.floor} -> {floor}")
         self.floor = floor
-        self.floor_map = []
+        self._clear_floor_data()
+
+    def refresh_theme_pack(self, theme_pack_name):
+        """更新卡包名称，并清空属于上一卡包的节点图和路线。
+
+        `None` 或空字符串表示选卡函数没有取得有效结果，此时保留原名称，避免
+        因一次临时识别失败而丢失已经确认的卡包上下文。
+        """
+        # 空名称代表选卡失败；相同名称代表上下文未变化，两种情况都无需重建缓存。
+        if not theme_pack_name or self.theme_pack_name == theme_pack_name:
+            return
+        log.debug(f"镜牢卡包缓存更新: {self.theme_pack_name} -> {theme_pack_name}")
+        self.theme_pack_name = theme_pack_name
+        self._clear_floor_data()
+
+    def _get_next_node_position(self, next_node_direction):
+        """返回 bus 右侧节点的屏幕坐标。"""
+        scale = cfg.set_win_size / 1440
+        # 下一节点总在右侧一列；U/M/D 只影响相对 Bus 的纵向偏移。
+        offsets = {
+            "M": (X_GAP * scale, 0),
+            "D": (X_GAP * scale, Y_GAP * scale),
+            "U": (X_GAP * scale, -Y_GAP * scale),
+        }
+        # 地图动画期间模板可能短暂消失，最多重新截图定位三次。
+        for _ in range(3):
+            bus_position = auto.find_element(
+                "mirror/mybus_default_distance.png",
+                take_screenshot=True,
+            )
+            if bus_position:
+                dx, dy = offsets[next_node_direction]
+                # 返回绝对屏幕坐标，交给 automation 的统一鼠标操作接口。
+                return bus_position[0] + dx, bus_position[1] + dy
+        return None
+
+    def _consume_route_node(self):
+        # 移除旧“当前位置”，使原下一节点在下一次调用时成为新的索引 0。
+        if self.floor_route:
+            self.floor_route.pop(0)
+
+    def _find_first_node_direction(self):
+        # 退化策略不构建全图，只需要当前 Bus 坐标和三张首列连线模板。
+        bus_position = auto.find_element(
+            "mirror/mybus_default_distance.png",
+            take_screenshot=True,
+        )
+        if not bus_position:
+            return False
+        return find_first_direction(bus_position)
+
+    def _clear_floor_data(self):
+        # 节点图和路线必须同时清空，避免路线与另一张地图的 Node 混用。
+        self.floor_route = []
+        self.floor_map = {}
 
 
-def get_node_weight(x, y):
-    scale = cfg.set_win_size / 1440
-    road_node_bbox = (
-        x - 125 * scale,
-        y - 125 * scale,
-        x + 125 * scale,
-        y + 125 * scale,
+def search_road_from_road_map(hard_mode=False, team_number=None, floor=None, theme_pack_name=None):
+    """识别当前地图、构建带运行上下文的节点图，并计算最低权重路线。
+
+    Args:
+        hard_mode: 是否使用困难镜牢构图规则。
+        team_number: 游戏内编队编号，写入本次生成的所有节点。
+        floor: 当前镜牢楼层，写入本次生成的所有节点。
+        theme_pack_name: 当前卡包名称，写入本次生成的所有节点。
+
+    Returns:
+        `(floor_route, floor_map)`：前者为从 Bus 开始的最优节点列表，后者为
+        `{逻辑坐标: Node}` 完整节点图。识别或构图失败时返回 `([], {})`。
+    """
+
+    # 先选择 ONNX 可见节点最多的标准画面；返回的 points 与该画面的坐标系一致。
+    bus_result = find_bus()
+    if not bus_result:
+        # Bus 无法定位或三个候选画面都无节点时，不能建立逻辑原点。
+        return [], {}
+
+    # bus_row 只用于候选画面选择，构图只需要最终 Bus 坐标和节点列表。
+    bus_position, _, points = bus_result
+    if bus_position is None or not points:
+        return [], {}
+
+    # 将像素检测结果吸附为逻辑网格，并用模板确认相邻节点间是否真的存在连线。
+    floor_map = generate_map(
+        points,
+        bus_position,
+        hard_mode=hard_mode,
+        team_number=team_number,
+        floor=floor,
+        theme_pack_name=theme_pack_name,
     )
-    if auto.find_feature_element("mirror/road_in_mir/shop.png", road_node_bbox, 50):
-        return 3
-    elif auto.find_feature_element("mirror/road_in_mir/event.png", road_node_bbox):
-        return 3
-    elif auto.find_feature_element(
-        "mirror/road_in_mir/battle.png",
-        road_node_bbox,
-    ):
-        return 2
-    elif auto.find_feature_element("mirror/road_in_mir/hard_battle.png", road_node_bbox):
-        return 1
-    elif auto.find_feature_element("mirror/road_in_mir/hard_battle2.png", road_node_bbox):
-        return 0
-    return -5
+    # 节点权重越低越优先；Dijkstra 返回累计代价最低的完整可达路线。
+    min_weight, floor_route = find_min_weight_route(floor_map)
+    if not floor_route:
+        log.warning("ONNX 未能构建可达路线")
+        return [], {}
+
+    # 日志同时输出操作方向和节点类型，方便对照实际点击结果排查识别错误。
+    directions, node_types = route_to_directions(floor_route)
+
+    log.info(f"镜牢 ONNX 路线: 权重={min_weight}, 方向={directions}, 节点={node_types}")
+    return floor_route, floor_map
 
 
-# 在默认缩放情况下，进行镜牢寻路
-def search_road_default_distance():
-    start_time = time.time()
-    scale = cfg.set_win_size / 1440
-    three_roads = [
-        [500 * scale, 50 * scale],
-        [500 * scale, 450 * scale],
-        [500 * scale, -400 * scale],
-    ]
+def find_bus(take_screenshot=True):
+    """在上、中、下三个标准位置识别节点，选择可见节点数最多的位置。
 
-    auto.mouse_to_blank()
-    while auto.take_screenshot() is None:
-        continue
-    if retry() is False:
+    流程为：定位 Bus -> 依次拖到 UP/MID/DOWN -> 每个位置调用纯识别 `onnx()`
+    -> 比较有效节点数。数量相同时优先 MID，其次 UP、DOWN。若胜出位置不是
+    最后探测的 DOWN，会把画面拖回胜出位置并再次识别，确保返回节点坐标与后续
+    连线模板使用的当前画面一致。
+
+    Returns:
+        `(bus_position, bus_row, points)`，分别为胜出位置的 Bus 像素坐标、标准行
+        枚举和 ONNX 节点列表。Bus 丢失或三个位置均无节点时返回 `None`。
+    """
+    # 初次定位允许由调用者决定是否截图；之后每次移动都会强制取得新截图。
+    bus_position = auto.find_element(
+        "mirror/mybus_default_distance.png",
+        take_screenshot=take_screenshot,
+    )
+    if bus_position is None:
+        return None
+
+    # candidates 保存每个成功探测位置的“标准行、Bus 坐标、节点列表”。
+    candidates = []
+    current_bus_position = bus_position
+    for bus_row in BUS_PROBE_ORDER:
+        # 每次都从上一次实际匹配到的 Bus 坐标开始拖动，避免累计理论坐标误差。
+        moved_bus_position = move_bus(current_bus_position, bus_row)
+        if moved_bus_position is None:
+            log.warning(f"bus 无法移动到 {bus_row.value} 位置")
+            # 拖动可能成功但动画导致首次复查失败；再单独截图尝试恢复当前位置。
+            current_bus_position = auto.find_element(
+                "mirror/mybus_default_distance.png",
+                take_screenshot=True,
+            )
+            if current_bus_position is None:
+                # Bus 已完全丢失，后续候选也没有可靠拖动起点，只能终止探测。
+                break
+            continue
+        current_bus_position = moved_bus_position
+
+        # onnx() 不执行拖动，只对当前候选画面截图并调用 identify_nodes()。
+        onnx_result = onnx(current_bus_position)
+        points = onnx_result[1] if onnx_result else []
+        candidates.append((bus_row, current_bus_position, points))
+        log.debug(f"bus {bus_row.value} 位置识别到 {len(points)} 个节点")
+
+    if not candidates:
+        # 三次移动全部失败，没有任何可用于构图的候选画面。
+        return None
+
+    # max() 先比较节点数量；数量相同则使用负优先级，使 MID(0) 优先于 UP/DOWN。
+    best_row, best_bus_position, best_points = max(
+        candidates,
+        key=lambda candidate: (
+            len(candidate[2]),
+            -BUS_TIE_PRIORITY[candidate[0]],
+        ),
+    )
+    if not best_points:
+        # 候选存在但节点数都为 0；仅有 Bus 无法计算下一步路线。
+        log.warning("bus 三个位置均未识别到节点")
+        return None
+
+    # 探测结束时画面停在最后一个候选位置；回到胜出位置，确保节点坐标与后续连线截图一致。
+    if current_bus_position != best_bus_position:
+        # 回位使用当前实际 Bus 坐标，而不是最初坐标，避免重复拖动造成偏移。
+        best_bus_position = move_bus(current_bus_position, best_row)
+        if best_bus_position is None:
+            return None
+        # 回位后的截图可能与首次探测存在动画差异，因此以重新识别结果为准。
+        final_result = onnx(best_bus_position)
+        if final_result and final_result[1]:
+            best_points = final_result[1]
+
+    log.info(f"bus 选择 {best_row.value} 位置，识别到 {len(best_points)} 个节点")
+    return best_bus_position, best_row, best_points
+
+
+def find_first_direction(bus_position):
+    """按上、中、下顺序识别 bus 到相邻节点的第一条连线。"""
+    # 退化策略仍需要一张当前截图；Bus 或截图无效时无法计算连线搜索区域。
+    if not bus_position or auto.take_screenshot() is None:
         return False
-    # 判断中、下两个节点是否有权重3的节点，有的话直接选择进入
-    node_weight = {}
-    if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        for road in three_roads[:2]:
-            node_x = bus_position[0] + road[0]
-            node_y = bus_position[1] + road[1]
-            weight = get_node_weight(node_x, node_y)
-            node_weight[(node_x, node_y)] = weight
-        max_weight = max(node_weight.values())
-        if max_weight == 3:
-            road_list = sorted(node_weight, key=node_weight.get, reverse=True)
-            road = road_list[0]
-            if 0 < road[0] < cfg.set_win_size * 16 / 9 and 0 < road[1] < cfg.set_win_size:
-                auto.mouse_click(road[0], road[1])
-                sleep(0.75)
-                if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                    return True
-    # 如果中、下两个节点没有权重3的节点，查看所有节点的权重，选择权重最大的节点进入
-    if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        from tasks.base.retry import check_times
 
-        while True:
-            if auto.get_restore_time() is not None:
-                start_time = max(start_time, auto.get_restore_time())
-            if check_times(start_time, logs=False):
-                from tasks.base.back_init_menu import back_init_menu
-
-                back_init_menu()
-                return False
-            if 600 * scale < bus_position[1] < 700 * scale:
-                break
-            dy = 650 * scale - bus_position[1]
-            auto.mouse_drag(bus_position[0], bus_position[1], drag_time=1.5, dx=0, dy=dy)
-            sleep(1)
-            auto.mouse_to_blank()
-
-            bus_position = auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True)
-            if bus_position is None:
-                break
-
-    node_list = []
-    if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        for road in three_roads[:2]:
-            node_x = bus_position[0] + road[0]
-            node_y = bus_position[1] + road[1]
-            node_list.append((node_x, node_y))
-        old_weight = node_weight.values()
-        all_node_weight = dict(zip(node_list, old_weight))
-        for road in three_roads[2:]:
-            node_x = bus_position[0] + road[0]
-            node_y = bus_position[1] + road[1]
-            weight = get_node_weight(node_x, node_y)
-            all_node_weight[(node_x, node_y)] = weight
-        all_node_weight[bus_position[0], bus_position[1]] = -6
-        # 根据all_node_weight，按照各个键的值，从大到小以生成只有键的新的列表
-        road_list = sorted(all_node_weight, key=all_node_weight.get, reverse=True)
-        for road in road_list:
-            if 0 < road[0] < cfg.set_win_size * 16 / 9 and 0 < road[1] < cfg.set_win_size:
-                auto.mouse_click(road[0], road[1])
-                sleep(0.75)
-                if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                    return True
+    scale = cfg.set_win_size / 1440
+    # 元组内容依次为：返回方向、模板名、下一节点相对 Bus 的近似像素偏移。
+    direction_targets = (
+        ("U", "up_arr", (500, -400)),
+        ("M", "mid_arr", (500, 50)),
+        ("D", "down_arr", (500, 450)),
+    )
+    for direction, template, (node_dx, node_dy) in direction_targets:
+        # 连线模板位于 Bus 和下一节点之间，所以搜索中心取相对偏移的一半。
+        connection_midpoint = (
+            bus_position[0] + node_dx * scale / 2,
+            bus_position[1] + node_dy * scale / 2,
+        )
+        # 只搜索连线中点附近的小 ROI，避免其他列的相似箭头造成误判。
+        crop = _crop_around(
+            connection_midpoint,
+            CONNECTION_X_RADIUS * scale,
+            CONNECTION_Y_RADIUS * scale,
+        )
+        if auto.find_element(
+            f"mirror/road_in_mir/{template}.png",
+            threshold=0.75,
+            my_crop=crop,
+            model="aggressive",
+        ):
+            # 按 U/M/D 顺序返回第一条匹配连线；该策略仅在全图构建失败时使用。
+            return direction
     return False
 
 
-# 如果默认缩放无法镜牢寻路，进行滚轮缩放后继续寻路
-def search_road_farthest_distance():
+def move_bus(bus_position, bus_row):
+    """将 Bus 拖到指定的上、中、下标准屏幕位置。
+
+    标准 X 为 120；标准 MID Y 为 700，UP/DOWN 分别相差一个 `Y_GAP`。
+    所有基准值按窗口高度缩放。拖动后重新截图匹配 Bus，返回其实际落点，而不是
+    直接假定拖动终点准确，从而吸收游戏动画或输入误差。
+    """
+    # 所有标准坐标以 1440 高度为基准，兼容其他窗口高度时统一缩放。
     scale = cfg.set_win_size / 1440
-    auto.mouse_click_blank()
-    if not auto.mouse_scroll():
-        raise InputAttributeError("后台输入不支持滚轮操作!")
-    while auto.take_screenshot() is None:
-        continue
-    if retry() is False:
-        return False
-    three_roads = [
-        [250 * scale, -200 * scale],
-        [250 * scale, 0],
-        [250 * scale, 225 * scale],
-    ]
-    if bus_position := auto.find_element("mirror/mybus_maximum_distance.png"):
-        for road in three_roads:
-            road[0] += bus_position[0]
-            road[1] += bus_position[1]
-            if 0 < road[0] < cfg.set_win_size * 16 / 9 and 0 < road[1] < cfg.set_win_size:
-                auto.mouse_click(road[0], road[1])
-                sleep(0.75)
-                if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                    return True
-        auto.mouse_click(bus_position[0], bus_position[1])
-        if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-            return True
-    return False
+    bus_x, bus_y = bus_position
+    # 枚举代表 Bus 最终所在行；上、下位置分别相对中线偏移一个逻辑行距。
+    target_y = {
+        Position.UP: BUS_TARGET_Y - Y_GAP,
+        Position.MID: BUS_TARGET_Y,
+        Position.DOWN: BUS_TARGET_Y + Y_GAP,
+    }[bus_row]
+    # mouse_drag() 接收相对位移，因此用目标绝对坐标减去当前实际坐标。
+    dx = BUS_TARGET_X * scale - bus_x
+    dy = target_y * scale - bus_y
+
+    # 0.5 秒拖动用于让游戏稳定接收地图平移，而不是一次瞬时跳变。
+    auto.mouse_drag(bus_x, bus_y, drag_time=0.5, dx=dx, dy=dy)
+    # 拖动完成后立即重新截图匹配，以下一步实际位置作为返回值。
+    moved_bus_position = auto.find_element(
+        "mirror/mybus_default_distance.png",
+        take_screenshot=True,
+    )
+    if moved_bus_position is None:
+        return None
+    return moved_bus_position
 
 
-def search_road_from_road_map(hard_mode=False):
-    start_time = time.time()
-    scale = cfg.set_win_size / 1440
-    road = []
-    bus = None
+def onnx(bus_position=None):
+    """直接截取当前地图画面并运行 ONNX；本函数绝不移动 Bus。
 
-    if auto.click_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        sleep(0.75)
-        if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-            return True, True
-
-    if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-        from tasks.base.retry import check_times
-
-        change_times = 5
-        while True:
-            if auto.get_restore_time() is not None:
-                start_time = max(start_time, auto.get_restore_time())
-            if check_times(start_time, logs=False):
-                from tasks.base.back_init_menu import back_init_menu
-
-                back_init_menu()
-                return False, []
-            if 675 * scale < bus_position[1] < 700 * scale and 150 * scale > bus_position[0]:
-                bus = bus_position
-                break
-            dx = 80 * scale - bus_position[0]
-            dy = 690 * scale - bus_position[1]
-            auto.mouse_drag(bus_position[0], bus_position[1], drag_time=1.5, dx=dx, dy=dy)
-            sleep(0.5)
-            auto.mouse_to_blank()
-
-            bus_position = auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True)
-            if bus_position is None:
-                break
-            change_times -= 1
-            if change_times <= 0:
-                bus = bus_position
-                break
-
-    bus_pos = auto.find_element("mirror/mybus_default_distance.png")
-    all_nodes = identify_nodes(bus[0])
-    y_area = divide_the_area_by_y(all_nodes)
-    reset_position = False
-    initial_bus_pos = Position.MID
-    if len(y_area) == 2:
-        if bus_pos[1] > y_area[0][0][1][1] + 50 * scale:
-            reset_position = "Bottom"
-            initial_bus_pos = Position.BOTTOM
-        else:
-            reset_position = "Top"
-            initial_bus_pos = Position.TOP
-    elif len(y_area) == 1:
-        all_road = divide_the_area_by_x(identify_road(bus[0]))
-        if len(all_road) == 0:
-            road = ["M"]
-        else:
-            if all_road[0][0][0] == "DOWN":
-                road = ["D"]
-            else:
-                road = ["U"]
-    if reset_position is not False:
-        if reset_position == "Bottom":
-            set_y_position = 1100 * scale
-        else:
-            set_y_position = 250 * scale
-        if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-            from tasks.base.retry import check_times
-
-            while True:
-                if auto.get_restore_time() is not None:
-                    start_time = max(start_time, auto.get_restore_time())
-                if check_times(start_time, logs=False):
-                    from tasks.base.back_init_menu import back_init_menu
-
-                    back_init_menu()
-                    return False, []
-                if (
-                    set_y_position - 50 * scale < bus_position[1] < set_y_position + 50 * scale
-                    and 500 * scale < bus_position[0] < 600 * scale
-                ):
-                    bus = bus_position
-                    break
-                dx = 550 * scale - bus_position[0]
-                dy = set_y_position - bus_position[1]
-                auto.mouse_drag(bus_position[0], bus_position[1], drag_time=1.5, dx=dx, dy=dy)
-                sleep(0.5)
-                auto.mouse_to_blank()
-
-                bus_position = auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True)
-                if bus_position is None:
-                    break
-        all_nodes = identify_nodes(bus[0])
-
-    if len(road) != 0:
-        return road, ["unknown"]
-
-    all_nodes_layer = divide_the_area_by_x(all_nodes)
-    all_road = divide_the_area_by_x(identify_road(bus[0]))
-
-    route_graph = RouteGraph(all_nodes_layer, initial_bus_pos=initial_bus_pos, hard_mode=hard_mode)
-    route_graph.init_road(all_road, bus[0], bus_pos[1])
-
-    min_weight, path = route_graph.find_min_weight_route()
-
-    if path:
-        # 生成方向列表
-        directions, road_class_list = route_graph.get_path_directions(path)
-        log.debug(f"最小权重: {min_weight}")
-        log.debug(f"路径方向: {directions}")
-        log.debug(f"行走路径: {road_class_list}")
-        return directions, road_class_list
-    else:
-        log.warning("未能检测到有效路径")
-
-    return [], []
+    `find_bus()` 负责画面位置枚举，本函数只负责“彩色截图 -> 确认 Bus 坐标 ->
+    identify_nodes()”。传入 Bus 坐标可避免在同一画面重复模板匹配；未传入时会
+    在刚取得的彩色截图上查找 Bus。
+    """
+    # ONNX 模型需要彩色三通道图像，不能复用连线匹配使用的灰度截图。
+    if auto.take_screenshot(gray=False) is None:
+        return None
+    if bus_position is None:
+        # 独立调用 onnx() 时，在刚取得的同一张彩色截图上补充 Bus 定位。
+        bus_position = auto.find_element("mirror/mybus_default_distance.png")
+        if bus_position is None:
+            return None
+    # 传入当前截图避免 identify_nodes() 再次截图，并用 Bus X 过滤已走过的左侧节点。
+    points = identify_nodes(bus_position[0], image=auto.screenshot)
+    return bus_position, points
 
 
-# battle 是常规遭遇战，boss_battle 是boss战，event 是事件，hard_battle 是集中遭遇战（非拉链），hard_battle_2 是精锐遭遇战（有拉链）
-# shop 是商店，small_boss_battle 是异想体遭遇战
+def identify_nodes(bus_x, image=None):
+    """使用 ONNX 识别 Bus 右侧的地图节点。
 
-
-def identify_nodes(bus_x):
+    图像先补成正方形并缩放到 640×640，推理结果经过置信度过滤和 NMS 去重，
+    最后再换算回原截图坐标。Bus 左侧的识别框会被过滤，避免把已经走过的节点
+    加入当前楼层路线。
+    """
     import numpy as np
-    import onnxruntime as ort
 
-    # 定义检测目标的类别标签（与模型训练时的类别一致）
-    CLASSES = [
+    # 模型类别索引必须与 best.onnx 训练时的类别顺序完全一致。
+    classes = [
         "battle",
         "boss_battle",
         "event",
@@ -369,659 +551,342 @@ def identify_nodes(bus_x):
         "shop",
         "small_boss_battle",
     ]
+    if image is None:
+        # 允许 identify_nodes() 独立使用；正常三位置探测会由 onnx() 传入现成截图。
+        if auto.take_screenshot(gray=False) is None:
+            return []
+        image = auto.screenshot
 
-    no_flag = False  # 标记是否检测到目标（初始为 False，未检测到时设为 True）
+    # PIL 图像转换为 NumPy，保留前三个颜色通道，丢弃可能存在的 Alpha 通道。
+    original = np.array(image)
+    height, width = original.shape[:2]
+    # 模型使用方形输入。只在右侧或下方补黑边，不拉伸原图，避免节点形状变形。
+    length = max(height, width)
+    square = np.zeros((length, length, 3), np.uint8)
+    square[:height, :width] = original[:, :, :3]
+    # 推理输出坐标基于 640 输入，乘以该比例可还原到原截图像素坐标。
+    image_scale = length / 640
+    # blobFromImage 同时完成归一化和 640×640 缩放；模型训练颜色顺序不需要交换。
+    blob = cv2.dnn.blobFromImage(
+        square,
+        scalefactor=1 / 255,
+        size=(640, 640),
+        swapRB=False,
+    )
 
-    # 加载 ONNX 格式的目标检测模型
-    session = ort.InferenceSession("./assets/model/best.onnx")
+    # 三个候选位置共用同一个缓存会话，避免每次探测重新从磁盘加载模型。
+    session = _get_onnx_session()
+    outputs = session.run(None, {session.get_inputs()[0].name: blob})[0]
+    # 原始输出通常是 [属性, 候选框]，转置后按候选框逐个处理更直观。
+    outputs = cv2.transpose(outputs[0])
 
-    # 读取原始图像（BGR 格式，由 OpenCV 读取）
-    auto.take_screenshot(gray=False)
-    original_image: np.ndarray = np.array(auto.screenshot)
-    [height, width, _] = original_image.shape  # 获取原始图像的高、宽、通道数
-
-    # 创建正方形空白图像（边长为原始图像的最大边），用于保持图像比例并避免变形
-    length = max((height, width))  # 正方形边长取原始图像的高或宽的最大值
-    image = np.zeros((length, length, 3), np.uint8)  # 初始化全黑正方形图像
-    image[0:height, 0:width] = original_image  # 将原始图像粘贴到正方形的左上角区域
-
-    # 计算缩放比例（正方形边长 → 模型输入尺寸 640 的缩放因子）
-    scale = length / 640
-
-    # 将图像转换为模型所需的输入格式（blob）
-    # blobFromImage 参数说明：
-    # - image: 输入图像（正方形）
-    # - scalefactor=1/255: 像素值归一化（0-255 → 0-1）
-    # - size=(640, 640): 模型输入的尺寸（宽高均为 640）
-    # - swapRB=True: 交换 RGB 通道（OpenCV 读取的是 BGR，模型可能需要 RGB）
-    blob = cv2.dnn.blobFromImage(image, scalefactor=1 / 255, size=(640, 640), swapRB=True)
-
-    # 执行模型推理（输入为 blob）
-    outputs = session.run(None, {session.get_inputs()[0].name: blob})  # 输出为模型预测结果
-
-    outputs = outputs[0]  # 提取第一个输出（YOLO 通常输出一个包含所有检测结果的数组）
-    outputs = np.array([cv2.transpose(outputs[0])])  # 转置维度（适配后续处理逻辑）
-    rows = outputs.shape[1]  # 获取检测结果的数量（每行对应一个目标的预测信息）
-
-    boxes = []  # 存储边界框坐标（格式：[x_center, y_center, width, height]）
-    scores = []  # 存储检测置信度
-    class_ids = []  # 存储类别 ID
-
-    # 遍历所有检测结果（每行对应一个目标的预测信息）
-    for i in range(rows):
-        # 提取类别置信度（前 4 列是边界框坐标，第 5 列及之后是各分类得分）
-        classes_scores = outputs[0][i][4:]
-
-        # 找到当前目标的最大类别置信度及其对应的类别索引
-        (minScore, maxScore, minClassLoc, (x, maxClassIndex)) = cv2.minMaxLoc(classes_scores)
-
-        # 若最大置信度超过阈值（0.25），则保留该检测结果
-        if maxScore >= 0.25:
-            # 计算边界框的左上角坐标和宽高（YOLO 输出为中心点坐标 + 宽高，需转换）
-            box = [
-                outputs[0][i][0] - (0.5 * outputs[0][i][2]),  # 左上角 x = 中心点 x - 半宽
-                outputs[0][i][1] - (0.5 * outputs[0][i][3]),  # 左上角 y = 中心点 y - 半高
-                outputs[0][i][2],  # 宽度（中心点 x 到右边界点的距离）
-                outputs[0][i][3],  # 高度（中心点 y 到下边界点的距离）
-            ]
-            boxes.append(box)  # 保存边界框
-            scores.append(maxScore)  # 保存置信度
-            class_ids.append(maxClassIndex)  # 保存类别 ID
-
-    # 使用 NMS 抑制重叠的边界框（保留置信度高的框）
-    # 参数说明：
-    # - boxes: 边界框列表（格式：[x1, y1, w, h]）
-    # - scores: 置信度列表
-    # - score_threshold=0: 置信度阈值（此处未过滤低分，因前面已过滤）
-    # - nms_threshold=0.4: 重叠框的交并比（IoU）阈值（>0.4 则抑制）
-    result_boxes = cv2.dnn.NMSBoxes(boxes, scores, 0, 0.4, 0.5)
-
-    detections = []  # 存储最终的检测结果（字典列表）
-
-    if len(result_boxes) > 0:  # 若有有效检测结果
-        for i in range(len(result_boxes)):
-            index = result_boxes[i]  # 获取当前框在原始列表中的索引（NMS 输出为二维数组）
-            box = boxes[index]  # 获取对应的边界框
-
-            # 构造检测结果字典（包含类别、置信度、边界框等信息）
-            detection = {
-                "class_id": class_ids[index],
-                "class_name": CLASSES[class_ids[index]],
-                "confidence": scores[index],
-                "box": box,  # 原始边界框（基于 640x640 输入尺寸）
-                "scale": scale,  # 缩放比例（用于还原到原始图像尺寸）
-            }
-            detections.append(detection)  # 添加到结果列表
-    else:
-        no_flag = True  # 无检测结果时标记为 True
-
-    if no_flag:
-        return None
-
-    node_list = []
-
-    # 遍历每个字典并处理
-    for d in detections:
-        # 提取class_name
-        class_name = d["class_name"]
-
-        # 提取box并计算中心点（转换为Python浮点数）
-        box = d["box"]
-        x1 = box[0].item()  # 左上角x（转换为Python float）
-        y1 = box[1].item()  # 左上角y（转换为Python float）
-        w = box[2].item()  # 宽度（转换为Python float）
-        h = box[3].item()  # 高度（转换为Python float）
-        center_x = int((x1 + w / 2) * scale)
-        center_y = int((y1 + h / 2) * scale)
-
-        if center_x < bus_x + 50:
+    # 分别保存候选框、最高类别置信度和类别索引，供 OpenCV NMS 使用。
+    boxes = []
+    scores = []
+    class_ids = []
+    for output in outputs:
+        # 前四项为中心点和宽高，output[4:] 为各类别置信度。
+        _, max_score, _, (_, class_id) = cv2.minMaxLoc(output[4:])
+        # 先过滤模型置信度过低的候选，减少后续 NMS 数量和误识别。
+        if max_score < 0.25:
             continue
+        # NMSBoxes 需要左上角坐标和宽高，因此从模型中心点格式转换。
+        boxes.append(
+            [
+                output[0] - output[2] / 2,
+                output[1] - output[3] / 2,
+                output[2],
+                output[3],
+            ]
+        )
+        scores.append(float(max_score))
+        class_ids.append(class_id)
 
-        # 组成子列表并添加到节点总列表
-        node_list.append([class_name, (center_x, center_y)])  # 中心点用元组存储，也可改为列表
-
+    # 抑制高度重叠的重复框，同一个游戏节点最终只保留最高置信度检测。
+    result_boxes = cv2.dnn.NMSBoxes(boxes, scores, 0, 0.4, 0.5)
+    node_list = []
+    # 给 Bus 右侧留 50px 容差；中心落在更左侧的框视为已经走过或无关节点。
+    min_x = bus_x + 50 * (cfg.set_win_size / 1440)
+    for result_index in result_boxes:
+        # 不同 OpenCV 版本可能返回标量或单元素数组，统一展平后取整数索引。
+        index = int(np.asarray(result_index).reshape(-1)[0])
+        x, y, width, height = (float(value) for value in boxes[index])
+        # 将 640 输入空间的框中心还原到原截图坐标，供网格吸附和实际点击使用。
+        center = (
+            int((x + width / 2) * image_scale),
+            int((y + height / 2) * image_scale),
+        )
+        if center[0] >= min_x:
+            # 列表格式保持与后续 _snap_points_to_grid() 的输入约定一致。
+            node_list.append([classes[class_ids[index]], center])
     return node_list
 
 
-def identify_road(bus_x, min_length=160, merge_distance=230):
+@lru_cache(maxsize=1)
+def _get_onnx_session():
+    """复用 ONNX 会话，避免三位置探测时重复加载模型。"""
+    import onnxruntime as ort
+
+    # lru_cache(maxsize=1) 使模型在进程内只初始化一次，后续直接复用推理会话。
+    return ort.InferenceSession("./assets/model/best.onnx")
+
+
+def generate_map(
+    points,
+    bus_position,
+    hard_mode=False,
+    team_number=None,
+    floor=None,
+    theme_pack_name=None,
+):
+    """把 ONNX 像素节点转换为带连接关系和运行上下文的逻辑地图。
+
+    传入的三个上下文字段不会影响路线计算，只作为节点来源信息保存。普通节点、
+    Bus 节点，以及普通镜牢中自动补齐的商店/BOSS 节点都携带相同上下文。
     """
-    增强版LSD对角线检测，完整输出模块，显示方向标记和中心点
+    # ONNX 使用彩色截图；模板连线资源按灰度匹配，因此构图前刷新为灰度截图。
+    if auto.take_screenshot(gray=True) is None:
+        return {}
+    # 第一步只把检测中心吸附到规则网格，还没有建立节点之间的可达关系。
+    nodes = _snap_points_to_grid(
+        points,
+        bus_position,
+        team_number=team_number,
+        floor=floor,
+        theme_pack_name=theme_pack_name,
+    )
+    # 第二步逐对匹配连线模板，只有画面上真实存在连线的相邻节点才建立有向边。
+    _connect_visible_nodes(nodes)
+    if not hard_mode:
+        # 普通镜牢末端布局固定，可补齐 ONNX 画面外的商店和 BOSS；困难模式不假设该布局。
+        _append_shop_and_boss(nodes, bus_position)
+    return nodes
 
-    参数：
-        image_path (str): 输入图像路径
-        min_length (int): 线段最小长度阈值（用于筛选有效线段）
-        merge_distance (int): 线段合并的最大距离阈值（用于合并相近线段）
+
+def _snap_points_to_grid(
+    points,
+    bus_position,
+    team_number=None,
+    floor=None,
+    theme_pack_name=None,
+):
+    """将像素坐标吸附到以 Bus 为原点的三行网格，并创建上下文快照。"""
+    scale = cfg.set_win_size / 1440
+    # 逻辑网格间距需要与截图分辨率同步缩放，否则 round() 会吸附到错误列/行。
+    x_gap = X_GAP * scale
+    y_gap = Y_GAP * scale
+    # 集中构造一次上下文字典，确保 Bus 和全部 ONNX 节点使用完全相同的元数据。
+    node_context = {
+        "team_number": team_number,
+        "floor": floor,
+        "theme_pack_name": theme_pack_name,
+    }
+    # Bus 是寻路起点和逻辑原点，权重固定为 0，不参与路径代价。
+    nodes = {(0, 0): Node((0, 0), "bus", bus_position, value=0, **node_context)}
+
+    for node_type, screen_pos in points:
+        # 相对 Bus 的像素距离除以固定间距，再四舍五入到最近的逻辑列和逻辑行。
+        column = round((screen_pos[0] - bus_position[0]) / x_gap)
+        row = round((screen_pos[1] - bus_position[1]) / y_gap)
+        coord = (column, row)
+        # 仅保留 Bus 右侧尚未经过的节点；同一格出现多个检测时保留第一个 NMS 结果。
+        if column > 0 and coord not in nodes:
+            nodes[coord] = Node(coord, node_type, screen_pos, **node_context)
+    return nodes
+
+
+def _connect_visible_nodes(nodes):
+    """连接相邻列中确实存在路线模板的节点。"""
+    # sorted() 让调试和测试中的遍历顺序稳定，不影响最终 Dijkstra 结果。
+    for (column, row), source in sorted(nodes.items()):
+        # 游戏路线只可能通向右侧相邻列的上一行、同一行或下一行。
+        for next_row in (row - 1, row, row + 1):
+            target = nodes.get((column + 1, next_row))
+            # ONNX 识别到两个节点不代表它们相连，必须再用路线模板确认。
+            if target is not None and _connection_exists(source, target):
+                source.add_next(target)
+
+
+def _connection_exists(source, target):
+    """识别两个节点之间的上、中、下路线。"""
+    # 目标行减来源行决定需要匹配上斜线、水平线还是下斜线模板。
+    template = {-1: "up", 0: "mid", 1: "down"}.get(target.coord[1] - source.coord[1])
+    if template is None:
+        return False
+
+    scale = cfg.set_win_size / 1440
+    # 路线主体位于两节点中心之间，搜索中点能避开节点图标本身。
+    midpoint = (
+        (source.screen_pos[0] + target.screen_pos[0]) / 2,
+        (source.screen_pos[1] + target.screen_pos[1]) / 2,
+    )
+    # ROI 半径同样按分辨率缩放，并由 _crop_around() 限制在客户区内。
+    crop = _crop_around(
+        midpoint,
+        CONNECTION_X_RADIUS * scale,
+        CONNECTION_Y_RADIUS * scale,
+    )
+    return bool(
+        auto.find_element(
+            f"mirror/road_in_mir/{template}.png",
+            threshold=0.75,
+            my_crop=crop,
+            model="aggressive",
+        )
+    )
+
+
+def _crop_around(position, x_radius, y_radius):
+    """生成限制在游戏客户区内的搜索区域。"""
+    # 游戏采用 16:9 客户区，cfg.set_win_size 表示高度。
+    width = cfg.set_win_size * 16 / 9
+    height = cfg.set_win_size
+    # 左上角用 max 防止负数，右下角用 min 防止超出截图边界。
+    return (
+        max(0, position[0] - x_radius),
+        max(0, position[1] - y_radius),
+        min(width, position[0] + x_radius),
+        min(height, position[1] + y_radius),
+    )
+
+
+def _append_shop_and_boss(nodes, bus_position):
+    """普通镜牢地图末尾缺少商店或 BOSS 时补齐末端节点。
+
+    合成节点不是 ONNX 输出，因此无法直接获得运行上下文。这里以 Bus 节点为
+    当前地图上下文的唯一来源，保证补出的商店和 BOSS 与已识别节点属于同一地图。
+    BOSS 始终继承对应商店的 row，确保最终一步固定为 M。
     """
-    import math
+    # 用不同列数判断 ONNX 是否已看到足够多的地图；画面过少时不做末端布局假设。
+    columns = sorted({coord[0] for coord in nodes})
+    if len(columns) < VISIBLE_COLUMN_COUNT:
+        return
 
-    import numpy as np
+    scale = cfg.set_win_size / 1440
+    # Bus 总是逻辑原点；从它复制上下文比额外传递三个参数更不容易出现不一致。
+    bus = nodes.get((0, 0))
+    node_context = {
+        "team_number": bus.team_number if bus else None,
+        "floor": bus.floor if bus else None,
+        "theme_pack_name": bus.theme_pack_name if bus else None,
+    }
+    # 找出当前识别范围最右列及其全部节点类型，判断商店/BOSS 是否已真实出现。
+    last_column = columns[-1]
+    last_nodes = [node for (column, _), node in nodes.items() if column == last_column]
+    last_types = {node.type for node in last_nodes}
 
-    min_length = min_length * (cfg.set_win_size / 1440)
+    if "boss_battle" in last_types:
+        # BOSS 已由 ONNX 识别，继续补齐会制造重复终点和错误路线。
+        return
 
-    # === 可靠检测阶段 ===
-    def get_detected_lines(img):
-        """获取检测到的所有线段"""
-        lsd = cv2.createLineSegmentDetector(0)
-        detected = lsd.detect(img)
-        if detected and detected[0] is not None:
-            return detected[0]
+    if "shop" in last_types:
+        # 商店已存在时，只需在其右侧补齐同一行的 BOSS。
+        shop_nodes = [node for node in last_nodes if node.type == "shop"]
+        boss_column = last_column + 1
+    else:
+        # 商店也在屏幕外时，先在最右列后一列的中线创建固定商店。
+        shop_column = last_column + 1
+        shop_position = (
+            bus_position[0] + shop_column * X_GAP * scale,
+            bus_position[1],
+        )
+        shop = Node((shop_column, 0), "shop", shop_position, synthetic=True, **node_context)
+        nodes[shop.coord] = shop
+        # 当前最右列的所有出口都汇入固定商店，这是普通镜牢末端的确定布局。
+        for node in last_nodes:
+            node.add_next(shop)
+        shop_nodes = [shop]
+        boss_column = shop_column + 1
 
-    auto.take_screenshot()
-    screenshot = np.array(auto.screenshot)
-    raw_lines = get_detected_lines(screenshot)  # 调用检测函数获取原始线段数据
-    if raw_lines is None or len(raw_lines) == 0:  # 检测结果为空
-        log.warning("⚠️ 未检测到任何线段")  # 提示无结果
-        return []  # 返回空列表
+    # BOSS 固定在商店右侧一列，但 row 必须继承商店，而不能强制写成 0。
+    # 当 Bus 被放在 UP/DOWN 位置识别时，固定中线商店相对 Bus 可能是 row=1/-1；
+    # 若仍把 BOSS 放到 row=0，就会错误生成 shop -> boss 的 U/D 方向。
+    for shop in shop_nodes:
+        boss_row = shop.coord[1]
+        boss_coord = (boss_column, boss_row)
 
-    # 数据格式标准化（统一不同算法的输出格式）
-    segments_data = []
-    for line_info in raw_lines:
-        try:
-            # 提取线段坐标（不同算法返回格式可能不同，统一为[x1,y1,x2,y2]）
-            coords = line_info[0] if hasattr(line_info, "__len__") else line_info  # 处理数组或元组
-            x1, y1, x2, y2 = map(float, coords[:4])  # 转换为浮点数（保留精度）
-
-            # 计算线段基础参数
-            length = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)  # 线段长度（欧氏距离）
-            center_x = (x1 + x2) / 2  # 中心点x坐标
-            center_y = (y1 + y2) / 2  # 中心点y坐标
-
-            # 计算斜率和角度（角度范围0-180度，避免重复）
-            dx, dy = x2 - x1, y2 - y1  # 坐标差
-            slope = dy / dx if dx != 0 else float("inf")  # 斜率（dx=0时为无穷大，即垂直线）
-            angle = math.degrees(math.atan2(dy, dx)) % 180  # 角度（弧度转角度，取模180消除方向歧义）
-
-            # 存储为字典（结构化数据，方便后续处理）
-            segments_data.append(
-                {
-                    "line": [int(x1), int(y1), int(x2), int(y2)],  # 整数坐标的线段端点
-                    "length": length,  # 长度
-                    "center": (center_x, center_y),  # 中心点（浮点数精度）
-                    "slope": slope,  # 斜率
-                    "angle": angle,  # 角度（0-180度）
-                    "dx": dx,  # x坐标差（原始值）
-                    "dy": dy,  # y坐标差（原始值）
-                }
+        # 异常情况下同一行可能识别出重复商店；复用已创建的同行 BOSS，避免覆盖节点。
+        boss = nodes.get(boss_coord)
+        if boss is None:
+            boss_position = (
+                bus_position[0] + boss_column * X_GAP * scale,
+                shop.screen_pos[1],
             )
-        except:
-            continue  # 跳过格式错误的线段（异常处理）
-
-    # 筛选长度大于min_length的线段
-    diagonal_candidates = [s for s in segments_data if min_length <= s["length"] < 1000]  # 初始长度范围
-
-    if not diagonal_candidates:  # 若初始筛选无结果，放宽长度下限
-        diagonal_candidates = [s for s in segments_data if 50 <= s["length"] < 1000]  # 放宽到50px
-        if not diagonal_candidates:  # 若仍无结果，返回空
-            return []
-
-    # 按斜率合并（将同一方向、相近位置的线段合并为一条）
-    merged_records = []
-    directions = ["45°", "135°"]  # 目标方向：45度和135度（常见对角线方向）
-
-    for direction_name in directions:
-        # 定义方向对应的角度范围（45度对应30-60度，135度对应120-150度，覆盖误差）
-        angle_limits = (30, 60) if direction_name == "45°" else (120, 150)
-        # 筛选当前方向的候选线段（角度在范围内的线段）
-        group = [s for s in diagonal_candidates if angle_limits[0] <= s["angle"] <= angle_limits[1]]
-
-        if not group:  # 当前方向无线段，跳过
-            continue
-
-        # 按线段长度降序排序（优先保留长线段作为基准）
-        group.sort(key=lambda x: x["length"], reverse=True)
-        used = set()  # 记录已合并的线段索引（避免重复合并）
-
-        for i, base_info in enumerate(group):  # 遍历每条线段作为基准
-            if i in used:  # 已被合并过，跳过
-                continue
-
-            cluster = [base_info]  # 当前线段的合并组（初始包含基准线段）
-            base_slope = base_info["slope"]  # 基准线段斜率
-            base_center = base_info["center"]  # 基准线段中心点
-
-            for j, other in enumerate(group):  # 遍历其他线段，寻找可合并的
-                if j <= i or j in used:  # 跳过自身或已合并的线段
-                    continue
-
-                # 条件1：斜率差异检查（允许±8度误差，垂直线特殊处理）
-                slope_diff = abs(base_slope - other["slope"]) if base_slope != float("inf") else 0
-                if slope_diff > 8 and base_slope != float("inf"):
-                    continue  # 斜率差异过大，不合并
-
-                # 条件2：中心点距离检查（不超过merge_distance）
-                distance = math.sqrt(
-                    (base_center[0] - other["center"][0]) ** 2 + (base_center[1] - other["center"][1]) ** 2
-                )
-                if distance <= merge_distance:
-                    cluster.append(other)  # 加入合并组
-                    used.add(j)  # 标记为已合并
-
-            # 合并组内线段，生成新的代表线段（基于所有点的最小二乘拟合）
-            # 提取组内所有线段的端点坐标（用于拟合）
-            all_x = [pt[0] for info in cluster for pt in [info["line"][:2], info["line"][2:]]]  # 所有点的x坐标
-            all_y = [pt[1] for info in cluster for pt in [info["line"][:2], info["line"][2:]]]  # 所有点的y坐标
-
-            if len(set(all_x)) > 1:  # 非垂直线（x坐标有变化），用线性拟合
-                slope, intercept = np.polyfit(all_x, all_y, 1)  # 最小二乘拟合直线（y = slope*x + intercept）
-                min_x, max_x = (
-                    int(min(all_x)),
-                    int(max(all_x)),
-                )  # 拟合直线的x范围（端点）
-                y_min = int(slope * min_x + intercept)  # 起点y坐标
-                y_max = int(slope * max_x + intercept)  # 终点y坐标
-                new_line = [min_x, y_min, max_x, y_max]  # 合并后的线段端点
-                new_center = (
-                    (min_x + max_x) / 2,
-                    (y_min + y_max) / 2,
-                )  # 合并后的中心点
-                new_slope = slope  # 合并后的斜率
-            else:  # 垂直线（x坐标不变），直接使用基准线段
-                new_line = cluster[0]["line"]
-                new_center = cluster[0]["center"]
-                new_slope = cluster[0]["slope"]
-
-            # 仅保留长度≥min_length的合并结果（避免合并后线段过短）
-            if math.sqrt((new_line[2] - new_line[0]) ** 2 + (new_line[3] - new_line[1]) ** 2) >= min_length:
-                merged_records.append(
-                    {
-                        "line": new_line,  # 合并后的线段端点
-                        "center": new_center,  # 合并后的中心点
-                        "slope": new_slope,  # 合并后的斜率
-                        "direction": direction_name,  # 方向（45°或135°）
-                        "length": math.sqrt((new_line[2] - new_line[0]) ** 2 + (new_line[3] - new_line[1]) ** 2),
-                        # 合并后的长度
-                        "merged_from": len(cluster),  # 合并的原始线段数量
-                    }
-                )
-
-    segment_list = []
-
-    # 遍历每个字典并处理
-    for segment in merged_records:
-        # 提取class_name
-        class_name = segment["direction"]
-        if class_name == "45°":
-            class_name = "DOWN"
-        elif class_name == "135°":
-            class_name = "UP"
-        center = segment["center"]
-        if center[0] < bus_x + 50 * (cfg.set_win_size / 1440):
-            continue
-
-        # 组成子列表并添加到节点总列表
-        segment_list.append([class_name, center])
-
-    # 返回结构化数据
-    return segment_list
-
-
-def divide_the_area_by_y(data):
-    # 步骤1：按y坐标从小到大排序（确保相近的y相邻）
-    sorted_by_y = sorted(data, key=lambda item: item[1][1])  # item[1]是坐标元组，item[1][1]是y值
-
-    # 步骤2：分组（y相近的归为一组，阈值可根据需求调整）
-    tolerance = 20  # y差值小于等于20视为相近（可根据实际数据调整）
-    groups = []
-    for item in sorted_by_y:
-        current_y = item[1][1]
-        if not groups:
-            # 第一个元素，新建组
-            groups.append([item])
-        else:
-            # 检查当前元素与最后一个组的最后一个元素的y差值
-            last_group_last_y = groups[-1][-1][1][1]
-            if current_y - last_group_last_y <= tolerance:
-                # 加入最后一个组
-                groups[-1].append(item)
-            else:
-                # 新建组
-                groups.append([item])
-    return groups
-
-
-def divide_the_area_by_x(data):
-    # 步骤1：按x坐标从小到大排序（确保相近的x相邻）
-    sorted_by_x = sorted(data, key=lambda item: item[1][0])
-
-    # 步骤2：分组（x相近的归为一组，阈值可根据需求调整）
-    tolerance = 80  # x差值小于等于tolerance视为相近
-    groups = []
-    for item in sorted_by_x:
-        current_x = item[1][0]
-        if not groups:
-            # 第一个元素，新建组
-            groups.append([item])
-        else:
-            # 检查当前元素与最后一个组的最后一个元素的x差值
-            last_group_last_x = groups[-1][-1][1][0]
-            if current_x - last_group_last_x <= tolerance:
-                # 加入最后一个组
-                groups[-1].append(item)
-            else:
-                # 新建组
-                groups.append([item])
-
-    # 步骤3：每个组内按y坐标从小到大排序
-    for group in groups:
-        group.sort(key=lambda item: item[1][1])
-
-    log.debug(f"识别到的节点/线段分组后：{groups}")
-
-    return groups
-
-
-import heapq
-from enum import Enum
-
-all_node_weight = {
-    "battle": 30,
-    "boss_battle": 1,
-    "event": 18,
-    "hard_battle": 75,
-    "hard_battle_2": 100,
-    "shop": 1,
-    "small_boss_battle": 999,
-}
-
-DEFAULT_WEIGHT = 999  # 默认不可达权重
-MID_LINE_THRESHOLD = 100  # 中间线偏移阈值
-
-
-class Position(Enum):
-    TOP = 1  # 上层位置
-    MID = 0  # 中层位置
-    BOTTOM = -1  # 下层位置
-
-
-class Node:
-    def __init__(self, node_class: str = None, weight: float = DEFAULT_WEIGHT):
-        self.node_class = node_class  # 节点标识
-        self.weight = weight  # 节点权重
-        self.next_nodes = []  # 指向的下一层节点列表（Node对象）
-
-    def add_next_node(self, next_node) -> None:
-        """添加下一层节点（自动去重）"""
-        if next_node not in self.next_nodes:
-            self.next_nodes.append(next_node)
-
-    def __repr__(self):
-        return f"Node({self.node_class}, 权重={self.weight}, 指向={self.next_nodes})"
-
-
-class RouteGraph:
-    def __init__(
-        self,
-        all_nodes: list,
-        initial_bus_pos=Position.MID,
-        mid_line=560,
-        hard_mode=False,
-    ):
-        """
-        初始化路线图
-        """
-        self.initial_bus_pos = initial_bus_pos  # 保存初始公交位置
-        self.layer_nums = 0
-        self.layers = {}  # 存储各层节点
-        self._add_new_layer()
-        self._set_node(1, initial_bus_pos, "bus", 1)
-        self.mid_line = mid_line * cfg.set_win_size / 1080
-        self.hard_mode = hard_mode
-
-        self._init_node(all_nodes, self.mid_line)
-
-    def _add_new_layer(self):
-        self.layers[f"layer{self.layer_nums + 1}"] = {
-            Position.TOP: Node(),
-            Position.MID: Node(),
-            Position.BOTTOM: Node(),
-        }
-        self.layer_nums += 1
-
-    def _set_node(self, layer_nums, position, class_name, weight):
-        this_layer = self.layers[f"layer{layer_nums}"]
-        this_layer[position].node_class = class_name
-        this_layer[position].weight = weight
-
-    def _init_node(self, all_nodes, mid_line):
-        for layer_data in all_nodes:
-            self._add_new_layer()
-            for node_entry in layer_data:
-                vertical_pos = Position.MID
-                if node_entry[1][1] < mid_line - MID_LINE_THRESHOLD * cfg.set_win_size / 1440:
-                    vertical_pos = Position.TOP
-                elif node_entry[1][1] > mid_line + MID_LINE_THRESHOLD * cfg.set_win_size / 1440:
-                    vertical_pos = Position.BOTTOM
-                self._set_node(
-                    self.layer_nums,
-                    vertical_pos,
-                    node_entry[0],
-                    all_node_weight[node_entry[0]],
-                )
-
-        for i in range(1, self.layer_nums):
-            for j in [Position.TOP, Position.MID, Position.BOTTOM]:
-                if (
-                    self.layers[f"layer{i}"][j].weight != DEFAULT_WEIGHT
-                    and self.layers[f"layer{i + 1}"][j].weight != DEFAULT_WEIGHT
-                ):
-                    self.layers[f"layer{i}"][j].add_next_node(self.layers[f"layer{i + 1}"][j])
-
-        if self.hard_mode is False:
-            exit_flag = False
-            for j in [Position.TOP, Position.MID, Position.BOTTOM]:
-                if self.layers[f"layer{self.layer_nums}"][j].node_class in [
-                    "shop",
-                    "boss_battle",
-                ]:
-                    exit_flag = True
-                    break
-            if exit_flag is False:
-                self._add_new_layer()
-                self._set_node(self.layer_nums, Position.MID, "shop", 1)
-                for j in [Position.TOP, Position.MID, Position.BOTTOM]:
-                    self.layers[f"layer{self.layer_nums - 1}"][j].add_next_node(
-                        self.layers[f"layer{self.layer_nums}"][Position.MID]
-                    )
-
-            exit_flag = False
-            for j in [Position.TOP, Position.MID, Position.BOTTOM]:
-                if self.layers[f"layer{self.layer_nums}"][j].node_class in ["boss_battle"]:
-                    exit_flag = True
-                    break
-            if exit_flag is False:
-                self._add_new_layer()
-                self._set_node(self.layer_nums, Position.MID, "boss_battle", 1)
-                for j in [Position.TOP, Position.MID, Position.BOTTOM]:
-                    self.layers[f"layer{self.layer_nums - 1}"][j].add_next_node(
-                        self.layers[f"layer{self.layer_nums}"][Position.MID]
-                    )
-
-    def init_road(self, all_road, bus_x, bus_y):
-        if self.hard_mode is True:
-            if len(all_road) > 2:
-                all_road = all_road[:2]
-        road_layer = 1
-        for layer_road in all_road:
-            if layer_road[0][1][0] < bus_x:
-                continue
-            for road in layer_road:
-                if road[0] == "UP":
-                    vertical_pos = Position.MID if bus_y > road[1][1] else Position.BOTTOM
-                    if (
-                        self.layers[f"layer{road_layer}"][vertical_pos].weight != DEFAULT_WEIGHT
-                        and self.layers[f"layer{road_layer + 1}"][Position(vertical_pos.value + 1)].weight
-                        != DEFAULT_WEIGHT
-                    ):
-                        self.layers[f"layer{road_layer}"][vertical_pos].add_next_node(
-                            self.layers[f"layer{road_layer + 1}"][Position(vertical_pos.value + 1)]
-                        )
-                elif road[0] == "DOWN":
-                    vertical_pos = Position.TOP if bus_y > road[1][1] else Position.MID
-                    if (
-                        self.layers[f"layer{road_layer}"][vertical_pos].weight != DEFAULT_WEIGHT
-                        and self.layers[f"layer{road_layer + 1}"][Position(vertical_pos.value - 1)].weight
-                        != DEFAULT_WEIGHT
-                    ):
-                        self.layers[f"layer{road_layer}"][vertical_pos].add_next_node(
-                            self.layers[f"layer{road_layer + 1}"][Position(vertical_pos.value - 1)]
-                        )
-            road_layer += 1
-
-    def get_node_layer_info(self, node: Node) -> tuple:
-        """辅助方法：获取节点所在的层号、层内位置"""
-        for layer_key, layer_nodes in self.layers.items():
-            for pos, n in layer_nodes.items():
-                if n == node:
-                    layer_number = int(layer_key.replace("layer", ""))
-                    return layer_key, layer_number, pos
-        return None, None, None
-
-    def find_min_weight_route(self) -> tuple[float, list[Node]]:
-        """
-        使用Dijkstra算法计算从入口到出口的最小权重路径
-        返回：(最小总权重, 路径节点列表)
-        """
-        # 确定起点节点（layer1的初始公交位置）
-        start_node = self.layers["layer1"][self.initial_bus_pos]
-
-        # 收集所有终点节点（boss_battle）
-        end_nodes = []
-        for layer in self.layers.values():
-            for pos_node in layer.values():
-                if pos_node.node_class in ["boss_battle"]:
-                    end_nodes.append(pos_node)
-
-        if not end_nodes:
-            # 确定目标层：至多三层，取当前最大层（不超过3）
-            current_max_layer = self.layer_nums
-            target_layer_num = min(current_max_layer, 3)
-            target_layer = f"layer{target_layer_num}"
-
-            # 检查目标层是否存在
-            if target_layer not in self.layers:
-                return float("inf"), []  # 目标层不存在，无法到达
-
-            # 收集目标层的所有节点
-            target_nodes = list(self.layers[target_layer].values())
-            if not target_nodes:
-                return float("inf"), []  # 目标层无节点，无法到达
-
-            # 初始化距离字典，所有节点初始距离为无穷大，起点距离为自身权重
-            distances = {
-                node: float("inf")
-                for layer in self.layers.values()
-                for pos_node in layer.values()
-                for node in [pos_node]
-            }
-            distances[start_node] = start_node.weight
-
-            # 优先队列：(当前总权重, 节点唯一标识（避免比较Node）, 当前节点, 路径列表)
-            heap = []
-            heapq.heappush(heap, (start_node.weight, id(start_node), start_node, [start_node]))
-
-            # 记录已处理的节点
-            processed = set()
-
-            min_total = float("inf")
-            min_path = []
-
-            while heap:
-                current_total, _, current_node, current_path = heapq.heappop(heap)
-
-                if current_node in processed:
-                    continue
-                processed.add(current_node)
-
-                # 检查是否是目标节点（目标层的节点）
-                if current_node in target_nodes:
-                    # 更新最小路径
-                    if current_total < min_total:
-                        min_total = current_total
-                        min_path = current_path.copy()
-
-                # 遍历所有邻接节点
-                for next_node in current_node.next_nodes:
-                    if next_node in processed:
-                        continue  # 已处理过，跳过
-
-                    new_total = current_total + next_node.weight
-                    new_path = current_path + [next_node]
-
-                    # 如果找到更短路径，更新距离并加入队列
-                    if new_total < distances[next_node]:
-                        distances[next_node] = new_total
-                        heapq.heappush(heap, (new_total, id(next_node), next_node, new_path))
-
-            # 返回找到的最小路径，若没有则返回无穷大和空列表
-            return (min_total, min_path) if min_total != float("inf") else (float("inf"), [])
-
-        # 初始化距离字典，所有节点初始距离为无穷大，起点距离为自身权重
-        distances = {
-            node: float("inf") for layer in self.layers.values() for pos_node in layer.values() for node in [pos_node]
-        }
-        distances[start_node] = start_node.weight
-
-        # 优先队列：(当前总权重, 节点唯一标识（避免比较Node）, 当前节点, 路径列表)
-        heap = []
-        heapq.heappush(heap, (start_node.weight, id(start_node), start_node, [start_node]))
-
-        # 记录已处理的节点（优化：当节点第一次弹出时，已找到最短路径）
-        processed = set()
-
-        while heap:
-            current_total, _, current_node, current_path = heapq.heappop(heap)  # 忽略辅助标识
-
-            if current_node in processed:
-                continue
-            processed.add(current_node)
-
-            # 到达终点，返回结果
-            if current_node in end_nodes:
-                return current_total, current_path
-
-            # 遍历所有邻接节点
-            for next_node in current_node.next_nodes:
-                if next_node in processed:
-                    continue  # 已处理过，跳过
-
-                new_total = current_total + next_node.weight
-                new_path = current_path + [next_node]
-
-                # 如果找到更短路径，更新并加入队列
-                if new_total < distances[next_node]:
-                    distances[next_node] = new_total
-                    # 添加辅助标识（id(next_node)）确保堆能正确排序
-                    heapq.heappush(heap, (new_total, id(next_node), next_node, new_path))
-
-        # 无可达路径
+            boss = Node(
+                boss_coord,
+                "boss_battle",
+                boss_position,
+                synthetic=True,
+                **node_context,
+            )
+            nodes[boss.coord] = boss
+
+        # shop 与其对应 BOSS 的 row 完全相同，因此该边恒定转换为 M。
+        shop.add_next(boss)
+
+
+def find_min_weight_route(floor_map):
+    """使用 Dijkstra 计算从 bus 到终点的最低权重路线。"""
+    # Bus 必须位于逻辑原点；没有起点说明网格构建结果不完整。
+    start = floor_map.get((0, 0))
+    if start is None:
         return float("inf"), []
 
-    def get_path_directions(self, path: list[Node]) -> tuple[list[str], list[str]]:
-        """
-        根据路径节点列表生成移动方向列表（U/D/M）和节点类别列表
-        U: 下一个节点在当前节点上方，D: 下方，M: 同一层
-        返回：(方向列表, 节点类别列表)
-        """
-        directions = []
-        # 提取路径中所有节点的类别
-        class_list = [node.node_class for node in path]
+    # 统计每列节点数，用来排除“中间列误识别成 BOSS”的检测结果。
+    column_node_counts = {}
+    for column, _ in floor_map:
+        column_node_counts[column] = column_node_counts.get(column, 0) + 1
 
-        if len(path) < 2:
-            return directions, class_list  # 路径长度不足，无方向，但仍返回类别列表
+    # 只有独占一整列的 BOSS 才视为真正终点；正常 BOSS 列不会同时存在其他节点。
+    targets = {
+        node
+        for (column, _), node in floor_map.items()
+        if node.type == "boss_battle" and column_node_counts[column] == 1
+    }
+    if not targets:
+        # 困难模式或识别范围不足时可能没有 BOSS，此时以最右可见列作为临时终点。
+        furthest_column = max(coord[0] for coord in floor_map)
+        if furthest_column == 0:
+            # 地图只有 Bus，没有任何可执行步骤。
+            return float("inf"), []
+        targets = {node for coord, node in floor_map.items() if coord[0] == furthest_column}
 
-        for i in range(len(path) - 1):
-            current_node = path[i]
-            next_node = path[i + 1]
+    # distances 保存目前已知的最低累计代价；Bus 权重通常为 0。
+    distances = {start: start.value}
+    # 堆元素加入 id(node) 作为稳定的并列项，避免 Python 在同权重时直接比较 Node。
+    queue = [(start.value, id(start), start, [start])]
+    while queue:
+        # 每次取出当前累计代价最低的候选路线。
+        total, _, current, route = heapq.heappop(queue)
+        # 同一节点可能以旧的较高代价留在堆中，发现过期项后直接跳过。
+        if total != distances.get(current):
+            continue
+        if current in targets:
+            # Dijkstra 首次弹出的终点即为全局最低代价路线，可以立即返回。
+            return total, route
+        for next_node in current.next:
+            # 节点代价在“进入该节点”时累加，边本身没有额外权重。
+            new_total = total + next_node.value
+            if new_total < distances.get(next_node, float("inf")):
+                # 找到更低代价后更新距离，并把包含完整节点序列的新路线压入堆。
+                distances[next_node] = new_total
+                heapq.heappush(
+                    queue,
+                    (new_total, id(next_node), next_node, route + [next_node]),
+                )
+    # 队列耗尽仍未到达任何终点，说明连线模板构出的图不连通。
+    return float("inf"), []
 
-            # 获取当前节点和下一个节点的层内位置
-            _, _, current_pos = self.get_node_layer_info(current_node)
-            _, _, next_pos = self.get_node_layer_info(next_node)
 
-            if next_pos.value > current_pos.value:
-                directions.append("U")  # 下一层更上层
-            elif next_pos.value < current_pos.value:
-                directions.append("D")  # 下一层更下层
-            else:
-                directions.append("M")  # 同一层
-
-        return directions, class_list
+def route_to_directions(floor_route):
+    """把节点路线转换为 U/M/D 方向和节点类型。"""
+    directions = []
+    # zip(route, route[1:]) 逐对遍历“当前节点 -> 下一节点”。
+    for current_node, next_node in zip(floor_route, floor_route[1:]):
+        direction = get_node_direction(current_node, next_node)
+        if direction is None:
+            # 任一节点对无法转换方向时，整条操作序列都不应继续执行。
+            return [], [node.type for node in floor_route]
+        directions.append(direction)
+    # 节点类型主要用于日志和调试，不参与后续点击。
+    return directions, [node.type for node in floor_route]
