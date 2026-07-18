@@ -235,7 +235,8 @@ class Mirror:
 
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
-                sleep(2)
+                # 等到界面稳定，在开始选择主题包
+                auto.wait_page_load(["mirror/theme_pack/pack_info_35_assets.png", "mirror/theme_pack/pack_info_4_assets.png"])
                 select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
                 if self.re_formation_each_floor:
                     self.first_battle = True
@@ -264,8 +265,6 @@ class Mirror:
             # 在镜牢中寻路
             if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                 auto.mouse_to_blank()
-                while auto.take_screenshot() is None:
-                    continue
                 if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
                     continue
                 if auto.find_element("teams/identify_assets.png"):
@@ -312,7 +311,7 @@ class Mirror:
                     self.first_battle = False
                     continue
                 # 战斗配队失败的情况
-                if auto.click_element("teams/none_sinner_assets.png", model="clam"):
+                if auto.click_element("teams/none_sinner_assets.png"):
                     self.first_battle = True
                     continue
                 # 检测罪人幸存人数是否少于10人
@@ -341,7 +340,7 @@ class Mirror:
             if auto.find_element("battle/more_information_assets.png") or auto.find_element(
                 "battle/in_mirror_assets.png"
             ):
-                _, elapsed = self._time_call(battle.fight, self.avoid_skill_3, self.defense_first_round)
+                _, elapsed = self._time_call(battle.fight, self.avoid_skill_3, self.defense_first_round, in_mirror=True)
                 self.battle_total_time += elapsed
                 continue
             elif battle.identify_keyword_turn and self.LOOP_COUNT - main_loop_count < 5:
@@ -369,19 +368,6 @@ class Mirror:
             # 如果遇到选择ego饰品的情况
             if auto.find_element("mirror/road_in_mir/acquire_ego_gift_card.png"):
                 self.acquire_ego_gift()
-                continue
-            if (
-                main_loop_count < 50
-                and auto.find_element("mirror/road_in_mir/acquire_ego_gift_box_assets.png", model="clam")
-                and auto.find_element(
-                    "mirror/road_in_mir/acquire_ego_gift_refuse_assets.png",
-                    model="clam",
-                )
-            ):
-                self.acquire_ego_gift(type=2)
-                continue
-            if main_loop_count < 30 and auto.find_language_text("拒绝饰品", "refuse"):
-                self.acquire_ego_gift(type=2)
                 continue
 
             # 如果遇到获取ego饰品的情况
@@ -419,16 +405,17 @@ class Mirror:
                     break
                 continue
 
-            # 初始饰品选择
-            if auto.find_element("mirror/road_to_mir/activate_gift_search_on_assets.png") or auto.find_element(
-                "mirror/road_to_mir/activate_gift_search_off_assets.png"
-            ):
+            # 自选开局饰品
+            if auto.find_element("mirror/road_to_mir/activate_gift_search_on_assets.png") or auto.find_element("mirror/road_to_mir/activate_gift_search_off_assets.png"):
+                log.info("检测到自选开局饰品，开始选择")
                 self.select_init_ego_gift()
+                log.info("自选开局饰品选择完成")
                 continue
-
-            if auto.find_element("mirror/road_to_mir/observe_ego_gift/observe_bleed_assets.png",model="clam") or auto.find_element(
-                    "mirror/road_to_mir/observe_ego_gift/observe_burn_assets.png",model="clam"):
+            
+            # 饰品观测
+            if auto.find_element("mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png"):
                 self.select_observe_ego_gift()
+                auto.wait_page_load("mirror/theme_pack/feature_theme_pack_assets.png")
                 continue
 
             # 取消十层
@@ -726,162 +713,83 @@ class Mirror:
         starlights_X = [first_starlight[0] + (i % 5) * 400 * scale for i in range(10)]
         starlights_Y = [first_starlight[1] + (i // 5) * 480 * scale for i in range(10)]
 
-        first_single_plus = (first_starlight[0] - 80 * scale, first_starlight[1] + 320 * scale)
-        double_plus_offset = 80 * scale * 2
-        star_card_size = (400 * scale, 480 * scale)
+        bonus_num = len(self.opening_bonus)
+        level_count = self.opening_bonus.count(1)
+        level_plus_count = self.opening_bonus.count(2)
+        level_plusplus_count = self.opening_bonus.count(3)
+        if level_count == bonus_num:
+            auto.click_element("mirror/road_to_mir/select_all_stars_assets.png")
+        elif level_plus_count == bonus_num:
+            auto.click_element("mirror/road_to_mir/select_all_stars_assets.png")
+            auto.click_element("mirror/road_to_mir/dreaming_star/level_one_bonus_assets.png")
+        elif level_plusplus_count == bonus_num:
+            auto.click_element("mirror/road_to_mir/select_all_stars_assets.png")
+            auto.click_element("mirror/road_to_mir/dreaming_star/level_two_bonus_assets.png")
+        else:
+            for i in range(bonus_num):
+                if self.opening_bonus[i] >= 1:
+                    auto.mouse_action_with_pos((starlights_X[i], starlights_Y[i]), interval=0.3)
+                if self.opening_bonus[i] == 2:
+                    auto.mouse_action_with_pos(
+                        (starlights_X[i] - 80 * scale, starlights_Y[i] + 320 * scale),interval=0.3
+                    )
+                elif self.opening_bonus[i] == 3:
+                    auto.mouse_action_with_pos(
+                        (starlights_X[i] + 80 * scale, starlights_Y[i] + 320 * scale), interval=0.3
+                    )
 
-        loop_count = 30
-        auto.model = "clam"
-        while True:
-            # 自动截图
-            if auto.take_screenshot() is None:
-                continue
+        auto.click_element("mirror/road_to_mir/dreaming_star/dreaming_star_enter_assets.png")
+        # 这个截图应该重新选取，缺少辨识度
+        
+        if auto.wait_page_load(["mirror/road_to_mir/dreaming_star/no_convert_star_to_cost_assets.png","mirror/road_to_mir/dreaming_star/convert_star_to_cost_assets.png"]) == "mirror/road_to_mir/dreaming_star/convert_star_to_cost_assets.png":
+            if self.use_starlight:
+                pass
+            else:
+                auto.click_element("mirror/road_to_mir/dreaming_star/no_convert_star_to_cost_assets.png")
 
-            if auto.find_element("mirror/road_to_mir/bleed_gift_assets.png"):
-                break
-
-            if self.use_starlight and auto.click_element(
-                "mirror/road_to_mir/dreaming_star/no_convert_star_to_cost_assets.png"
-            ):
-                continue
-            if not self.use_starlight and auto.click_element(
-                "mirror/road_to_mir/dreaming_star/convert_star_to_cost_assets.png"
-            ):
-                continue
-
-            if auto.click_element(
+        auto.click_element(
                 "mirror/road_to_mir/dreaming_star/select_star_confirm_assets.png",
                 model="normal",
-            ):
-                break
+            )
+        auto.wait_page_load("mirror/road_to_mir/bleed_gift_assets.png")
 
-            bonus_num = len(self.opening_bonus)
-            level_count = self.opening_bonus.count(1)
-            level_plus_count = self.opening_bonus.count(2)
-            level_plusplus_count = self.opening_bonus.count(3)
-            if level_count == bonus_num:
-                auto.click_element("mirror/road_to_mir/select_all_stars_assets.png")
-            elif level_plus_count == bonus_num:
-                auto.click_element("mirror/road_to_mir/select_all_stars_assets.png")
-                auto.click_element("mirror/road_to_mir/dreaming_star/level_one_bonus_assets.png")
-            elif level_plusplus_count == bonus_num:
-                auto.click_element("mirror/road_to_mir/select_all_stars_assets.png")
-                auto.click_element("mirror/road_to_mir/dreaming_star/level_two_bonus_assets.png")
-            else:
-                for i in range(bonus_num):
-                    if self.opening_bonus[i] >= 1:
-                        auto.mouse_action_with_pos((starlights_X[i], starlights_Y[i]))
-                    if self.opening_bonus[i] == 2:
-                        auto.mouse_action_with_pos(
-                            (starlights_X[i] - 80 * scale, starlights_Y[i] + 320 * scale),
-                        )
-                    elif self.opening_bonus[i] == 3:
-                        auto.mouse_action_with_pos(
-                            (starlights_X[i] + 80 * scale, starlights_Y[i] + 320 * scale),
-                        )
-
-            if auto.click_element("mirror/road_to_mir/dreaming_star/dreaming_star_enter_assets.png"):
-                sleep(0.5)
-                continue
-
-            if retry() is False:
-                return False
-            loop_count -= 1
-            if loop_count % 5 == 0:
-                log.debug(f"进入镜牢识别次数剩余{loop_count}次")
-            if loop_count < 20:
-                auto.model = "normal"
-                auto.mouse_to_blank(move_back=False)
-                log.debug("识别模式切换到正常模式")
-            if loop_count < 10:
-                auto.model = "aggressive"
-                log.debug("识别模式切换到激进模式")
-            if loop_count < 0:
-                raise cannotOperateGameError("无法进入镜牢，不能进行下一步,请手动操作重试")
 
     def select_init_ego_gift(self):
-        scroll = False
-        select_system = False
-        loop_count = 30
-        auto.model = "clam"
-
-        team_system = self.system
+        # 如果启用观测and选择饰品
+        if self.observe_ego_gift and len(self.observe_ego_gift_selected)!=0:
+            auto.click_element("mirror/road_to_mir/activate_gift_search_off_assets.png")
+            pos = auto.find_element("mirror/road_to_mir/activate_gift_search_on_assets.png")
+        else:
+            pos = auto.find_element("mirror/road_to_mir/activate_gift_search_off_assets.png")
+        # 选择初始饰品体系
         if self.opening_items:
-            team_system = all_systems[self.opening_items_system]
-        log.debug("开始选择初始EGO")
-        while True:
-            # 自动截图
-            if auto.take_screenshot() is None:
-                continue
+            scale = cfg.set_win_size / 1440
+            first_system_x = pos[0] - 1850 * scale
+            first_system_y = pos[1] + 150 * scale
+            
+            if self.system == "pierce" or self.system == "blunt":
+                auto.mouse_drag(first_system_x, first_system_y, drag_time=0.2, dx=0, dy=-400)
+            auto.click_element(f"mirror/road_to_mir/{self.system}_gift_assets.png", interval=0.3)
 
-            if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
-                auto.mouse_to_blank()
-                continue
-
-            # 如果未启用观测或启用了但未选择饰品，关闭观测饰品按钮
-            if not self.observe_ego_gift or len(self.observe_ego_gift_selected)==0:
-                auto.click_element("mirror/road_to_mir/activate_gift_search_on_assets.png")
-            # 如果已经进入观测饰品页面,则跳过初始EGO选择
-            if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png") or auto.find_element(
-                    "mirror/road_to_mir/observe_ego_gift/observe_bleed_assets.png") or auto.find_element(
-                    "mirror/road_to_mir/observe_ego_gift/observe_burn_assets.png"):
-                break
-
-            if (team_system == "slash" or team_system == "pierce" or team_system == "blunt") and scroll == False:
-                while slash_button := auto.find_element("mirror/road_to_mir/slash_gift_1.png"):
-                    auto.mouse_drag(slash_button[0], slash_button[1], drag_time=0.2, dx=0, dy=-400)
-                    sleep(0.5)
-                    if auto.find_element(
-                        "mirror/road_to_mir/blunt_gift_1_assets.png",
-                        take_screenshot=True,
-                    ):
-                        scroll = True
-                        break
-
-            if auto.click_element(f"mirror/road_to_mir/{team_system}_gift_assets.png") and select_system == False:
-                select_system = True
-                continue
-
-            if self.opening_items:
-                start_gift_order = start_gift[self.opening_items_select]
-                auto.click_element(
-                    f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_{start_gift_order[0]}.png"
+            # 按顺序选择初始饰品
+        
+            first_ego_x = pos[0] - 400 * scale
+            first_ego_y = pos[1] + 200 * scale
+            gift_order = start_gift[self.opening_items_select]
+            for gift_number in gift_order:
+                gift_position = (
+                    first_ego_x,
+                    first_ego_y + (gift_number - 1) * 210 * scale,
                 )
-                auto.click_element(
-                    f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_{start_gift_order[1]}.png"
-                )
-                auto.click_element(
-                    f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_{start_gift_order[2]}.png"
-                )
-            else:
-                auto.click_element(f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_1.png")
-                auto.click_element(f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_2.png")
-                auto.click_element(f"mirror/road_to_mir/select_init_gift/{team_system}_ego_gift_3.png")
-
-            # 如果选择观测饰品且选择了饰品，则开启观测饰品按钮
-            if self.observe_ego_gift and self.observe_ego_gift_selected:
-                auto.click_element("mirror/road_to_mir/activate_gift_search_off_assets.png")
-
-            if auto.click_element("mirror/road_to_mir/select_init_ego_gifts_confirm_assets.png"):
-                sleep(1)
-                continue
-
-            if retry() is False:
-                return False
-            loop_count -= 1
-            if loop_count % 5 == 0:
-                log.debug(f"选择藏品识别次数剩余{loop_count}次")
-            if loop_count < 20:
-                auto.model = "normal"
-                auto.mouse_to_blank(move_back=False)
-                log.debug("识别模式切换到正常模式")
-            if loop_count < 10:
-                auto.model = "aggressive"
-                log.debug("识别模式切换到激进模式")
-            if loop_count < 0:
-                log.error("无法进入镜牢,尝试回到初始界面")
-                back_init_menu()
-                break
+                auto.mouse_action_with_pos(gift_position, interval=0.3)
+        
+        auto.click_element("mirror/road_to_mir/select_init_ego_gifts_confirm_assets.png")
+        
+        # 离开初始饰品页面
+        while auto.find_element("mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png", take_screenshot=True) is None:
+            auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png")
+        
+        # auto.wait_page_load("mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png")
 
     def select_observe_ego_gift(self):
         """
@@ -912,17 +820,9 @@ class Mirror:
                 auto.mouse_click(select_gift_point[0], select_gift_point[1] - height)
 
         log.debug("开始选择观测EGO饰品")
-        auto.model = "clam"
-
         my_scale = cfg.set_win_size / 1440
-        benchmark_point = None
-        if point := auto.find_element("mirror/road_to_mir/observe_ego_gift/observe_burn_assets.png", model="clam",take_screenshot=True):
-            benchmark_point = point
-        elif point := auto.find_element("mirror/road_to_mir/observe_ego_gift/observe_bleed_assets.png", model="clam"):
-            benchmark_point = (point[0] - 110 * my_scale, point[1])
-
-        if not benchmark_point:
-            return
+        if auto.find_element("mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png"):
+            benchmark_point = (int(205 * my_scale), int(378 * my_scale))
 
         gift_box = ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/gift_box_bbox.png"))
 
@@ -945,12 +845,15 @@ class Mirror:
             else:
                 system_index = [k for k, v in observe_system.items() if v == file_system][0]
             # 选择体系，先点一下其他体系，再点回来，重置页面
-            auto.mouse_click(benchmark_point[0] + 110 * (system_index+1) * my_scale, benchmark_point[1])
-            sleep(0.2)
-            auto.mouse_click(benchmark_point[0] + 110 * (system_index - 1) * my_scale, benchmark_point[1])
-            sleep(0.2)
-            auto.mouse_click(benchmark_point[0] + 110 * system_index * my_scale, benchmark_point[1])
-            sleep(0.2)
+            auto.mouse_action_with_pos(
+            (benchmark_point[0] + 110 * (system_index + 1) * my_scale, benchmark_point[1])
+            )
+            auto.mouse_action_with_pos(
+            (benchmark_point[0] + 110 * (system_index - 1) * my_scale, benchmark_point[1])
+            )
+            auto.mouse_action_with_pos(
+            (benchmark_point[0] + 110 * system_index * my_scale, benchmark_point[1])
+            )
 
             if level_point := auto.find_element(f"mirror/road_to_mir/observe_ego_gift/Level_{"I"*gift_level}.png",take_screenshot=True):
                 _select_gift(level_point)
@@ -993,6 +896,9 @@ class Mirror:
                 sleep(1)
                 if auto.click_element("mirror/shop/leave_shop_confirm_assets.png",take_screenshot=True):
                     return
+        # 离开观测饰品选择界面
+        while auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png",take_screenshot=True) is None:
+            auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png")
 
     def select_mirror_team(self):
         chance_to_select_team = 5
@@ -1006,38 +912,10 @@ class Mirror:
         if team_setting and team_setting.use_team_code and team_setting.team_code:
             if not load_team_code_in_game(team_setting.team_code):
                 log.warning("编队码加载失败，继续使用当前队伍配置")
-        loop_count = 30
-        auto.model = "clam"
-        while auto.find_element("mirror/road_to_mir/dreaming_star/coins_assets.png") is None:
-            if auto.take_screenshot() is None:
-                continue
-            loop_count -= 1
-            if loop_count % 5 == 0:
-                log.debug(f"选择队伍识别次数剩余{loop_count}次")
-            if loop_count < 20:
-                auto.model = "normal"
-                auto.mouse_to_blank(move_back=False)
-                log.debug("识别模式切换到正常模式")
-            if loop_count < 10:
-                auto.model = "aggressive"
-                log.debug("识别模式切换到激进模式")
-            if loop_count < 5:
-                if auto.find_language_text("平均", "current"):
-                    auto.click_element("mirror/road_to_mir/enter_mirror_confirm.png")
-            if loop_count < 0:
-                log.error("无法进入镜牢,尝试回到初始界面")
-                back_init_menu()
-                break
-            if retry() is False:
-                return False
-            if auto.click_element("mirror/road_to_mir/level_confirm_assets.png"):
-                continue
-            if auto.click_element("mirror/road_to_mir/select_team_confirm_assets.png"):
-                sleep(0.5)
-                loop_count -= 1
-                continue
-
-        time.sleep(3)
+                
+        
+        auto.click_element("mirror/road_to_mir/select_team_confirm_assets.png")
+        auto.wait_for_element("mirror/road_to_mir/dreaming_star/coins_assets.png")
 
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
@@ -1264,20 +1142,24 @@ class Mirror:
         self.event_total_time += event_elapsed_time
         self.event_times += 1
 
+
+
     def acquire_ego_gift(self, type: int = 1):
+        """
+        获取EGO饰品
+        :param type: 1表示普通获取，2表示特殊饰品箱/可拒绝界面
+        """
         my_scale = cfg.set_win_size / 1440
         auto.model = "clam"
         auto.mouse_to_blank()
+        
+        # 特殊饰品箱/可拒绝界面
         if type == 2:
             pos = auto.find_element("mirror/road_in_mir/acquire_ego_gift_refuse_assets.png")
-            auto.mouse_click(pos[0] - 500 * my_scale, pos[1] - 500 * my_scale)
-            sleep(cfg.mouse_action_interval)
-            auto.mouse_click(pos[0], pos[1] - 500 * my_scale)
-            sleep(cfg.mouse_action_interval)
+            auto.mouse_action_with_pos(pos[0] - 500 * my_scale, pos[1] - 500 * my_scale)
+            auto.mouse_action_with_pos(pos[0], pos[1] - 500 * my_scale)
             auto.click_element("mirror/road_in_mir/acquire_ego_gift_select_assets.png", model="normal")
-            time.sleep(2)
-            if retry() is False:
-                return False
+            auto.wait_page_leave("mirror/road_in_mir/acquire_ego_gift_select_assets.png")
             return
         while True:
             if auto.take_screenshot() is None:

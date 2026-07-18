@@ -5,6 +5,7 @@ import time
 from ast import List
 from dataclasses import dataclass
 from typing import Any
+from collections.abc import Sequence
 
 import cv2
 import numpy as np
@@ -220,8 +221,10 @@ class Automation(metaclass=SingletonMeta):
 
         if self.last_click_time == 0:
             self.last_click_time = time.time()
-        if time.time() - self.last_click_time < interval:
-            time.sleep(interval)
+            
+        click_wait_time = max(0,interval - (time.time() - self.last_click_time))
+        if click_wait_time > 0:
+            time.sleep(click_wait_time)
             self.last_click_time = time.time()
 
         # 计算传入的位置
@@ -303,6 +306,77 @@ class Automation(metaclass=SingletonMeta):
                 is_game_die = False
                 start_time = time.time()
 
+    def wait_page_leave(
+        self,
+        target,
+        find_type="image",
+        threshold=0.8,
+        max_retries=1,
+        take_screenshot=False,
+        model=None,
+        my_crop=None,
+        min_dist=10,
+        additional_stack=0,
+        
+    ):
+        """ 等待页面加载，直到目标图片消失"""
+        last_screenshot_time = time.time()
+        while True:
+            wait_screenshot_time = max(0, 0.1 - (time.time() - last_screenshot_time))
+            if wait_screenshot_time > 0:
+                time.sleep(wait_screenshot_time)
+            else:
+                self.take_screenshot()
+                if not self.find_element(target, find_type, threshold, max_retries, take_screenshot, model, my_crop, min_dist, additional_stack):
+                    log.debug(f"页面加载完成，目标图片 {target} 已消失", stacklevel=additional_stack + 3)
+                    break
+        
+
+    def wait_page_load(
+        self,
+        target: str | Sequence[str],
+        find_type="image",
+        threshold=0.8,
+        max_retries=1,
+        take_screenshot=False,
+        model=None,
+        my_crop=None,
+        min_dist=10,
+        additional_stack=0,
+    ):
+        """等待页面加载，直到一个目标出现。
+        """
+        if isinstance(target, str):
+            targets = [target]
+        else:
+            targets = list(target)
+
+        last_screenshot_time = time.monotonic()
+        while True:
+            wait_time = max(0, 0.1 - (time.monotonic() - last_screenshot_time))
+
+            if wait_time > 0:
+                time.sleep(wait_time)
+            else:
+                if self.take_screenshot() is None:
+                    continue
+                for current_target in targets:
+                    if self.find_element(
+                        current_target,
+                        find_type,
+                        threshold,
+                        max_retries,
+                        take_screenshot,
+                        model,
+                        my_crop,
+                        min_dist,
+                        additional_stack,
+                    ):
+                        log.debug(
+                            f"页面加载完成，目标图片 {current_target} 已出现",
+                            stacklevel=additional_stack + 3,
+                        )
+                        return current_target
     def find_element(
         self,
         target,
@@ -663,9 +737,6 @@ class Automation(metaclass=SingletonMeta):
         elif share_matched:
             # 仅命中 share 时保持当前语言未知/不变，等待后续专属语言资源判定
             pass
-
-        if path_changed:
-            self.clear_img_cache()
 
     @staticmethod
     def _path_state_is_known() -> bool:

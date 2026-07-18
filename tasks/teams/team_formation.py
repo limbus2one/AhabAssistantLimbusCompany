@@ -44,13 +44,16 @@ def team_formation(sinner_team):
         else:
             return
         if sinner <= 5:
-            auto.mouse_click(first_sinner[0] + 270 * sinner * scale, first_sinner[1])
-        else:
-            auto.mouse_click(
-                first_sinner[0] + 270 * (sinner - 6) * scale,
-                first_sinner[1] + 500 * scale,
+            auto.mouse_action_with_pos(
+                (first_sinner[0] + 270 * sinner * scale, first_sinner[1])
             )
-        sleep(cfg.mouse_action_interval)
+        else:
+            auto.mouse_action_with_pos(
+                (
+                    first_sinner[0] + 270 * (sinner - 6) * scale,
+                    first_sinner[1] + 500 * scale,
+                )
+            )
 
 
 @begin_and_finish_time_log(task_name="寻找队伍")
@@ -114,13 +117,13 @@ def select_battle_team(num):
                     dy=-385 * scale,
                     drag_time=1.5,
                 )
-                sleep(1)
+                # sleep(1)
                 while auto.take_screenshot() is None:
                     continue
             if find:
                 msg = f"成功找到队伍 # {num}"
                 log.info(msg)
-                sleep(1)
+                # sleep(1)
                 return True
             else:
                 msg = f"找不到队伍 # {num}"

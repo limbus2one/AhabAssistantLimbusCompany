@@ -101,12 +101,9 @@ class Battle:
                 defense_first_round = False
                 msg = "第一回合全员防御失败，本场战斗改为P+Enter"
                 auto.key_press("p")
-                sleep(0.5)
                 auto.key_press("enter")
-            sleep(2)
             if not auto.find_element("battle/pause_assets.png", take_screenshot=True):
                 auto.key_press("p")
-                sleep(0.5)
                 auto.key_press("enter")
         elif self.defense_all_time:
             if auto.find_element("battle/gear_left.png", threshold=0.9):
@@ -118,18 +115,15 @@ class Battle:
                 avoid_skill_3 = False
                 msg = "使用避免三技能的链接战失败，本场战斗改为P+Enter"
                 auto.key_press("p")
-                sleep(0.5)
                 auto.key_press("enter")
-            sleep(2)
             if not auto.find_element("battle/pause_assets.png", take_screenshot=True):
                 auto.key_press("p")
-                sleep(0.5)
                 auto.key_press("enter")
         else:
             auto.key_press("p")
-            sleep(0.5)
             auto.key_press("enter")
             msg = "使用P+Enter开始战斗"
+            auto.wait_page_load("battle/pause_assets.png")
             if self.mouse_click_rate:
                 my_scale = cfg.set_win_size / 1440
                 if pos := auto.find_element("battle/win_rate_card.png", threshold=0.75):
@@ -137,8 +131,7 @@ class Battle:
                     auto.mouse_click(pos[0], pos[1])
                     auto.click_element("battle/gear_right.png")
             else:
-                sleep(1)
-                if not auto.find_element("battle/pause_assets.png", threshold=0.75):
+                if not auto.find_element("battle/pause_assets.png", threshold=0.75): # 如果没有进入战斗状态，准备点击
                     self.mouse_click_rate = True
                 else:
                     self.mouse_click_rate = False
@@ -154,12 +147,13 @@ class Battle:
         defense_on_turn1=False,
         choice_event_handling=True,
         combat_count=1,
+        in_mirror=False,
     ):
         chance = self.INIT_CHANCE
         waiting = self._update_wait_time()
         total_count = 0
         fail_count = 0
-        in_mirror = False
+        
         first_battle_reward = None
         event_chance = 15
         if defense_all_time:
@@ -195,12 +189,7 @@ class Battle:
 
             # 战斗开始前的加载
             if auto.find_element("base/waiting_assets.png"):
-                sleep(0.5)
                 continue
-
-            # 判断是否为镜牢战斗
-            if in_mirror is False and auto.find_element("battle/in_mirror_assets.png", model="aggressive"):
-                in_mirror = True
 
             if view_status := auto.find_element("battle/view_status_assets.png", model="clam"):
                 my_scale = cfg.set_win_size / 1440
@@ -209,7 +198,7 @@ class Battle:
 
             # 如果正在交战过程
             if auto.find_element("battle/pause_assets.png"):
-                sleep(2 * waiting)  # 战斗播片中增大间隔
+                auto.wait_page_load(["battle/gear_left.png", "mirror/road_in_mir/legend_assets.png"])
                 chance = self.INIT_CHANCE
                 first_turn = False
                 continue
@@ -414,15 +403,6 @@ class Battle:
                 if infinite_battle:
                     continue
                 break
-            if not self.is_tool:
-                # 点击中心以跳过播报员播报加速结算动画
-                random_number = random.randint(-10, 10)
-                width = int(cfg.set_win_size * 16 / 9)
-                height = cfg.set_win_size
-                center_x = width // 2
-                center_y = height // 2
-                auto.mouse_click(center_x - random_number, center_y + random_number, times=1)
-                sleep(0.15)
 
             # 战斗结束，进入结算页面
             if auto.click_element("battle/battle_finish_confirm_assets.png", click=False) or auto.find_element(
