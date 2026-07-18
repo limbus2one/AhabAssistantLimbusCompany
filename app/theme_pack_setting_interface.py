@@ -1030,13 +1030,25 @@ class ThemePackSettingDialog(FramelessDialog):
         code = export_theme_pack_weight_to_base64(team_num)
         if code:
             QApplication.clipboard().setText(code)
-            BaseInfoBar.success(title=self.tr("导出成功"), content=self.tr("配置码已复制到剪贴板"),
-                orient=Qt.Orientation.Horizontal, isClosable=True,
-                position=InfoBarPosition.TOP, duration=3000, parent=self)
+            BaseInfoBar.success(
+                title=self.tr("导出成功"),
+                content=self.tr("配置码已复制到剪贴板"),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=self,
+            )
         else:
-            BaseInfoBar.error(title=self.tr("导出失败"), content=self.tr("无法导出配置码"),
-                orient=Qt.Orientation.Horizontal, isClosable=True,
-                position=InfoBarPosition.TOP, duration=3000, parent=self)
+            BaseInfoBar.error(
+                title=self.tr("导出失败"),
+                content=self.tr("无法导出配置码"),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=self,
+            )
 
     def on_import_code(self):
         """从配置码导入主题包权重"""
@@ -1061,17 +1073,31 @@ class ThemePackSettingDialog(FramelessDialog):
             hard_imported = reloaded.get("theme_pack_list_hard_cn" if self.is_cn else "theme_pack_list_hard", {})
             self.preferred_threshold_spinbox.spin_box.setValue(int(reloaded.get("preferred_thresholds", 0)))
             for k, v in normal_imported.items():
-                if k in self.normal_cards: self.normal_cards[k].update_weight(v)
+                if k in self.normal_cards:
+                    self.normal_cards[k].update_weight(v)
             for k, v in hard_imported.items():
-                if k in self.hard_cards: self.hard_cards[k].update_weight(v)
+                if k in self.hard_cards:
+                    self.hard_cards[k].update_weight(v)
             self._has_unsaved_changes = False
-            BaseInfoBar.success(title=self.tr("导入成功"), content=self.tr("主题包权重已导入"),
-                orient=Qt.Orientation.Horizontal, isClosable=True,
-                position=InfoBarPosition.TOP, duration=3000, parent=self)
+            BaseInfoBar.success(
+                title=self.tr("导入成功"),
+                content=self.tr("主题包权重已导入"),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=self,
+            )
         else:
-            BaseInfoBar.error(title=self.tr("导入失败"), content=self.tr("无法解析配置码"),
-                orient=Qt.Orientation.Horizontal, isClosable=True,
-                position=InfoBarPosition.TOP, duration=3000, parent=self)
+            BaseInfoBar.error(
+                title=self.tr("导入失败"),
+                content=self.tr("无法解析配置码"),
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP,
+                duration=3000,
+                parent=self,
+            )
 
     def save_and_close(self):
         """保存配置到文件并关闭对话框"""

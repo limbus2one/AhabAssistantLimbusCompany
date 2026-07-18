@@ -221,8 +221,8 @@ class Automation(metaclass=SingletonMeta):
 
         if self.last_click_time == 0:
             self.last_click_time = time.time()
-            
-        click_wait_time = max(0,interval - (time.time() - self.last_click_time))
+
+        click_wait_time = max(0, interval - (time.time() - self.last_click_time))
         if click_wait_time > 0:
             time.sleep(click_wait_time)
             self.last_click_time = time.time()
@@ -317,20 +317,31 @@ class Automation(metaclass=SingletonMeta):
         my_crop=None,
         min_dist=10,
         additional_stack=0,
-        
+        enable_log=True,
     ):
-        """ 等待页面加载，直到目标图片消失"""
+        """等待页面加载，直到目标图片消失"""
         last_screenshot_time = time.time()
+        log.debug(f"等待页面加载，直到目标图片 {target} 消失", stacklevel=additional_stack + 3)
         while True:
             wait_screenshot_time = max(0, 0.1 - (time.time() - last_screenshot_time))
             if wait_screenshot_time > 0:
                 time.sleep(wait_screenshot_time)
             else:
                 self.take_screenshot()
-                if not self.find_element(target, find_type, threshold, max_retries, take_screenshot, model, my_crop, min_dist, additional_stack):
+                if not self.find_element(
+                    target,
+                    find_type,
+                    threshold,
+                    max_retries,
+                    take_screenshot,
+                    model,
+                    my_crop,
+                    min_dist,
+                    additional_stack,
+                    enable_log=False,
+                ):
                     log.debug(f"页面加载完成，目标图片 {target} 已消失", stacklevel=additional_stack + 3)
                     break
-        
 
     def wait_page_load(
         self,
@@ -344,14 +355,15 @@ class Automation(metaclass=SingletonMeta):
         min_dist=10,
         additional_stack=0,
     ):
-        """等待页面加载，直到一个目标出现。
-        """
+        """等待页面加载，直到一个目标出现。"""
         if isinstance(target, str):
             targets = [target]
         else:
             targets = list(target)
 
+        enable_log = len(targets) * 3
         last_screenshot_time = time.monotonic()
+        log.debug(f"等待页面加载，直到目标图片 {targets} 出现", stacklevel=additional_stack + 3)
         while True:
             wait_time = max(0, 0.1 - (time.monotonic() - last_screenshot_time))
 
@@ -361,22 +373,25 @@ class Automation(metaclass=SingletonMeta):
                 if self.take_screenshot() is None:
                     continue
                 for current_target in targets:
-                    if self.find_element(
-                        current_target,
-                        find_type,
-                        threshold,
-                        max_retries,
-                        take_screenshot,
-                        model,
-                        my_crop,
-                        min_dist,
-                        additional_stack,
-                    ):
-                        log.debug(
-                            f"页面加载完成，目标图片 {current_target} 已出现",
-                            stacklevel=additional_stack + 3,
-                        )
-                        return current_target
+                    for i in range(3):
+                        if self.find_element(
+                            current_target,
+                            find_type,
+                            threshold,
+                            max_retries,
+                            take_screenshot,
+                            model,
+                            my_crop,
+                            min_dist,
+                            additional_stack,
+                            enable_log=enable_log,
+                        ):
+                            log.debug(
+                                f"页面加载完成，目标图片 {current_target} 已出现", stacklevel=additional_stack + 3
+                            )
+                            return current_target
+                    enable_log = max(0, enable_log - 3)
+
     def find_element(
         self,
         target,
@@ -388,6 +403,7 @@ class Automation(metaclass=SingletonMeta):
         my_crop=None,
         min_dist=10,
         additional_stack=0,
+        enable_log=True,
     ):
         """
         查找元素，并根据指定的查找类型执行不同的查找策略。
@@ -424,6 +440,7 @@ class Automation(metaclass=SingletonMeta):
                         model=model,
                         my_crop=my_crop,
                         additional_stack=additional_stack,
+                        enable_log=enable_log,
                     )
                 elif find_type == "text":
                     # 使用文本查找方法查找元素
@@ -444,7 +461,9 @@ class Automation(metaclass=SingletonMeta):
                 time.sleep(1)  # 在重试前等待一定时间
         return None
 
-    def find_image_with_multiple_targets(self, target: str, threshold, my_crop=None, min_dist=10, additional_stack=0) -> List:
+    def find_image_with_multiple_targets(
+        self, target: str, threshold, my_crop=None, min_dist=10, additional_stack=0
+    ) -> List:
         """
         在当前截图中查找多个目标图像的位置
         """
@@ -460,7 +479,9 @@ class Automation(metaclass=SingletonMeta):
             if my_crop:
                 crop_offset = (int(round(my_crop[0])), int(round(my_crop[1])))
                 screenshot = ImageUtils.crop(screenshot, my_crop)
-            matches = ImageUtils.match_template_with_multiple_targets(screenshot, template, threshold, min_dist=min_dist)
+            matches = ImageUtils.match_template_with_multiple_targets(
+                screenshot, template, threshold, min_dist=min_dist
+            )
             if crop_offset != (0, 0):
                 matches = [(x + crop_offset[0], y + crop_offset[1]) for x, y in matches]
             if len(matches) == 0:
@@ -750,6 +771,7 @@ class Automation(metaclass=SingletonMeta):
         model="clam",
         my_crop=None,
         additional_stack=0,
+        enable_log=True,
     ):
         """
         在当前截图中查找目标图像的位置
@@ -784,10 +806,11 @@ class Automation(metaclass=SingletonMeta):
                     match_fmt = ".3f"
                 else:
                     match_fmt = ".2f"
-                log.debug(
-                    f"目标图片：{target.replace('./assets/images/', '')}, 路径: {loaded_path}, 相似度：{matchVal:{match_fmt}}, 目标位置：{center}",
-                    stacklevel=additional_stack + 3,
-                )
+                if enable_log:
+                    log.debug(
+                        f"目标图片：{target.replace('./assets/images/', '')}, 路径: {loaded_path}, 相似度：{matchVal:{match_fmt}}, 目标位置：{center}",
+                        stacklevel=additional_stack + 3,
+                    )
                 results.append(
                     {
                         "path": loaded_path,

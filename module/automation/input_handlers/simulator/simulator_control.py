@@ -313,6 +313,7 @@ class SimulatorControl(AbstractInput):
 
         msg = f"点击位置:({x},{y})"
         log.debug(msg)
+
         def _tap():
             for _ in range(times):
                 self.simulator_device.shell(f"input tap {x} {y}")

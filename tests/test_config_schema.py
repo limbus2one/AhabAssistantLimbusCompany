@@ -59,9 +59,5 @@ def test_model_fields_match_example_keys() -> None:
 def test_config_model_has_no_hardcoded_defaults() -> None:
     # ConfigModel 是纯 typing：默认值只准放 example.yaml，不在 model 里硬编码
     # 保证 single source of truth，避免改 config 相关代码时忘了同步修改某个地方
-    with_default: List[str] = [
-        _field_name(s) for s in _config_model_fields() if s.value is not None
-    ]
-    assert (
-        with_default == []
-    ), f"下列 ConfigModel field 带有 default：{with_default}"
+    with_default: List[str] = [_field_name(s) for s in _config_model_fields() if s.value is not None]
+    assert with_default == [], f"下列 ConfigModel field 带有 default：{with_default}"

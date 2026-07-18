@@ -98,6 +98,7 @@ class CheckBoxWithButton(QFrame):
     def retranslateUi(self):
         self.box.check_box.setText(self.tr(self.box_text))
 
+
 class CheckBoxWithComboBox(QFrame):
     def __init__(
         self,
@@ -1548,8 +1549,6 @@ class TextProgressBar(ProgressBar):
         if self.maximum() <= self.minimum():
             return 100
         return int((self.value() - self.minimum()) * 100 / (self.maximum() - self.minimum()))
-
-
 
 
 class ObserveGiftSelectionRow(QFrame):

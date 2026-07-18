@@ -919,7 +919,9 @@ class CustomizeSettingsModule(QFrame):
 
         self.star_list.addWidget(self.starlight_select_all_wrapper, 0, 0)
         self.star_list.addWidget(self.starlight_clear_button_wrapper, 0, 1)
-        self.star_list.addWidget(self.starlight_total_cost_label, 0, 4, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.star_list.addWidget(
+            self.starlight_total_cost_label, 0, 4, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
 
         self.star_list.addWidget(self.starlight_1, 1, 0)
         self.star_list.addWidget(self.starlight_2, 1, 1)
@@ -995,6 +997,7 @@ class CustomizeSettingsModule(QFrame):
     def _apply_total_cost_style(self):
         from qfluentwidgets import setCustomStyleSheet
         from app.starlight_bonus import _register_custom_style_widget
+
         _register_custom_style_widget(self.starlight_total_cost_label)
         light_qss, dark_qss = get_starlight_total_cost_qss()
         setCustomStyleSheet(self.starlight_total_cost_label, light_qss, dark_qss)
@@ -1284,7 +1287,9 @@ class ObserveEgoGiftModule(QFrame):
         return ensure_placeholder_row(rows, max_completed=MAX_OBSERVE_GIFT_SELECTIONS)
 
     def _emit_selected_rows(self):
-        mediator.team_setting.emit({"observe_ego_gift_selected": serialize_observe_ego_gift_values(self._row_selections)})
+        mediator.team_setting.emit(
+            {"observe_ego_gift_selected": serialize_observe_ego_gift_values(self._row_selections)}
+        )
 
     def _rebuild_rows(self, target_row_index: int | None = None, emit: bool = False):
         while self.selection_rows_layout.count():

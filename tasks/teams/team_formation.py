@@ -16,7 +16,8 @@ def clean_team():
         if auto.click_element("teams/clear_selection_confirm_assets.png"):
             break
         if (identify_position := auto.find_element("teams/identify_assets.png")) and auto.mouse_action_with_pos(
-            [identify_position[0], identify_position[1] + 600 * scale]):
+            [identify_position[0], identify_position[1] + 600 * scale]
+        ):
             sleep(0.5)
             auto.take_screenshot()
             if auto.find_element("teams/clear_selection_confirm_assets.png") is None:
@@ -44,9 +45,7 @@ def team_formation(sinner_team):
         else:
             return
         if sinner <= 5:
-            auto.mouse_action_with_pos(
-                (first_sinner[0] + 270 * sinner * scale, first_sinner[1])
-            )
+            auto.mouse_action_with_pos((first_sinner[0] + 270 * sinner * scale, first_sinner[1]))
         else:
             auto.mouse_action_with_pos(
                 (

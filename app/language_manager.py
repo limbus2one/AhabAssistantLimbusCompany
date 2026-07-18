@@ -154,9 +154,11 @@ class LanguageManager(metaclass=SingletonMeta):
         """检查方法是否需要参数"""
         sig = inspect.signature(method)
         required_params = [
-            p for p in sig.parameters.values()
+            p
+            for p in sig.parameters.values()
             if p.default is inspect.Parameter.empty
-            and p.kind not in (
+            and p.kind
+            not in (
                 inspect.Parameter.VAR_POSITIONAL,
                 inspect.Parameter.VAR_KEYWORD,
             )  # 排除可变参数

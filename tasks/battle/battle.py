@@ -131,7 +131,7 @@ class Battle:
                     auto.mouse_click(pos[0], pos[1])
                     auto.click_element("battle/gear_right.png")
             else:
-                if not auto.find_element("battle/pause_assets.png", threshold=0.75): # 如果没有进入战斗状态，准备点击
+                if not auto.find_element("battle/pause_assets.png", threshold=0.75):  # 如果没有进入战斗状态，准备点击
                     self.mouse_click_rate = True
                 else:
                     self.mouse_click_rate = False
@@ -153,7 +153,7 @@ class Battle:
         waiting = self._update_wait_time()
         total_count = 0
         fail_count = 0
-        
+
         first_battle_reward = None
         event_chance = 15
         if defense_all_time:
@@ -198,7 +198,7 @@ class Battle:
 
             # 如果正在交战过程
             if auto.find_element("battle/pause_assets.png"):
-                auto.wait_page_load(["battle/gear_left.png", "mirror/road_in_mir/legend_assets.png"])
+                auto.wait_page_load(["battle/gear_right.png", "mirror/road_in_mir/legend_assets.png", "mirror/road_in_mir/acquire_ego_gift_card.png", "mirror/road_in_mir/select_encounter_reward_card_assets.png","battle/battle_finish_confirm_assets.png"])
                 chance = self.INIT_CHANCE
                 first_turn = False
                 continue

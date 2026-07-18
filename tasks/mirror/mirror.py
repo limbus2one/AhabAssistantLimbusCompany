@@ -9,7 +9,6 @@ from module.config import TeamSetting, cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from module.my_error.my_error import (
-    InputAttributeError,
     backMainWinError,
     cannotOperateGameError,
     unableToFindTeamError,
@@ -23,11 +22,7 @@ from tasks.battle import battle
 from tasks.event import event_handling
 from tasks.mirror.in_shop import Shop
 from tasks.mirror.reward_card import get_reward_card
-from tasks.mirror.search_road import (
-    MirrorMap,
-    search_road_default_distance,
-    search_road_farthest_distance,
-)
+from tasks.mirror.search_road import MirrorMap
 from tasks.mirror.select_theme_pack import select_theme_pack
 from tasks.teams.team_formation import check_team, load_team_code_in_game, select_battle_team, team_formation
 from utils.image_utils import ImageUtils
@@ -195,9 +190,6 @@ class Mirror:
             # 自动截图
             if auto.take_screenshot() is None:
                 continue
-
-            retry()
-
             if cfg.floor_3_exit and self.floor >= 4:
                 if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
                     break
@@ -231,12 +223,12 @@ class Mirror:
             # 离开镜牢的设置页面
             if to_window_position := auto.find_element("mirror/road_in_mir/to_window_assets.png"):
                 auto.mouse_click(to_window_position[0] - 200 * cfg.set_win_size / 1440, to_window_position[1])
+                auto.wait_page_leave("mirror/road_in_mir/to_window_assets.png")
                 continue
 
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
-                # 等到界面稳定，在开始选择主题包
-                auto.wait_page_load(["mirror/theme_pack/pack_info_35_assets.png", "mirror/theme_pack/pack_info_4_assets.png"])
+                sleep(2)
                 select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
                 if self.re_formation_each_floor:
                     self.first_battle = True
@@ -265,17 +257,15 @@ class Mirror:
             # 在镜牢中寻路
             if auto.find_element("mirror/road_in_mir/legend_assets.png"):
                 auto.mouse_to_blank()
+                while auto.take_screenshot() is None:
+                    continue
                 if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
                     continue
                 if auto.find_element("teams/identify_assets.png"):
                     continue
                 if auto.find_element("mirror/shop/shop_coins_assets.png", model="normal"):
                     continue
-                if auto.find_element("mirror/claim_reward/claim_rewards_assets.png") and auto.find_element(
-                    "mirror/claim_reward/complete_mirror_100%_assets.png"
-                ):
-                    break
-                retry()
+                auto.wait_page_load("mirror/road_in_mir/setting_assets.png")
                 if self.get_floor_num:
                     self.get_which_floor()
 
@@ -311,7 +301,7 @@ class Mirror:
                     self.first_battle = False
                     continue
                 # 战斗配队失败的情况
-                if auto.click_element("teams/none_sinner_assets.png"):
+                if auto.click_element("teams/none_sinner_assets.png", model="clam"):
                     self.first_battle = True
                     continue
                 # 检测罪人幸存人数是否少于10人
@@ -323,7 +313,8 @@ class Mirror:
                     continue_mirror = check_team()
                     # 如果还有至少5人能战斗就继续，不然就退出重开
                     if continue_mirror is False and self.first_battle is False:
-                        self.re_start()
+                        pass
+                        # self.re_start()
                 if auto.click_element("battle/chaim_to_battle_assets.png") or auto.click_element(
                     "battle/normal_to_battle_assets.png"
                 ):
@@ -406,12 +397,14 @@ class Mirror:
                 continue
 
             # 自选开局饰品
-            if auto.find_element("mirror/road_to_mir/activate_gift_search_on_assets.png") or auto.find_element("mirror/road_to_mir/activate_gift_search_off_assets.png"):
+            if auto.find_element("mirror/road_to_mir/activate_gift_search_on_assets.png") or auto.find_element(
+                "mirror/road_to_mir/activate_gift_search_off_assets.png"
+            ):
                 log.info("检测到自选开局饰品，开始选择")
                 self.select_init_ego_gift()
                 log.info("自选开局饰品选择完成")
                 continue
-            
+
             # 饰品观测
             if auto.find_element("mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png"):
                 self.select_observe_ego_gift()
@@ -479,6 +472,7 @@ class Mirror:
             # 如果回到主界面，退出循环
             if auto.find_element("home/drive_assets.png"):
                 break
+            # final boss over page
             if auto.click_element("battle/battle_finish_confirm_assets.png"):
                 continue
             if auto.click_element("mirror/claim_reward/rewards_acquired_assets.png"):
@@ -499,9 +493,12 @@ class Mirror:
                 if auto.find_text_element("100", complete_mirror_bbox):
                     failed = False
                     continue
+                # claim rewads
                 if auto.click_element("mirror/claim_reward/claim_rewards_assets.png"):
                     sleep(1)
-                if auto.click_element("mirror/claim_reward/claim_forfeit_assets.png", model="normal", take_screenshot=True):
+                if auto.click_element(
+                    "mirror/claim_reward/claim_forfeit_assets.png", model="normal", take_screenshot=True
+                ):
                     continue
             else:
                 if self.hard_switch and cfg.save_rewards:
@@ -731,7 +728,7 @@ class Mirror:
                     auto.mouse_action_with_pos((starlights_X[i], starlights_Y[i]), interval=0.3)
                 if self.opening_bonus[i] == 2:
                     auto.mouse_action_with_pos(
-                        (starlights_X[i] - 80 * scale, starlights_Y[i] + 320 * scale),interval=0.3
+                        (starlights_X[i] - 80 * scale, starlights_Y[i] + 320 * scale), interval=0.3
                     )
                 elif self.opening_bonus[i] == 3:
                     auto.mouse_action_with_pos(
@@ -741,22 +738,39 @@ class Mirror:
         auto.click_element("mirror/road_to_mir/dreaming_star/dreaming_star_enter_assets.png")
         # 这个截图应该重新选取，缺少辨识度
         
-        if auto.wait_page_load(["mirror/road_to_mir/dreaming_star/no_convert_star_to_cost_assets.png","mirror/road_to_mir/dreaming_star/convert_star_to_cost_assets.png"]) == "mirror/road_to_mir/dreaming_star/convert_star_to_cost_assets.png":
+        
+        next_page =             auto.wait_page_load(
+                [
+                    "mirror/road_to_mir/dreaming_star/no_convert_star_to_cost_assets.png",
+                    "mirror/road_to_mir/dreaming_star/convert_star_to_cost_assets.png",
+                    "mirror/road_to_mir/bleed_gift_assets.png",
+                    
+                ]
+            )
+        
+        if (
+
+           next_page == "mirror/road_to_mir/dreaming_star/convert_star_to_cost_assets.png"
+        ):
             if self.use_starlight:
                 pass
             else:
                 auto.click_element("mirror/road_to_mir/dreaming_star/no_convert_star_to_cost_assets.png")
-
-        auto.click_element(
+        elif next_page == "mirror/road_to_mir/bleed_gift_assets.png":
+            pass
+        else:
+            auto.click_element(
                 "mirror/road_to_mir/dreaming_star/select_star_confirm_assets.png",
                 model="normal",
             )
-        auto.wait_page_load("mirror/road_to_mir/bleed_gift_assets.png")
-
+            auto.wait_page_load("mirror/road_to_mir/bleed_gift_assets.png")
 
     def select_init_ego_gift(self):
         # 如果启用观测and选择饰品
-        if self.observe_ego_gift and len(self.observe_ego_gift_selected)!=0:
+        if auto.find_element("mirror/road_to_mir/activate_gift_search_on_assets.png"):
+            auto.click_element("mirror/road_to_mir/activate_gift_search_on_assets.png")
+        
+        if self.observe_ego_gift and len(self.observe_ego_gift_selected) != 0:
             auto.click_element("mirror/road_to_mir/activate_gift_search_off_assets.png")
             pos = auto.find_element("mirror/road_to_mir/activate_gift_search_on_assets.png")
         else:
@@ -766,13 +780,13 @@ class Mirror:
             scale = cfg.set_win_size / 1440
             first_system_x = pos[0] - 1850 * scale
             first_system_y = pos[1] + 150 * scale
-            
+
             if self.system == "pierce" or self.system == "blunt":
                 auto.mouse_drag(first_system_x, first_system_y, drag_time=0.2, dx=0, dy=-400)
             auto.click_element(f"mirror/road_to_mir/{self.system}_gift_assets.png", interval=0.3)
 
             # 按顺序选择初始饰品
-        
+
             first_ego_x = pos[0] - 400 * scale
             first_ego_y = pos[1] + 200 * scale
             gift_order = start_gift[self.opening_items_select]
@@ -782,23 +796,31 @@ class Mirror:
                     first_ego_y + (gift_number - 1) * 210 * scale,
                 )
                 auto.mouse_action_with_pos(gift_position, interval=0.3)
-        
+
         auto.click_element("mirror/road_to_mir/select_init_ego_gifts_confirm_assets.png")
-        
+
         # 离开初始饰品页面
-        while auto.find_element("mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png", take_screenshot=True) is None:
+        while (
+            auto.find_element(
+                "mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png", take_screenshot=True
+            )
+            is None
+        ):
             auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png")
-        
+
         # auto.wait_page_load("mirror/road_to_mir/observe_ego_gift/select_observe_ego_gift_assets.png")
 
     def select_observe_ego_gift(self):
         """
         观测EGO饰品选择
         """
+
         def _select_gift(level_p):
             first_gift = (level_p[0], level_p[1] + 80 * my_scale)
-            select_gift_point = (first_gift[0] + (gift_col - 1) * 165 * my_scale,
-                                 first_gift[1] + (gift_row - 1) * 160 * my_scale)
+            select_gift_point = (
+                first_gift[0] + (gift_col - 1) * 165 * my_scale,
+                first_gift[1] + (gift_row - 1) * 160 * my_scale,
+            )
             if select_gift_point[1] < gift_box[-1]:
                 auto.mouse_click(select_gift_point[0], select_gift_point[1])
             else:
@@ -835,9 +857,9 @@ class Mirror:
                 continue
             file_system = gm.group(1)
             gift_information = gift_id.split("_")[1:]
-            gift_level =int(gift_information[0])
-            gift_row =int(gift_information[1]) # 所在行
-            gift_col =int(gift_information[2]) # 所在列
+            gift_level = int(gift_information[0])
+            gift_row = int(gift_information[1])  # 所在行
+            gift_col = int(gift_information[2])  # 所在列
 
             # 选择体系
             if file_system == "general":
@@ -845,17 +867,13 @@ class Mirror:
             else:
                 system_index = [k for k, v in observe_system.items() if v == file_system][0]
             # 选择体系，先点一下其他体系，再点回来，重置页面
-            auto.mouse_action_with_pos(
-            (benchmark_point[0] + 110 * (system_index + 1) * my_scale, benchmark_point[1])
-            )
-            auto.mouse_action_with_pos(
-            (benchmark_point[0] + 110 * (system_index - 1) * my_scale, benchmark_point[1])
-            )
-            auto.mouse_action_with_pos(
-            (benchmark_point[0] + 110 * system_index * my_scale, benchmark_point[1])
-            )
+            auto.mouse_action_with_pos((benchmark_point[0] + 110 * (system_index + 1) * my_scale, benchmark_point[1]))
+            auto.mouse_action_with_pos((benchmark_point[0] + 110 * (system_index - 1) * my_scale, benchmark_point[1]))
+            auto.mouse_action_with_pos((benchmark_point[0] + 110 * system_index * my_scale, benchmark_point[1]))
 
-            if level_point := auto.find_element(f"mirror/road_to_mir/observe_ego_gift/Level_{"I"*gift_level}.png",take_screenshot=True):
+            if level_point := auto.find_element(
+                f"mirror/road_to_mir/observe_ego_gift/Level_{'I' * gift_level}.png", take_screenshot=True
+            ):
                 _select_gift(level_point)
             else:
                 level_point = None
@@ -863,10 +881,12 @@ class Mirror:
                     auto.mouse_drag(
                         gift_box[-2] - 100 * my_scale,
                         gift_box[-1] - 100 * my_scale,
-                        dy=-(gift_box[-1]-gift_box[1])/2,
+                        dy=-(gift_box[-1] - gift_box[1]) / 2,
                         drag_time=1.5,
                     )
-                    if p:= auto.find_element(f"mirror/road_to_mir/observe_ego_gift/Level_{"I"*gift_level}.png",take_screenshot=True):
+                    if p := auto.find_element(
+                        f"mirror/road_to_mir/observe_ego_gift/Level_{'I' * gift_level}.png", take_screenshot=True
+                    ):
                         level_point = p
                         break
                 if level_point is None:
@@ -874,30 +894,32 @@ class Mirror:
                 _select_gift(level_point)
                 sleep(0.5)
 
-
         # 观测饰品选择完毕
         for _ in range(5):
-            bbox =ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/select_gift_bbox.png"))
-            ocr_result = auto.find_language_text("选择", "select",bbox )
+            bbox = ImageUtils.get_bbox(
+                ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/select_gift_bbox.png")
+            )
+            ocr_result = auto.find_language_text("选择", "select", bbox)
             if ocr_result:
                 auto.mouse_click((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
                 sleep(1)
-                if auto.click_element("mirror/shop/leave_shop_confirm_assets.png",take_screenshot=True):
+                if auto.click_element("mirror/shop/leave_shop_confirm_assets.png", take_screenshot=True):
                     break
         for _ in range(5):
-            auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png",take_screenshot=True)
+            auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png", take_screenshot=True)
 
         for _ in range(3):
             bbox = ImageUtils.get_bbox(
-                ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/reject_gift_bbox.png"))
+                ImageUtils.load_image("mirror/road_to_mir/observe_ego_gift/reject_gift_bbox.png")
+            )
             ocr_result = auto.find_language_text("拒绝", "reject", bbox)
             if ocr_result:
                 auto.mouse_click((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
                 sleep(1)
-                if auto.click_element("mirror/shop/leave_shop_confirm_assets.png",take_screenshot=True):
+                if auto.click_element("mirror/shop/leave_shop_confirm_assets.png", take_screenshot=True):
                     return
         # 离开观测饰品选择界面
-        while auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png",take_screenshot=True) is None:
+        while auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png", take_screenshot=True) is None:
             auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png")
 
     def select_mirror_team(self):
@@ -912,81 +934,26 @@ class Mirror:
         if team_setting and team_setting.use_team_code and team_setting.team_code:
             if not load_team_code_in_game(team_setting.team_code):
                 log.warning("编队码加载失败，继续使用当前队伍配置")
-                
-        
+
         auto.click_element("mirror/road_to_mir/select_team_confirm_assets.png")
         auto.wait_for_element("mirror/road_to_mir/dreaming_star/coins_assets.png")
 
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
-        try:
-            if next_node := self.mirror_map.get_next_step():
-                if next_node is True:
-                    return True
-                if self.mirror_map.enter_next_node(next_node):
-                    return True
-            log.debug("未能构建路线图，尝试使用最近节点法重新寻路")
-        except Exception as e:
-            log.debug(f"使用onnx模型寻路出错:{e}")
-        finally:
-            auto.mouse_to_blank()
-        try:
-            for _ in range(3):
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_default_distance():
-                    sleep(1)
-                    return True
-                if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                    return True
-                if retry() is False:
-                    return False
-            for _ in range(3):
-                if cfg.background_click:
-                    continue
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_farthest_distance():
-                    sleep(1)
-                    return True
-                if retry() is False:
-                    return False
-        except InputAttributeError as e:
-            log.error(f"寻路出错:{e}, 尝试重进镜牢")
-            pass
-        except Exception as e:
-            log.error(f"寻路出错:{e}")
-            return False
-        if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-            return True
-        start_time = time.time()
-        log.info("寻路出错, 尝试重进镜牢")
-        while True:
-            from tasks.base.retry import check_times
+        if bus := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
+            auto.mouse_action_with_pos(bus, interval=1)
 
-            # 自动截图
-            if auto.take_screenshot() is None:
-                continue
-            if auto.get_restore_time() is not None:
-                start_time = max(start_time, auto.get_restore_time())
-            if check_times(start_time):
-                back_init_menu()
-                return False
-            auto.mouse_to_blank()
-            if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                return True
-            if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
-                sleep(0.5)
-                break
-            if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
-                break
-            if auto.click_element("mirror/road_in_mir/to_window_assets.png"):
-                continue
-            if auto.click_element("mirror/road_in_mir/setting_assets.png"):
-                sleep(1)
-                continue
-            if retry() is False:
-                return False
+        if auto.click_element(
+            "mirror/road_in_mir/enter_assets.png",
+            take_screenshot=True,
+        ):
+            return True
+
+        log.debug("使用路线图寻路")
+        next_node_direction = self.mirror_map.get_next_node_direction()
+        if not next_node_direction:
+            return False
+        return self.mirror_map.enter_next_node(next_node_direction)
 
     def re_start(self):
         while True:
@@ -1142,176 +1109,86 @@ class Mirror:
         self.event_total_time += event_elapsed_time
         self.event_times += 1
 
-
-
-    def acquire_ego_gift(self, type: int = 1):
-        """
-        获取EGO饰品
-        :param type: 1表示普通获取，2表示特殊饰品箱/可拒绝界面
-        """
+    def acquire_ego_gift(self) -> bool:
+        """在当前饰品领取界面中，过滤、排序并选择全部可用 EGO 饰品。"""
         my_scale = cfg.set_win_size / 1440
-        auto.model = "clam"
-        auto.mouse_to_blank()
-        
-        # 特殊饰品箱/可拒绝界面
-        if type == 2:
-            pos = auto.find_element("mirror/road_in_mir/acquire_ego_gift_refuse_assets.png")
-            auto.mouse_action_with_pos(pos[0] - 500 * my_scale, pos[1] - 500 * my_scale)
-            auto.mouse_action_with_pos(pos[0], pos[1] - 500 * my_scale)
-            auto.click_element("mirror/road_in_mir/acquire_ego_gift_select_assets.png", model="normal")
-            auto.wait_page_leave("mirror/road_in_mir/acquire_ego_gift_select_assets.png")
-            return
-        while True:
-            if auto.take_screenshot() is None:
-                continue
 
-            if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
-                break
-            try:
-                acquire_card = auto.find_element(
-                    "mirror/road_in_mir/acquire_ego_gift_card.png",
-                    find_type="image_with_multiple_targets",
+        acquire_cards = auto.find_element(
+            "mirror/road_in_mir/acquire_ego_gift_card.png",
+            find_type="image_with_multiple_targets",
+        )
+
+        if not acquire_cards:
+            auto.click_element("mirror/road_in_mir/refuse_gift_assets.png")
+
+        def gift_bbox(button):
+            return (
+                button[0] - 50 * my_scale,
+                button[1] - 300 * my_scale,
+                button[0] + 450 * my_scale,
+                button[1] + 350 * my_scale,
+            )
+
+        # 移除白棉花
+        candidates = []
+        for button in acquire_cards:
+            bbox = gift_bbox(button)
+            is_white_gossypium = False
+            if not cfg.not_skip_whitegossypium:
+                is_white_gossypium = bool(
+                    auto.find_language_text(
+                        "白棉花",
+                        ["white", "gossypium"],
+                        bbox,
+                        all_text=True,
+                    )
                 )
-                my_list = []
-                if len(acquire_card) == 2:
-                    for button in acquire_card:
-                        bbox = (
-                            button[0] - 50 * my_scale,
-                            button[1] - 300 * my_scale,
-                            button[0] + 450 * my_scale,
-                            button[1] + 350 * my_scale,
-                        )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if isinstance(ocr_result, list):
-                                if len(ocr_result) >= 2:
-                                    continue
-                        auto.mouse_click(button[0], button[1])
-                        auto.click_element(
-                            "mirror/road_in_mir/acquire_ego_gift_select_assets.png",
-                            model="normal",
-                        )
-                        time.sleep(2)
-                        if retry() is False:
-                            return False
-                        return
-                elif len(acquire_card) == 1:
-                    for button in acquire_card:
-                        bbox = (
-                            button[0] - 50 * my_scale,
-                            button[1] - 300 * my_scale,
-                            button[0] + 450 * my_scale,
-                            button[1] + 350 * my_scale,
-                        )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if isinstance(ocr_result, list):
-                                if len(ocr_result) >= 2:
-                                    time.sleep(1)
-                                    auto.click_element(
-                                        "mirror/road_in_mir/refuse_gift_assets.png",
-                                        take_screenshot=True,
-                                    )
-                                    sleep(1)
-                                    auto.click_element(
-                                        "mirror/road_in_mir/refuse_gift_confirm_assets.png",
-                                        take_screenshot=True,
-                                    )
-                                    time.sleep(2)
-                                    if retry() is False:
-                                        return False
-                                    return
-                        auto.mouse_click(button[0], button[1])
-                        time.sleep(1)
-                        auto.click_element(
-                            "mirror/road_in_mir/acquire_ego_gift_select_assets.png",
-                            model="normal",
-                        )
-                        time.sleep(2)
-                        if retry() is False:
-                            return False
-                        return
-                else:
-                    system_nums = 0
-                    for button in acquire_card:
-                        bbox = (
-                            button[0] - 50 * my_scale,
-                            button[1] - 300 * my_scale,
-                            button[0] + 450 * my_scale,
-                            button[1] + 350 * my_scale,
-                        )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if ocr_result:
-                                continue
-                        if auto.find_element(
-                            f"mirror/road_in_mir/acquire_ego_gift/{self.system}.png",
-                            my_crop=bbox,
-                            threshold=0.85,
-                        ):
-                            my_list.insert(0, button)
-                            system_nums += 1
-                        else:
-                            if self.second_system and (
-                                self.second_system_setting == 0
-                                or (self.second_system_setting == 1 and self.shop.fuse_IV)
-                            ):
-                                if auto.find_element(
-                                    f"mirror/road_in_mir/acquire_ego_gift/{all_systems[self.second_system_select]}.png",
-                                    my_crop=bbox,
-                                    threshold=0.85,
-                                ):
-                                    my_list.insert(system_nums, button)
-                                    continue
-                            my_list.append(button)
-                select_bbox = ImageUtils.get_bbox(ImageUtils.load_image("mirror/road_in_mir/ego_gift_get_bbox.png"))
-                if select_bbox:
-                    select_bbox = (
-                        max(select_bbox[0] - 100, 0),  # 确保左上角 x 坐标不小于 0
-                        max(select_bbox[1] - 100, 0),  # 确保左上角 y 坐标不小于 0
-                        min(select_bbox[2] + 100, cfg.set_win_size * 16 / 9),  # 确保右下角 x 坐标不大于 图片宽
-                        min(select_bbox[3] + 100, cfg.set_win_size),  # 确保右下角 y 坐标不大于 图片高
-                    )
-                if auto.find_text_element(["0/1", "01", "1/1", "11", "1/2", "12", "/1"], my_crop=select_bbox):
-                    for gift in my_list[:1]:
-                        auto.mouse_click(gift[0], gift[1])
-                        sleep(cfg.mouse_action_interval)
-                    auto.click_element(
-                        "mirror/road_in_mir/acquire_ego_gift_select_assets.png",
-                        model="normal",
-                    )
-                    time.sleep(2)
-                    if retry() is False:
-                        return False
-                    return
-                elif auto.find_text_element(["0/2", "02", "2/2", "22", "/2"], my_crop=select_bbox):
-                    for gift in my_list[:2]:
-                        auto.mouse_click(gift[0], gift[1])
-                        sleep(cfg.mouse_action_interval)
-                    auto.click_element(
-                        "mirror/road_in_mir/acquire_ego_gift_select_assets.png",
-                        model="normal",
-                    )
-                    time.sleep(2)
-                    if retry() is False:
-                        return False
-                    return
-                else:
-                    for gift in my_list:
-                        auto.mouse_click(gift[0], gift[1])
-                        sleep(cfg.mouse_action_interval)
-                    auto.click_element(
-                        "mirror/road_in_mir/acquire_ego_gift_select_assets.png",
-                        model="normal",
-                    )
-                    time.sleep(2)
-                    if retry() is False:
-                        return False
-                    return
-
-            except Exception as e:
-                log.error(e)
+            if is_white_gossypium:
+                log.debug(f"移除白棉花饰品，位置：{button}")
                 continue
+            candidates.append((button, bbox))
+        # 选择饰品
+        if not candidates:
+            log.debug("过滤白棉花后没有可选饰品，执行拒绝")
+            auto.click_element("mirror/road_in_mir/refuse_gift_confirm_assets.png")
+
+        second_system_enabled = self.second_system and (
+            self.second_system_setting == 0 or (self.second_system_setting == 1 and self.shop.fuse_IV)
+        )
+        second_system = all_systems[self.second_system_select] if second_system_enabled else None
+
+        ranked_candidates = []
+        for button, bbox in candidates:
+            if auto.find_element(
+                f"mirror/road_in_mir/acquire_ego_gift/{self.system}.png",
+                my_crop=bbox,
+                threshold=0.85,
+            ):
+                priority = 0
+            elif second_system and auto.find_element(
+                f"mirror/road_in_mir/acquire_ego_gift/{second_system}.png",
+                my_crop=bbox,
+                threshold=0.85,
+            ):
+                priority = 1
+            else:
+                priority = 2
+            ranked_candidates.append((priority, button))
+
+        # 优先级从低到高，点击顺序也是从低到高，保证选中的饰品是最高优先级的几个
+        ranked_candidates.sort(key=lambda candidate: candidate[0])
+        log.debug(f"EGO饰品选择顺序：{ranked_candidates}")
+
+        for _, button in ranked_candidates:
+            auto.mouse_action_with_pos((button[0], button[1]), interval=1)
+
+        # normal is needed
+        auto.click_element("mirror/road_in_mir/acquire_ego_gift_select_assets.png", model="normal")
+        auto.wait_page_load("mirror/road_in_mir/ego_gift_get_confirm_assets.png")
+        # 依次领取饰品
+        auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png", interval=1)
+        auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png", interval=1)
+        auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png", interval=1)
 
     def get_reward_in_road(self):
         main_loop_count = 20
@@ -1393,9 +1270,6 @@ class Mirror:
         self.shop.in_shop(self.floor)
 
     def get_which_floor(self):
-        auto.click_element("mirror/road_in_mir/setting_assets.png", take_screenshot=True)
-        sleep(1)
-
         scale = cfg.set_win_size / 1440
         floor_progress_crop = (
             900 * scale,
@@ -1403,19 +1277,22 @@ class Mirror:
             1700 * scale,
             720 * scale,
         )
-        if to_window_position := auto.find_element("mirror/road_in_mir/to_window_assets.png", take_screenshot=True):
+        auto.click_element("mirror/road_in_mir/setting_assets.png", take_screenshot=True)
+        auto.wait_page_load("mirror/road_in_mir/to_window_assets.png")
+
+        if to_window_position := auto.find_element("mirror/road_in_mir/to_window_assets.png"):
             not_passed_floors = auto.find_element(
                 "mirror/road_in_mir/not_passed_floor.png",
                 find_type="image_with_multiple_targets",
                 my_crop=floor_progress_crop,
-                take_screenshot=True,
-                min_dist=30
+                min_dist=30,
             )
             not_passed_floor_count = len(not_passed_floors)
             self.floor = 5 - not_passed_floor_count
             log.debug(f"当前镜牢层数: {self.floor}")
             self.get_floor_num = False
-            auto.mouse_action_with_pos(
-                (to_window_position[0] - 200 * cfg.set_win_size / 1440, to_window_position[1])
-            )
             self.mirror_map.refresh_floor(self.floor)
+            auto.mouse_action_with_pos(
+                (to_window_position[0] - int(200 * cfg.set_win_size / 1440), to_window_position[1])
+            )
+            auto.wait_page_leave("mirror/road_in_mir/to_window_assets.png")

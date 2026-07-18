@@ -402,7 +402,6 @@ def get_starlight_bonus_tips(index: int, language: str | None = None) -> dict[st
     return tips[index]
 
 
-
 STARLIGHT_TOTAL_COST_STYLES = {
     "light": """
         QLabel#starlightTotalCostLabel {

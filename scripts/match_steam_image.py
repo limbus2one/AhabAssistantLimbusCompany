@@ -130,4 +130,6 @@ for score, model, relative_path, center, bbox in results:
 
 best = results[0]
 print()
-print(f"最高匹配: image={best[2]}, model={best[1]}, score={best[0]:.6f}, center={best[3]}, matched={best[0] >= threshold}")
+print(
+    f"最高匹配: image={best[2]}, model={best[1]}, score={best[0]:.6f}, center={best[3]}, matched={best[0] >= threshold}"
+)

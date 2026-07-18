@@ -13,11 +13,13 @@ def _prepare_continuous_combat_count(
     if box_position is not None:
         auto.mouse_click(box_position[0], box_position[1])
     else:
-        if not (pos := auto.click_element(
-            "luxcavation/thread_continuous_combat_show_box.png",
-            threshold=0.85,
-            click=False,
-        )):
+        if not (
+            pos := auto.click_element(
+                "luxcavation/thread_continuous_combat_show_box.png",
+                threshold=0.85,
+                click=False,
+            )
+        ):
             log.debug(f"{log_prefix}未找到连续战斗设置入口")
             return False
         auto.mouse_click(pos[0], pos[1])
@@ -25,11 +27,7 @@ def _prepare_continuous_combat_count(
     up_button = None
     for attempt in range(2):
         sleep(0.4 if attempt == 0 else 0.2)
-        up_button = auto.find_element(
-            "luxcavation/continuous_combat_up_box.png",
-            threshold=0.85,
-            take_screenshot=True
-        )
+        up_button = auto.find_element("luxcavation/continuous_combat_up_box.png", threshold=0.85, take_screenshot=True)
         if up_button:
             break
 
@@ -80,7 +78,9 @@ def EXP_luxcavation(combat_count: int = 1):
                         sleep(1)
                         auto.mouse_to_blank()
                         for _ in range(3):
-                            if auto.find_element("teams/identify_assets.png", take_screenshot=True) or auto.find_element(
+                            if auto.find_element(
+                                "teams/identify_assets.png", take_screenshot=True
+                            ) or auto.find_element(
                                 "home/first_prompt_assets.png",
                                 model="clam",
                                 take_screenshot=True,
@@ -133,12 +133,13 @@ def thread_luxcavation(combat_count: int = 1):
                 auto.mouse_to_blank()
                 for _ in range(3):
                     if auto.find_element("teams/identify_assets.png", take_screenshot=True) or auto.find_element(
-                            "home/first_prompt_assets.png", model="clam", take_screenshot=True
+                        "home/first_prompt_assets.png", model="clam", take_screenshot=True
                     ):
                         log.debug(f"{log_prefix}第 {lv_idx + 1} 关点击成功，已进入编队界面")
                         return True
             log.debug(f"{log_prefix}第 {lv_idx + 1} 关 3 次尝试均未进入编队，降级尝试下一关")
         return False
+
     loop_count = 30
     continuous_combat_set = False
     auto.model = "clam"

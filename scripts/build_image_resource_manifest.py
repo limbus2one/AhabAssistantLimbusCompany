@@ -272,7 +272,6 @@ def main() -> int:
         generated_at=args.generated_at,
     )
 
-
     return 0
 
 

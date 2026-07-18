@@ -574,9 +574,9 @@ def write_html_report(
 
     folder_path = folder.as_posix()
     with output_path.open("w", encoding="utf-8") as file:
-        file.write("<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n")
-        file.write("<meta charset=\"utf-8\">\n")
-        file.write("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n")
+        file.write('<!doctype html>\n<html lang="zh-CN">\n<head>\n')
+        file.write('<meta charset="utf-8">\n')
+        file.write('<meta name="viewport" content="width=device-width, initial-scale=1">\n')
         file.write("<title>图片相似度与命名规范报告</title>\n")
         file.write("<style>\n")
         file.write(
@@ -594,8 +594,8 @@ def write_html_report(
         file.write(
             f"<p>依据：{html_link('assets/doc/zh/image_recognition.md', 'assets/doc/zh/image_recognition.md')}。</p>\n"
         )
-        file.write("<p class=\"hint\">勾选状态会自动保存在本机浏览器 localStorage，重新打开此 HTML 文件后会恢复。</p>\n")
-        file.write("<h2>汇总</h2>\n<ul class=\"summary\">\n")
+        file.write('<p class="hint">勾选状态会自动保存在本机浏览器 localStorage，重新打开此 HTML 文件后会恢复。</p>\n')
+        file.write('<h2>汇总</h2>\n<ul class="summary">\n')
         file.write(f"<li>图片目录：{html_link(folder_path, folder_path)}</li>\n")
         file.write(f"<li>图片数量：{len(images)}</li>\n")
         file.write(f"<li>阈值：max(score) &gt;= {threshold}</li>\n")
@@ -795,8 +795,7 @@ def main() -> int:
     try:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_row = {
-                executor.submit(compute_similarity_row, row, images, args.threshold): row
-                for row in range(image_count)
+                executor.submit(compute_similarity_row, row, images, args.threshold): row for row in range(image_count)
             }
             for future in as_completed(future_to_row):
                 row, row_scores, row_pairs, row_pair_count, row_category_counts = future.result()
@@ -809,9 +808,8 @@ def main() -> int:
                     category_counts[kind] += count
                 completed_pairs += row_pair_count
                 now = time.time()
-                if (
-                    not args.no_progress
-                    and (now - last_progress_time >= args.progress_interval or completed_pairs == total_pairs)
+                if not args.no_progress and (
+                    now - last_progress_time >= args.progress_interval or completed_pairs == total_pairs
                 ):
                     render_progress(completed_pairs, total_pairs, match_start, final=completed_pairs == total_pairs)
                     last_progress_time = now
@@ -912,10 +910,7 @@ def main() -> int:
     emit(f"pair_speed={total_pairs / match_seconds if match_seconds > 0 else 0:.1f} pairs/s")
     emit("top_pairs")
     for left, right, max_score, clam_score, normal_score, kind, relation in pairs_sorted[: args.top]:
-        emit(
-            f"score={clam_score:.3f} / {normal_score:.3f}\t"
-            f"max={max_score:.3f}\t{left}\t{right}\t{kind}\t{relation}"
-        )
+        emit(f"score={clam_score:.3f} / {normal_score:.3f}\tmax={max_score:.3f}\t{left}\t{right}\t{kind}\t{relation}")
     emit("RESULT_END")
     return 0
 

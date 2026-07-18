@@ -95,8 +95,7 @@ def send_args_to_existing_instance(port, args):
 
 if __name__ == "__main__":
     if _ORIG_SSLKEYLOGFILE is not None:
-        log.warning(f"检测到冲突的环境变量 SSLKEYLOGFILE={_ORIG_SSLKEYLOGFILE}，"
-                     f"已在进程内清除，避免 OpenSSL 崩溃")
+        log.warning(f"检测到冲突的环境变量 SSLKEYLOGFILE={_ORIG_SSLKEYLOGFILE}，已在进程内清除，避免 OpenSSL 崩溃")
 
     # 定义一个唯一的端口号（建议选择 1024-65535 之间的随机数）
     APP_PORT = 62333

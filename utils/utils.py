@@ -188,6 +188,7 @@ def check_game_running() -> bool:
             from module.automation.input_handlers.simulator.mumu_control import (
                 MumuControl,
             )
+
             return MumuControl.connection_device.check_game_alive()
         else:
             # 其他模拟器类型，使用通用的 SimulatorControl 检查
@@ -195,6 +196,7 @@ def check_game_running() -> bool:
                 from module.automation.input_handlers.simulator.simulator_control import (
                     SimulatorControl,
                 )
+
                 if SimulatorControl.connection_device is None:
                     return False
                 return SimulatorControl.connection_device.check_game_alive()

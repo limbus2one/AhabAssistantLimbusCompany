@@ -248,7 +248,9 @@ class Shop:
                         auto.mouse_click_blank(times=3)
                         continue
                     else:
-                        if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png",take_screenshot=True):
+                        if auto.click_element(
+                            "mirror/road_in_mir/ego_gift_get_confirm_assets.png", take_screenshot=True
+                        ):
                             sleep(0.5)
                         auto.mouse_click_blank(times=3)
                         sleep(1)
@@ -282,7 +284,9 @@ class Shop:
                             auto.mouse_click_blank(times=3)
                             continue
                         else:
-                            if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png",take_screenshot=True):
+                            if auto.click_element(
+                                "mirror/road_in_mir/ego_gift_get_confirm_assets.png", take_screenshot=True
+                            ):
                                 sleep(0.5)
                             auto.mouse_click_blank(times=3)
                             sleep(1)
@@ -1027,11 +1031,7 @@ class Shop:
             right = int(round(_ENHANCE_SCAN_REGION_REL["right"] * width))
             bottom = int(round(_ENHANCE_SCAN_REGION_REL["bottom"] * height))
 
-            return [
-                point
-                for point in points
-                if left <= int(point[0]) <= right and top <= int(point[1]) <= bottom
-            ]
+            return [point for point in points if left <= int(point[0]) <= right and top <= int(point[1]) <= bottom]
 
         def check_enhanced(pos):
             for p in self.enhance_gifts_list:
@@ -1353,7 +1353,7 @@ class Shop:
 
                 auto.mouse_click_blank(times=3)
                 auto.click_element("mirror/shop/return_assets.png")
-                sleep(1)
+
 
                 if self.skill_replacement and skill is False:
                     self.replacement_skill()

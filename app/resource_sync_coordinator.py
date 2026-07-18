@@ -536,9 +536,7 @@ class ResourceSyncCoordinator(QObject):
             用于日志和弹窗展示的中文摘要文本。
         """
         # 将三类变化压缩成一行摘要，方便日志栏和确认框复用。
-        return self._window.tr(
-            "新增 {add_count} 张，变更 {update_count} 张，删除 {delete_count} 张"
-        ).format(
+        return self._window.tr("新增 {add_count} 张，变更 {update_count} 张，删除 {delete_count} 张").format(
             add_count=len(sync_plan.files_to_add),
             update_count=len(sync_plan.files_to_update),
             delete_count=len(sync_plan.files_to_delete),
@@ -555,9 +553,9 @@ class ResourceSyncCoordinator(QObject):
             用户确认应用时返回 True，否则返回 False。
         """
         # 第一步：先拼接同步计划摘要，生成确认框正文。
-        content = self._window.tr(
-            "{summary}\n是否立即同步？"
-        ).format(summary=self._format_resource_sync_plan_summary(sync_plan))
+        content = self._window.tr("{summary}\n是否立即同步？").format(
+            summary=self._format_resource_sync_plan_summary(sync_plan)
+        )
 
         # 第二步：start 自动任务模式下追加超时提示，避免阻塞无人值守启动。
         if startup_context and self._is_auto_task_start(self._startup_argv):

@@ -300,7 +300,8 @@ class ResourceSyncService:
                     return ResourceCheckResult(
                         status=ResourceCheckStatus.UP_TO_DATE,
                         source=source,
-                        remote_last_modified=manifest_response.headers.get("Last-Modified") or local_state.last_remote_last_modified,
+                        remote_last_modified=manifest_response.headers.get("Last-Modified")
+                        or local_state.last_remote_last_modified,
                         remote_etag=manifest_response.headers.get("ETag") or local_state.last_remote_etag,
                         message="远端图片资源清单未更新",
                     )
@@ -404,8 +405,7 @@ class ResourceSyncService:
 
         # 第二步：同时比对文件总数与轻量摘要，避免仅凭单一字段误判。
         return (
-            state.last_local_file_count == snapshot.file_count
-            and state.last_local_snapshot_id == snapshot.snapshot_id
+            state.last_local_file_count == snapshot.file_count and state.last_local_snapshot_id == snapshot.snapshot_id
         )
 
     @staticmethod
@@ -461,7 +461,9 @@ class ResourceSyncService:
                 plan.files_to_update.append(entry)
 
         # 第三步：本地只要存在“远端清单未记录”的图片，就统一记录为待删除文件。
-        plan.files_to_delete = sorted(relative_path for relative_path in local_files if relative_path not in remote_entries)
+        plan.files_to_delete = sorted(
+            relative_path for relative_path in local_files if relative_path not in remote_entries
+        )
 
         # 第四步：输出汇总日志，方便右侧日志栏和问题排查复用。
         log.debug(
@@ -521,7 +523,9 @@ class ResourceSyncService:
         self.save_state(state)
         return state
 
-    def _download_resource_package(self, source: ResourceSource, package_entry: ResourcePackageEntry, target_path: Path) -> Path:
+    def _download_resource_package(
+        self, source: ResourceSource, package_entry: ResourcePackageEntry, target_path: Path
+    ) -> Path:
         """下载完整资源包，并在下载过程中完成整体哈希与大小校验。
 
         参数:

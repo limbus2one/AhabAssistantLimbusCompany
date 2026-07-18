@@ -46,11 +46,7 @@ def _format_starlight_tip(title: str, tip_text: str) -> str:
     escaped_parts.append(escape(tip_text[last_end:]))
     html = "".join(escaped_parts)
     html = html.replace("\n", "<br>")
-    return (
-        '<div style="white-space:nowrap; font-size:12px; line-height:1.45;">'
-        f'<b>{escape(title)}</b><br>{html}'
-        "</div>"
-    )
+    return f'<div style="white-space:nowrap; font-size:12px; line-height:1.45;"><b>{escape(title)}</b><br>{html}</div>'
 
 
 class StarlightToolTipPopup(QFrame):

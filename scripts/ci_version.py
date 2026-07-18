@@ -95,13 +95,13 @@ def build_ci_version(
 
     # 只统计最新正式 release 发布之后的 CI 运行，作为 alpha 序号来源。
     runs_after_release = [
-        run
-        for run in runs
-        if run.get("created_at") and parse_iso8601(run["created_at"]) > latest_release.published_at
+        run for run in runs if run.get("created_at") and parse_iso8601(run["created_at"]) > latest_release.published_at
     ]
     runs_after_release.sort(key=lambda run: (run.get("run_number", 0), run.get("id", 0)))
 
-    current_index = next((index for index, run in enumerate(runs_after_release) if run.get("id") == current_run_id), None)
+    current_index = next(
+        (index for index, run in enumerate(runs_after_release) if run.get("id") == current_run_id), None
+    )
     if current_index is not None:
         build_number = current_index + 1
     elif current_run_number is not None:
