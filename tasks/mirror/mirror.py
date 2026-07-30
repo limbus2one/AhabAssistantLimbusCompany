@@ -1051,15 +1051,8 @@ class Mirror:
 
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
-        if bus := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
-            auto.mouse_action_with_pos(bus, interval=1)
-
-        if auto.click_element(
-            "mirror/road_in_mir/enter_assets.png",
-            take_screenshot=True,
-        ):
-            return True
-
+        # 普通和困难模式都必须经过 MirrorMap，才能使用缓存的 bus_row 与路线图。
+        # 当前节点尚未完成的情况由 enter_next_node() 的回退分支统一处理。
         log.debug("使用路线图寻路")
         next_node_direction = self.mirror_map.get_next_node_direction()
         if not next_node_direction:
@@ -1492,4 +1485,5 @@ class Mirror:
             auto.mouse_action_with_pos(
                 (to_window_position[0] - 200 * cfg.set_win_size / 1440, to_window_position[1])
             )
+            sleep(1)
             self.mirror_map.refresh_floor(self.floor)

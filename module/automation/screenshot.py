@@ -172,113 +172,167 @@ class ScreenShot:
         return screenshot
 
     @staticmethod
-    def background_screenshot(gray: bool = True) -> Image.Image:
-        # 定义所有需要清理的句柄/对象，以便在任何地方发生异常时可以清理
+
+    def background_screenshot(
+        gray: bool = True,
+        region: tuple[int, int, int, int] | None = None,
+    ) -> Image.Image:
+        """后台截取窗口客户区或客户区中的指定区域。
+
+        Args:
+            gray:
+                是否转换为灰度图。
+
+            region:
+                客户区内的截图区域：
+                (left, top, right, bottom)
+
+                例如：
+                (100, 200, 500, 400)
+
+                表示从客户区坐标 (100, 200) 开始，
+                截取宽 400、高 200 的区域。
+
+                为 None 时截取完整客户区。
+        """
         hwnd_dc = None
         mfc_dc = None
         save_dc = None
-        save_bit_map = None
+        save_bitmap = None
+        old_obj = None
+        hwnd = None
 
         try:
-            # 查找游戏窗口句柄
             hwnd = screen.handle.hwnd
+
             if screen.handle.isMinimized:
                 raise ValueError("窗口最小化，无法截图")
-            elif screen.handle.isActive and screen.handle.isTransparent:
+
+            if screen.handle.isActive and screen.handle.isTransparent:
                 screen.handle.set_window_transparent(False)
 
-            # 获取窗口的坐标和尺寸
+            # 获取客户区尺寸。
             rect = screen.handle.rect(client=True)
-            width, height = rect[2] - rect[0], rect[3] - rect[1]
+            client_width = rect[2] - rect[0]
+            client_height = rect[3] - rect[1]
 
-            # 1. 获取窗口设备上下文(DC) - 需要 ReleaseDC
+            if client_width <= 0 or client_height <= 0:
+                raise ValueError(
+                    f"窗口客户区尺寸无效："
+                    f"{client_width}x{client_height}"
+                )
+
+            if region is None:
+                left = 0
+                top = 0
+                right = client_width
+                bottom = client_height
+            else:
+                left, top, right, bottom = region
+
+                if not (
+                    0 <= left < right <= client_width
+                    and 0 <= top < bottom <= client_height
+                ):
+                    raise ValueError(
+                        f"截图区域越界：region={region}，"
+                        f"client_size=({client_width}, {client_height})"
+                    )
+
+            width = right - left
+            height = bottom - top
+
+            # 获取窗口 DC，用于创建兼容 DC 和兼容位图。
             hwnd_dc = win32gui.GetWindowDC(hwnd)
-            # 2. 创建兼容的设备上下文的MFC包装对象 - 不需 DeleteDC
+            if not hwnd_dc:
+                raise RuntimeError("GetWindowDC 失败")
+
             mfc_dc = win32ui.CreateDCFromHandle(hwnd_dc)
-            # 3. 创建内存设备上下文 - 需要 DeleteDC
             save_dc = mfc_dc.CreateCompatibleDC()
 
-            # 4. 创建位图对象 - 需要 DeleteObject
-            save_bit_map = win32ui.CreateBitmap()
-            save_bit_map.CreateCompatibleBitmap(mfc_dc, width, height)
+            # 这里只创建区域大小的位图，而不是完整窗口大小。
+            save_bitmap = win32ui.CreateBitmap()
+            save_bitmap.CreateCompatibleBitmap(
+                mfc_dc,
+                width,
+                height,
+            )
 
-            # 将位图选入内存设备上下文，并保存旧对象
-            old_obj = save_dc.SelectObject(save_bit_map)
+            old_obj = save_dc.SelectObject(save_bitmap)
 
-            # 将窗口内容绘制到内存设备上下文中
-            windll.user32.PrintWindow(hwnd, save_dc.GetSafeHdc(), 3)
+            save_hdc = save_dc.GetSafeHdc()
 
-            # 获取位图信息和像素数据
-            bmpinfo = save_bit_map.GetInfo()
-            bmpstr = save_bit_map.GetBitmapBits(True)
+            # 将窗口客户区中的 (left, top)
+            # 映射到目标位图中的 (0, 0)。
+            result = windll.gdi32.SetViewportOrgEx(
+                save_hdc,
+                -left,
+                -top,
+                None,
+            )
+            if not result:
+                raise RuntimeError("SetViewportOrgEx 失败")
 
-            pil_image = Image.frombuffer(
+            # 3 = PW_CLIENTONLY | PW_RENDERFULLCONTENT
+            success = windll.user32.PrintWindow(
+                hwnd,
+                save_hdc,
+                3,
+            )
+
+            if not success:
+                raise RuntimeError("PrintWindow 截图失败")
+
+            bmp_info = save_bitmap.GetInfo()
+            bmp_data = save_bitmap.GetBitmapBits(True)
+
+            image = Image.frombuffer(
                 "RGB",
-                (bmpinfo["bmWidth"], bmpinfo["bmHeight"]),
-                bmpstr,
+                (
+                    bmp_info["bmWidth"],
+                    bmp_info["bmHeight"],
+                ),
+                bmp_data,
                 "raw",
                 "BGRX",
                 0,
                 1,
             )
 
-            # 将图片转换为灰度图
             if gray:
-                pil_image = pil_image.convert("L")
+                image = image.convert("L")
 
-            return pil_image
-
-        except pywintypes.error as e:
-            log.error(f"后台截图报错: {e}，尝试重启游戏")
-            import os
-
-            import win32process
-
-            try:
-                _, pid = win32process.GetWindowThreadProcessId(screen.handle.hwnd)
-                os.system(f"taskkill /F /PID {pid}")
-            except:
-                pass
-            from tasks.base.script_task_scheme import init_game
-
-            init_game()
-
-        except ValueError:
-            if screen.handle.isMinimized:
-                screen.handle.set_window_transparent(True)
-                screen.handle.restore()
-
-                from time import sleep
-
-                sleep(0.5)
-                return ScreenShot.background_screenshot(gray)
-            else:
-                raise
-
-        except Exception as e:
-            # 统一错误处理，如果发生异常，资源清理流程将很重要
-            log.error(f"后台截图报错: {e}")
-            raise  # 重新抛出异常，以便调用者知道操作失败
+            # 避免返回的图片继续依赖底层位图缓冲区。
+            return image.copy()
 
         finally:
-            # === 资源清理 (无论是否发生异常，都必须执行) ===
-            if save_dc and save_bit_map:
-                # 关键：将旧对象选回DC，才能安全删除位图和DC
-                save_dc.SelectObject(old_obj)
+            # 位图被删除前，必须先从内存 DC 中移出。
+            if save_dc is not None and old_obj is not None:
+                try:
+                    save_dc.SelectObject(old_obj)
+                except Exception:
+                    pass
 
-            # 4. 删除位图对象
-            if save_bit_map:
-                win32gui.DeleteObject(save_bit_map.GetHandle())
+            if save_bitmap is not None:
+                try:
+                    win32gui.DeleteObject(save_bitmap.GetHandle())
+                except Exception:
+                    pass
 
-            # 3. 删除内存设备上下文 (CreateCompatibleDC 创建)
-            if save_dc:
-                save_dc.DeleteDC()
+            if save_dc is not None:
+                try:
+                    save_dc.DeleteDC()
+                except Exception:
+                    pass
 
-            # 2. mfc_dc 是 CreateDCFromHandle 包装器，不需显式 DeleteDC()
+            # mfc_dc 包装的是 hwnd_dc，不在这里 DeleteDC，
+            # 最终使用 ReleaseDC 释放窗口 DC。
+            if hwnd_dc is not None and hwnd is not None:
+                try:
+                    win32gui.ReleaseDC(hwnd, hwnd_dc)
+                except Exception:
+                    pass
 
-            # 1. 释放窗口设备上下文 (GetWindowDC 获取)
-            if hwnd_dc and hwnd:
-                win32gui.ReleaseDC(hwnd, hwnd_dc)
 
     @staticmethod
     def screenshot_benchmark(test_time: int = 10) -> tuple[bool, float]:

@@ -11,10 +11,10 @@ from module.logger import log
 
 
 class Position(Enum):
-    # 三个枚举值表示“Bus 在三行地图中的标准屏幕位置”，不是下一步移动方向。
-    UP = "up"
-    MID = "mid"
-    DOWN = "down"
+    # 数值同时表示 Bus 的逻辑行：上、中、下分别为 1、0、-1。
+    UP = 1
+    MID = 0
+    DOWN = -1
 
 
 # 1440 高度基准下，相邻列和相邻行的节点中心距离；实际使用时按窗口高度缩放。
@@ -35,6 +35,7 @@ BUS_TIE_PRIORITY = {
     Position.UP: 1,
     Position.DOWN: 2,
 }
+VALID_BUS_ROWS = {-1, 0, 1}
 
 
 # Dijkstra 会累加“进入节点”的代价，因此数值越小越优先选择。
@@ -59,7 +60,7 @@ class Node:
     离开当前楼层或 `MirrorMap` 更新后，仍能明确属于哪次编队、楼层和卡包。
 
     Args:
-        coord: 以 Bus 为 `(0, 0)` 的逻辑网格坐标，格式为 `(列, 行)`。
+        coord: 三行地图中的逻辑网格坐标，格式为 `(行, 列)`。
         node_type: ONNX 识别出的节点类型，例如 `event`、`battle` 或 `shop`。
         screen_pos: 节点中心在当前游戏客户区中的像素坐标。
         value: 自定义寻路权重；为 `None` 时从 `NODE_WEIGHT` 读取默认值。
@@ -111,10 +112,17 @@ class Node:
 
 def get_node_direction(current_node, next_node):
     """根据两个相邻节点的行差返回 U/M/D。"""
-    # 行号向下增大：-1 是上方节点，0 是同一行，+1 是下方节点。
-    row_delta = next_node.coord[1] - current_node.coord[1]
+    # 逻辑坐标为 (行, 列)，行号向上增大。
+    row_delta = next_node.coord[0] - current_node.coord[0]
     # 相邻列正常只会出现 -1/0/+1；其他差值说明节点吸附或连边结果无效。
-    return {-1: "U", 0: "M", 1: "D"}.get(row_delta)
+    return {1: "U", 0: "M", -1: "D"}.get(row_delta)
+
+
+def _require_bus_row(bus_row):
+    """返回合法 Bus 行；拒绝 None、布尔值和三行之外的输入。"""
+    if type(bus_row) is not int or bus_row not in VALID_BUS_ROWS:
+        raise ValueError(f"bus_row 必须是 -1、0、1，实际为 {bus_row!r}")
+    return bus_row
 
 
 def _wait_page_load(targets, model=None):
@@ -142,14 +150,27 @@ class MirrorMap:
         hard_mode: 是否为困难镜牢，决定是否需要补齐固定商店和 BOSS 节点。
         team_number: 游戏内实际选择的编队编号，不是 AALC 配置方案序号。
         theme_pack_name: 当前楼层已选择的卡包名称；尚未选择时为 `None`。
+        bus_row: Bus 当前逻辑行；初始化时为 `None`，识别后为 1、0、-1。
     """
 
-    def __init__(self, floor=1, hard_mode=False, team_number=None, theme_pack_name=None):
+    def __init__(
+        self,
+        floor=1,
+        hard_mode=False,
+        team_number=None,
+        theme_pack_name=None,
+        bus_row=None,
+    ):
         # 运行上下文：构图时会原样传给 search_road_from_road_map()。
         self.floor = floor
         self.hard_mode = hard_mode
         self.team_number = team_number
         self.theme_pack_name = theme_pack_name
+        self.bus_row = None if bus_row is None else _require_bus_row(bus_row)
+        log.info(
+            "镜牢寻路状态初始化: "
+            f"hard_mode={self.hard_mode}, bus_row={self.bus_row}"
+        )
 
         # floor_route 是按顺序执行的最优节点路线；floor_map 是坐标到节点的完整映射。
         self.floor_route = []
@@ -161,15 +182,25 @@ class MirrorMap:
         路线至少需要包含“当前位置 + 下一节点”两个节点。缓存不足时重新识别整张
         地图；ONNX 构图失败时退化为只匹配 Bus 到首列节点的三种连线模板。
         """
-        if len(self.floor_route) < 2:
+        # 困难模式每次决策都重新识别；普通模式只在缓存不足时重建。
+        if self.hard_mode or len(self.floor_route) < 2:
             try:
-                # 缓存不足时才重新截图构图。运行上下文会继续传入 generate_map()，
-                # 最终固化在此次创建的每个 Node 上。
-                floor_route, floor_map = search_road_from_road_map(
+                # 两种模式都使用 MirrorMap 保存的 Bus 行对齐识别画面；已知行会先
+                # 把 Bus 拖到对应标准位置，hard mode 每步重建，普通模式复用整层路线。
+                known_bus_row = self.bus_row
+                if self.hard_mode:
+                    log.info(
+                        "困难镜牢逐步重识别: "
+                        f"bus_row={known_bus_row}, "
+                        f"缓存节点={len(self.floor_map)}, "
+                        f"缓存路线={len(self.floor_route)}"
+                    )
+                floor_route, floor_map, bus_row = search_road_from_road_map(
                     hard_mode=self.hard_mode,
                     team_number=self.team_number,
                     floor=self.floor,
                     theme_pack_name=self.theme_pack_name,
+                    bus_row=known_bus_row,
                 )
             except Exception as error:
                 # 模型加载、截图或构图任一阶段异常都不能继续使用可能残缺的缓存。
@@ -177,14 +208,31 @@ class MirrorMap:
                 self._clear_floor_data()
                 return self._find_first_node_direction()
 
+            if bus_row in {-1, 0, 1}:
+                self.bus_row = bus_row
+
             if len(floor_route) < 2 or not floor_map:
                 # 有效路线必须至少含 Bus 和下一节点；否则只能退化为首列连线识别。
                 self._clear_floor_data()
                 log.warning("镜牢 ONNX 未识别到有效路线，直接识别首个方向")
                 return self._find_first_node_direction()
-            # 复制容器，避免后续 pop() 消费路线时修改构图函数持有的原始返回对象。
+            # 新识别结果同时整体覆盖地图和路线；困难模式不合并历史局部图。
             self.floor_route = list(floor_route)
             self.floor_map = dict(floor_map)
+            if self.hard_mode:
+                log.info(
+                    "困难镜牢地图已更新: "
+                    f"bus_row={self.bus_row}, "
+                    f"节点={len(self.floor_map)}, "
+                    f"路线={len(self.floor_route)}"
+                )
+        else:
+            log.info(
+                "普通镜牢复用路线缓存: "
+                f"bus_row={self.bus_row}, "
+                f"节点={len(self.floor_map)}, "
+                f"剩余路线={len(self.floor_route)}"
+            )
 
         # floor_route[0] 始终代表当前 Bus/已到达节点，[1] 才是本次要进入的节点。
         next_node_direction = get_node_direction(
@@ -204,6 +252,9 @@ class MirrorMap:
         键盘模式发送方向键；鼠标模式根据 Bus 坐标和固定网格间距计算目标位置。
         点击后等待“进入按钮”或“事件入口”，再等待战斗编队页或事件页完成加载。
         """
+        # 在操作画面前保存本次计划进入的节点。后续点击会改变页面状态，但 Bus 行
+        # 必须按构图时选中的目标更新；降级路线没有节点缓存时这里允许为 None。
+        next_node = self._get_next_node()
 
         # 第一步只负责在地图上选择目标节点，让 Bus 沿连线移动过去。
         if cfg.mirror_keyboard_navigation:
@@ -215,37 +266,30 @@ class MirrorMap:
             next_node_position = self._get_next_node_position(next_node_direction)
             auto.mouse_action_with_pos(next_node_position)
 
-         #等待进入enter节点页面
-        sleep(0.75)
-        if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-            pass
-        else:
+        # 等待目标节点的进入页面；事件节点会直接进入事件页，不显示 enter 按钮。
+        sleep(1.25)
+        entered_next_node = auto.click_element(
+            "mirror/road_in_mir/enter_assets.png",
+            take_screenshot=True,
+        )
+        if not entered_next_node:
+            entered_next_node = bool(
+                auto.find_element(
+                    "mirror/road_in_mir/event_in_assets.png",
+                    take_screenshot=True,
+                )
+            )
+
+        if not entered_next_node:
             # 如果没有enter界面，说明当前bus所在节点还没有完成，进入当前节点
             auto.click_element("mirror/mybus_default_distance.png")
-            sleep(0.75)
-            auto.click_element("mirror/road_in_mir/enter_assets.png")
-        # 节点选择后，战斗/商店会出现进入按钮，事件则直接出现事件入口标志。
-        target = _wait_page_load(
-            ["mirror/road_in_mir/enter_assets.png", "mirror/road_in_mir/event_in_assets.png"],
-        )
-        # 战斗或商店还需要第二次确认；事件节点已经进入，不需要额外点击。
-        if target == "mirror/road_in_mir/enter_assets.png":
-            if cfg.mirror_keyboard_navigation:
-                auto.key_press("enter")
-            else:
-                auto.click_element("mirror/road_in_mir/enter_assets.png")
-
-        # 商店停留在商店入口，由后续商店流程处理；战斗和事件需等待内部页面稳定。
-        next_node = self._get_next_node()
-        if next_node is not None and next_node.type != "shop":
-            _wait_page_load(
-                [
-                    "teams/identify_assets.png",
-                    "mirror/road_in_mir/event_in_assets.png",
-                ],
-                model="clam",
-            )
-        # 必须等页面确实进入后再弹出路线首节点；提前消费会让失败重试跳过节点。
+            sleep(1)
+            auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True)
+            return True
+        # 页面确实进入后才提交 Bus 行与缓存变化，避免失败重试从错误位置开始。
+        # 困难模式也保留这张图到下一次识别成功，再由 get_next_node_direction()
+        # 整体替换；它不会用于下一步决策，但可保证缓存状态连续且便于排错。
+        self._update_bus_row(next_node, next_node_direction)
         self._consume_route_node()
         return True
 
@@ -257,13 +301,11 @@ class MirrorMap:
         return self.floor_route[1]
 
     def refresh_floor(self, floor):
-        """更新当前楼层，并清空不能跨楼层复用的节点图和路线。"""
-        # 重复识别出同一楼层不需要破坏仍可用的路线缓存。
+        """只更新当前楼层；保留现有节点图、路线和 Bus 行。"""
         if self.floor == floor:
             return
         log.debug(f"镜牢地图楼层缓存更新: {self.floor} -> {floor}")
         self.floor = floor
-        self._clear_floor_data()
 
     def refresh_theme_pack(self, theme_pack_name):
         """更新卡包名称，并清空属于上一卡包的节点图和路线。
@@ -304,6 +346,17 @@ class MirrorMap:
         if self.floor_route:
             self.floor_route.pop(0)
 
+    def _update_bus_row(self, next_node, next_node_direction):
+        """成功进入节点后，把 Bus 行更新为实际目标行。"""
+        if next_node is not None:
+            self.bus_row = next_node.coord[0]
+            return
+        if self.bus_row not in {-1, 0, 1}:
+            return
+        row_delta = {"U": 1, "M": 0, "D": -1}.get(next_node_direction)
+        if row_delta is not None:
+            self.bus_row = max(-1, min(1, self.bus_row + row_delta))
+
     def _find_first_node_direction(self):
         # 退化策略不构建全图，只需要当前 Bus 坐标和三张首列连线模板。
         bus_position = auto.find_element(
@@ -320,7 +373,13 @@ class MirrorMap:
         self.floor_map = {}
 
 
-def search_road_from_road_map(hard_mode=False, team_number=None, floor=None, theme_pack_name=None):
+def search_road_from_road_map(
+    hard_mode=False,
+    team_number=None,
+    floor=None,
+    theme_pack_name=None,
+    bus_row=None,
+):
     """识别当前地图、构建带运行上下文的节点图，并计算最低权重路线。
 
     Args:
@@ -328,27 +387,29 @@ def search_road_from_road_map(hard_mode=False, team_number=None, floor=None, the
         team_number: 游戏内编队编号，写入本次生成的所有节点。
         floor: 当前镜牢楼层，写入本次生成的所有节点。
         theme_pack_name: 当前卡包名称，写入本次生成的所有节点。
+        bus_row: 已知的 Bus 逻辑行。为 `None` 时执行三位置探测；否则先移动到该行再识别。
 
     Returns:
-        `(floor_route, floor_map)`：前者为从 Bus 开始的最优节点列表，后者为
-        `{逻辑坐标: Node}` 完整节点图。识别或构图失败时返回 `([], {})`。
+        `(floor_route, floor_map, bus_row)`：前两项分别为从 Bus 开始的最优节点列表
+        和完整节点图，最后一项为本次确认的 Bus 行。
     """
 
     # 先选择 ONNX 可见节点最多的标准画面；返回的 points 与该画面的坐标系一致。
-    bus_result = find_bus()
+    bus_result = find_bus(bus_row=bus_row)
     if not bus_result:
         # Bus 无法定位或三个候选画面都无节点时，不能建立逻辑原点。
-        return [], {}
+        return [], {}, bus_row
 
-    # bus_row 只用于候选画面选择，构图只需要最终 Bus 坐标和节点列表。
-    bus_position, _, points = bus_result
+    # 把本次确认的 Bus 行传入构图，使所有节点都使用同一套绝对三行坐标。
+    bus_position, detected_bus_row, points = bus_result
     if bus_position is None or not points:
-        return [], {}
+        return [], {}, detected_bus_row
 
     # 将像素检测结果吸附为逻辑网格，并用模板确认相邻节点间是否真的存在连线。
     floor_map = generate_map(
         points,
         bus_position,
+        bus_row=detected_bus_row,
         hard_mode=hard_mode,
         team_number=team_number,
         floor=floor,
@@ -358,27 +419,27 @@ def search_road_from_road_map(hard_mode=False, team_number=None, floor=None, the
     min_weight, floor_route = find_min_weight_route(floor_map)
     if not floor_route:
         log.warning("ONNX 未能构建可达路线")
-        return [], {}
+        return [], {}, detected_bus_row
 
     # 日志同时输出操作方向和节点类型，方便对照实际点击结果排查识别错误。
     directions, node_types = route_to_directions(floor_route)
 
     log.info(f"镜牢 ONNX 路线: 权重={min_weight}, 方向={directions}, 节点={node_types}")
-    return floor_route, floor_map
+    return floor_route, floor_map, detected_bus_row
 
 
-def find_bus(take_screenshot=True):
-    """在上、中、下三个标准位置识别节点，选择可见节点数最多的位置。
+def find_bus(bus_row=None, take_screenshot=True):
+    """定位 Bus 并识别节点；Bus 行未知时才执行三位置探测。
 
-    流程为：定位 Bus -> 依次拖到 UP/MID/DOWN -> 每个位置调用纯识别 `onnx()`
-    -> 比较有效节点数。数量相同时优先 MID，其次 UP、DOWN。若胜出位置不是
-    最后探测的 DOWN，会把画面拖回胜出位置并再次识别，确保返回节点坐标与后续
-    连线模板使用的当前画面一致。
+    `bus_row` 为 `None` 时，依次拖到 UP/MID/DOWN 并选择节点最多的画面；传入
+    1、0、-1 时先把 Bus 拖到对应标准位置，再识别对齐后的当前画面。
 
     Returns:
-        `(bus_position, bus_row, points)`，分别为胜出位置的 Bus 像素坐标、标准行
-        枚举和 ONNX 节点列表。Bus 丢失或三个位置均无节点时返回 `None`。
+        `(bus_position, bus_row, points)`。Bus 丢失或未识别到节点时返回 `None`。
     """
+    if bus_row is not None:
+        bus_row = _require_bus_row(bus_row)
+
     # 初次定位允许由调用者决定是否截图；之后每次移动都会强制取得新截图。
     bus_position = auto.find_element(
         "mirror/mybus_default_distance.png",
@@ -387,14 +448,29 @@ def find_bus(take_screenshot=True):
     if bus_position is None:
         return None
 
+    if bus_row is not None:
+        # 已知逻辑行仍需先把地图对齐到标准位置，确保节点吸附和连线模板使用的
+        # 屏幕坐标系与该逻辑行一致。
+        moved_bus_position = move_bus(bus_position, Position(bus_row))
+        if moved_bus_position is None:
+            log.warning(f"bus 无法移动到已知逻辑行 {bus_row} 位置")
+            return None
+        onnx_result = onnx(moved_bus_position)
+        points = onnx_result[1] if onnx_result else []
+        if not points:
+            log.warning(f"bus 已知逻辑行 {bus_row} 未识别到节点")
+            return None
+        log.info(f"bus 移动到已知逻辑行 {bus_row}，识别到 {len(points)} 个节点")
+        return moved_bus_position, bus_row, points
+
     # candidates 保存每个成功探测位置的“标准行、Bus 坐标、节点列表”。
     candidates = []
     current_bus_position = bus_position
-    for bus_row in BUS_PROBE_ORDER:
+    for probe_row in BUS_PROBE_ORDER:
         # 每次都从上一次实际匹配到的 Bus 坐标开始拖动，避免累计理论坐标误差。
-        moved_bus_position = move_bus(current_bus_position, bus_row)
+        moved_bus_position = move_bus(current_bus_position, probe_row)
         if moved_bus_position is None:
-            log.warning(f"bus 无法移动到 {bus_row.value} 位置")
+            log.warning(f"bus 无法移动到 {probe_row.value} 位置")
             # 拖动可能成功但动画导致首次复查失败；再单独截图尝试恢复当前位置。
             current_bus_position = auto.find_element(
                 "mirror/mybus_default_distance.png",
@@ -409,8 +485,8 @@ def find_bus(take_screenshot=True):
         # onnx() 不执行拖动，只对当前候选画面截图并调用 identify_nodes()。
         onnx_result = onnx(current_bus_position)
         points = onnx_result[1] if onnx_result else []
-        candidates.append((bus_row, current_bus_position, points))
-        log.debug(f"bus {bus_row.value} 位置识别到 {len(points)} 个节点")
+        candidates.append((probe_row, current_bus_position, points))
+        log.debug(f"bus {probe_row.value} 位置识别到 {len(points)} 个节点")
 
     if not candidates:
         # 三次移动全部失败，没有任何可用于构图的候选画面。
@@ -440,8 +516,8 @@ def find_bus(take_screenshot=True):
         if final_result and final_result[1]:
             best_points = final_result[1]
 
-    log.info(f"bus 选择 {best_row.value} 位置，识别到 {len(best_points)} 个节点")
-    return best_bus_position, best_row, best_points
+    log.info(f"bus 选择逻辑行 {best_row.value}，识别到 {len(best_points)} 个节点")
+    return best_bus_position, best_row.value, best_points
 
 
 def find_first_direction(bus_position):
@@ -500,7 +576,7 @@ def move_bus(bus_position, bus_row):
     dx = BUS_TARGET_X * scale - bus_x
     dy = target_y * scale - bus_y
 
-    # 0.5 秒拖动用于让游戏稳定接收地图平移，而不是一次瞬时跳变。
+    # darg_time 太短会影响节点识别（确信
     auto.mouse_drag(bus_x, bus_y, drag_time=0.5, dx=dx, dy=dy)
     # 拖动完成后立即重新截图匹配，以下一步实际位置作为返回值。
     moved_bus_position = auto.find_element(
@@ -634,6 +710,7 @@ def _get_onnx_session():
 def generate_map(
     points,
     bus_position,
+    bus_row=0,
     hard_mode=False,
     team_number=None,
     floor=None,
@@ -651,6 +728,7 @@ def generate_map(
     nodes = _snap_points_to_grid(
         points,
         bus_position,
+        bus_row=bus_row,
         team_number=team_number,
         floor=floor,
         theme_pack_name=theme_pack_name,
@@ -666,11 +744,13 @@ def generate_map(
 def _snap_points_to_grid(
     points,
     bus_position,
+    bus_row,
     team_number=None,
     floor=None,
     theme_pack_name=None,
 ):
-    """将像素坐标吸附到以 Bus 为原点的三行网格，并创建上下文快照。"""
+    """将像素坐标吸附到 `(行, 列)` 三行网格，并创建上下文快照。"""
+    bus_row = _require_bus_row(bus_row)
     scale = cfg.set_win_size / 1440
     # 逻辑网格间距需要与截图分辨率同步缩放，否则 round() 会吸附到错误列/行。
     x_gap = X_GAP * scale
@@ -681,16 +761,17 @@ def _snap_points_to_grid(
         "floor": floor,
         "theme_pack_name": theme_pack_name,
     }
-    # Bus 是寻路起点和逻辑原点，权重固定为 0，不参与路径代价。
-    nodes = {(0, 0): Node((0, 0), "bus", bus_position, value=0, **node_context)}
+    # Bus 位于当前实际行和第 0 列，权重固定为 0，不参与路径代价。
+    bus_coord = (bus_row, 0)
+    nodes = {bus_coord: Node(bus_coord, "bus", bus_position, value=0, **node_context)}
 
     for node_type, screen_pos in points:
-        # 相对 Bus 的像素距离除以固定间距，再四舍五入到最近的逻辑列和逻辑行。
+        # 屏幕 Y 向下增加而逻辑行向上增加，因此行偏移需要反号。
         column = round((screen_pos[0] - bus_position[0]) / x_gap)
-        row = round((screen_pos[1] - bus_position[1]) / y_gap)
-        coord = (column, row)
-        # 仅保留 Bus 右侧尚未经过的节点；同一格出现多个检测时保留第一个 NMS 结果。
-        if column > 0 and coord not in nodes:
+        row = bus_row + round((bus_position[1] - screen_pos[1]) / y_gap)
+        coord = (row, column)
+        # 仅保留三行范围内、Bus 右侧尚未经过的节点；同一格多个检测保留第一个。
+        if row in {-1, 0, 1} and column > 0 and coord not in nodes:
             nodes[coord] = Node(coord, node_type, screen_pos, **node_context)
     return nodes
 
@@ -698,10 +779,10 @@ def _snap_points_to_grid(
 def _connect_visible_nodes(nodes):
     """连接相邻列中确实存在路线模板的节点。"""
     # sorted() 让调试和测试中的遍历顺序稳定，不影响最终 Dijkstra 结果。
-    for (column, row), source in sorted(nodes.items()):
+    for (row, column), source in sorted(nodes.items()):
         # 游戏路线只可能通向右侧相邻列的上一行、同一行或下一行。
-        for next_row in (row - 1, row, row + 1):
-            target = nodes.get((column + 1, next_row))
+        for next_row in (row + 1, row, row - 1):
+            target = nodes.get((next_row, column + 1))
             # ONNX 识别到两个节点不代表它们相连，必须再用路线模板确认。
             if target is not None and _connection_exists(source, target):
                 source.add_next(target)
@@ -710,7 +791,7 @@ def _connect_visible_nodes(nodes):
 def _connection_exists(source, target):
     """识别两个节点之间的上、中、下路线。"""
     # 目标行减来源行决定需要匹配上斜线、水平线还是下斜线模板。
-    template = {-1: "up", 0: "mid", 1: "down"}.get(target.coord[1] - source.coord[1])
+    template = {1: "up", 0: "mid", -1: "down"}.get(target.coord[0] - source.coord[0])
     if template is None:
         return False
 
@@ -758,13 +839,13 @@ def _append_shop_and_boss(nodes, bus_position):
     BOSS 始终继承对应商店的 row，确保最终一步固定为 M。
     """
     # 用不同列数判断 ONNX 是否已看到足够多的地图；画面过少时不做末端布局假设。
-    columns = sorted({coord[0] for coord in nodes})
+    columns = sorted({coord[1] for coord in nodes})
     if len(columns) < VISIBLE_COLUMN_COUNT:
         return
 
     scale = cfg.set_win_size / 1440
-    # Bus 总是逻辑原点；从它复制上下文比额外传递三个参数更不容易出现不一致。
-    bus = nodes.get((0, 0))
+    # Bus 总在第 0 列；从它复制上下文比额外传递三个参数更不容易出现不一致。
+    bus = next((node for node in nodes.values() if node.type == "bus"), None)
     node_context = {
         "team_number": bus.team_number if bus else None,
         "floor": bus.floor if bus else None,
@@ -772,7 +853,7 @@ def _append_shop_and_boss(nodes, bus_position):
     }
     # 找出当前识别范围最右列及其全部节点类型，判断商店/BOSS 是否已真实出现。
     last_column = columns[-1]
-    last_nodes = [node for (column, _), node in nodes.items() if column == last_column]
+    last_nodes = [node for (_, column), node in nodes.items() if column == last_column]
     last_types = {node.type for node in last_nodes}
 
     if "boss_battle" in last_types:
@@ -790,7 +871,8 @@ def _append_shop_and_boss(nodes, bus_position):
             bus_position[0] + shop_column * X_GAP * scale,
             bus_position[1],
         )
-        shop = Node((shop_column, 0), "shop", shop_position, synthetic=True, **node_context)
+        shop_row = bus.coord[0] if bus else 0
+        shop = Node((shop_row, shop_column), "shop", shop_position, synthetic=True, **node_context)
         nodes[shop.coord] = shop
         # 当前最右列的所有出口都汇入固定商店，这是普通镜牢末端的确定布局。
         for node in last_nodes:
@@ -802,8 +884,8 @@ def _append_shop_and_boss(nodes, bus_position):
     # 当 Bus 被放在 UP/DOWN 位置识别时，固定中线商店相对 Bus 可能是 row=1/-1；
     # 若仍把 BOSS 放到 row=0，就会错误生成 shop -> boss 的 U/D 方向。
     for shop in shop_nodes:
-        boss_row = shop.coord[1]
-        boss_coord = (boss_column, boss_row)
+        boss_row = shop.coord[0]
+        boss_coord = (boss_row, boss_column)
 
         # 异常情况下同一行可能识别出重复商店；复用已创建的同行 BOSS，避免覆盖节点。
         boss = nodes.get(boss_coord)
@@ -827,29 +909,36 @@ def _append_shop_and_boss(nodes, bus_position):
 
 def find_min_weight_route(floor_map):
     """使用 Dijkstra 计算从 bus 到终点的最低权重路线。"""
-    # Bus 必须位于逻辑原点；没有起点说明网格构建结果不完整。
-    start = floor_map.get((0, 0))
+    # Bus 的行由实际位置决定，因此按节点类型寻找第 0 列起点。
+    start = next(
+        (
+            node
+            for (_, column), node in floor_map.items()
+            if column == 0 and node.type == "bus"
+        ),
+        None,
+    )
     if start is None:
         return float("inf"), []
 
     # 统计每列节点数，用来排除“中间列误识别成 BOSS”的检测结果。
     column_node_counts = {}
-    for column, _ in floor_map:
+    for _, column in floor_map:
         column_node_counts[column] = column_node_counts.get(column, 0) + 1
 
     # 只有独占一整列的 BOSS 才视为真正终点；正常 BOSS 列不会同时存在其他节点。
     targets = {
         node
-        for (column, _), node in floor_map.items()
+        for (_, column), node in floor_map.items()
         if node.type == "boss_battle" and column_node_counts[column] == 1
     }
     if not targets:
         # 困难模式或识别范围不足时可能没有 BOSS，此时以最右可见列作为临时终点。
-        furthest_column = max(coord[0] for coord in floor_map)
+        furthest_column = max(coord[1] for coord in floor_map)
         if furthest_column == 0:
             # 地图只有 Bus，没有任何可执行步骤。
             return float("inf"), []
-        targets = {node for coord, node in floor_map.items() if coord[0] == furthest_column}
+        targets = {node for coord, node in floor_map.items() if coord[1] == furthest_column}
 
     # distances 保存目前已知的最低累计代价；Bus 权重通常为 0。
     distances = {start: start.value}
