@@ -14,13 +14,28 @@ class MirrorMap:
     def __init__(self, floor=1, hard_mode=False):
         self.floor = floor
         self.floor_map = []
+        self.floor_nodes = []
+        self.floor_node_index = 0
+        self.last_selected_node_class = None
         self.map = {}
         self.hard_mode = hard_mode
 
+    def _pop_next_step(self):
+        next_step = self.floor_map.pop(0)
+        if next_step is None:
+            self.last_selected_node_class = None
+            return None
+        self.last_selected_node_class = "unknown"
+        if self.floor_node_index < len(self.floor_nodes):
+            self.last_selected_node_class = self.floor_nodes[self.floor_node_index]
+            self.floor_node_index += 1
+        return next_step
+
     def get_next_step(self):
+        self.last_selected_node_class = None
         re_identify = False
         if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
+            next_step = self._pop_next_step()
             if next_step is not None:
                 return next_step
             else:
@@ -31,14 +46,17 @@ class MirrorMap:
         if re_identify is True:
             self.floor_map, self.floor_nodes = search_road_from_road_map(hard_mode=self.hard_mode)
             if self.floor_map is True and self.floor_nodes is True:
+                self.last_selected_node_class = "unknown"
                 return True
             if not isinstance(self.floor_map, list):
                 self.floor_map = list(self.floor_map)
+            if not isinstance(self.floor_nodes, list):
+                self.floor_nodes = list(self.floor_nodes)
+            self.floor_node_index = 1 if self.floor_nodes and self.floor_nodes[0] == "bus" else 0
             self.map[f"floor{self.floor}"] = [self.floor_map[:], self.floor_nodes[:]]
 
         if len(self.floor_map) > 0:
-            next_step = self.floor_map.pop(0)
-            return next_step
+            return self._pop_next_step()
         else:
             return False
 
@@ -95,9 +113,12 @@ class MirrorMap:
         log.debug(f"镜牢地图楼层缓存更新: {self.floor} -> {floor}")
         self.floor = floor
         self.floor_map = []
+        self.floor_nodes = []
+        self.floor_node_index = 0
+        self.last_selected_node_class = None
 
 
-def get_node_weight(x, y):
+def get_node_info(x, y):
     scale = cfg.set_win_size / 1440
     road_node_bbox = (
         x - 125 * scale,
@@ -106,19 +127,23 @@ def get_node_weight(x, y):
         y + 125 * scale,
     )
     if auto.find_feature_element("mirror/road_in_mir/shop.png", road_node_bbox, 50):
-        return 3
+        return 3, "shop"
     elif auto.find_feature_element("mirror/road_in_mir/event.png", road_node_bbox):
-        return 3
+        return 3, "event"
     elif auto.find_feature_element(
         "mirror/road_in_mir/battle.png",
         road_node_bbox,
     ):
-        return 2
+        return 2, "battle"
     elif auto.find_feature_element("mirror/road_in_mir/hard_battle.png", road_node_bbox):
-        return 1
+        return 1, "Focused_Encounter"
     elif auto.find_feature_element("mirror/road_in_mir/hard_battle2.png", road_node_bbox):
-        return 0
-    return -5
+        return 0, "Risky Encounter"
+    return -5, "unknown"
+
+
+def get_node_weight(x, y):
+    return get_node_info(x, y)[0]
 
 
 def _keyboard_enter_succeeded() -> bool:
@@ -177,12 +202,14 @@ def search_road_default_distance():
         return False
     # 判断中、下两个节点是否有权重3的节点，有的话直接选择进入
     node_weight = {}
+    node_class = {}
     if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
         for road in three_roads[:2]:
             node_x = bus_position[0] + road[0]
             node_y = bus_position[1] + road[1]
-            weight = get_node_weight(node_x, node_y)
+            weight, class_name = get_node_info(node_x, node_y)
             node_weight[(node_x, node_y)] = weight
+            node_class[(node_x, node_y)] = class_name
         max_weight = max(node_weight.values())
         if max_weight == 3:
             road_list = sorted(node_weight, key=node_weight.get, reverse=True)
@@ -191,7 +218,7 @@ def search_road_default_distance():
                 auto.mouse_click(road[0], road[1])
                 sleep(0.75)
                 if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                    return True
+                    return node_class[road]
     # 如果中、下两个节点没有权重3的节点，查看所有节点的权重，选择权重最大的节点进入
     if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
         from tasks.base.retry import check_times
@@ -222,13 +249,17 @@ def search_road_default_distance():
             node_y = bus_position[1] + road[1]
             node_list.append((node_x, node_y))
         old_weight = node_weight.values()
+        old_class = node_class.values()
         all_node_weight = dict(zip(node_list, old_weight))
+        all_node_class = dict(zip(node_list, old_class))
         for road in three_roads[2:]:
             node_x = bus_position[0] + road[0]
             node_y = bus_position[1] + road[1]
-            weight = get_node_weight(node_x, node_y)
+            weight, class_name = get_node_info(node_x, node_y)
             all_node_weight[(node_x, node_y)] = weight
+            all_node_class[(node_x, node_y)] = class_name
         all_node_weight[bus_position[0], bus_position[1]] = -6
+        all_node_class[bus_position[0], bus_position[1]] = "unknown"
         # 根据all_node_weight，按照各个键的值，从大到小以生成只有键的新的列表
         road_list = sorted(all_node_weight, key=all_node_weight.get, reverse=True)
         for road in road_list:
@@ -236,7 +267,7 @@ def search_road_default_distance():
                 auto.mouse_click(road[0], road[1])
                 sleep(0.75)
                 if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                    return True
+                    return all_node_class[road]
     return False
 
 

@@ -22,6 +22,7 @@ from tasks.base.retry import retry
 from tasks.battle import battle
 from tasks.event import event_handling
 from tasks.mirror.in_shop import Shop
+from tasks.mirror.node_record import MirrorNodeRecorder
 from tasks.mirror.reward_card import get_reward_card
 from tasks.mirror.search_road import (
     MirrorMap,
@@ -90,6 +91,8 @@ class Mirror:
         self.LOOP_COUNT = 250
 
         self.mirror_map = MirrorMap(hard_mode=self.hard_switch)
+        self.current_theme_pack = "unknown"
+        self.node_recorder = MirrorNodeRecorder()
 
         self.pass_coins = None
 
@@ -100,6 +103,29 @@ class Mirror:
         start = time.time()
         result = fn(*args, **kwargs)
         return result, time.time() - start
+
+    def _start_node_record(self, node_type: str) -> None:
+        try:
+            self.node_recorder.start_node(
+                node_type,
+                is_hard=self.hard_switch,
+                floor=self.floor,
+                theme_pack=self.current_theme_pack,
+                aalc_team=self.team_order,
+            )
+            log.debug(
+                f"开始记录镜牢节点: type={node_type}, hard={self.hard_switch}, "
+                f"floor={self.floor}, theme_pack={self.current_theme_pack}, aalc_team={self.team_order}"
+            )
+        except Exception as e:
+            log.error(f"开始记录镜牢节点失败: {e}")
+
+    def _finish_node_record(self) -> None:
+        try:
+            if record := self.node_recorder.finish_node():
+                log.debug(f"镜牢节点记录已写入CSV: {record}")
+        except Exception as e:
+            log.error(f"写入镜牢节点CSV失败: {e}")
 
     def road_to_mir(self):
         loop_count = 30
@@ -236,8 +262,16 @@ class Mirror:
 
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
+                self._finish_node_record()
                 sleep(2)
-                select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                selected_theme_pack = select_theme_pack(
+                    self.hard_switch,
+                    self.floor,
+                    self.team_order,
+                    self.use_custom_theme_pack_weight,
+                )
+                if selected_theme_pack:
+                    self.current_theme_pack = selected_theme_pack
                 if self.re_formation_each_floor:
                     self.first_battle = True
                 try:
@@ -287,6 +321,7 @@ class Mirror:
                 while auto.take_screenshot() is None:
                     continue
                 if auto.find_element("mirror/road_in_mir/legend_assets.png"):
+                    self._finish_node_record()
                     _, elapsed = self._time_call(self.search_road)
                     self.find_road_total_time += elapsed
                 continue
@@ -464,6 +499,7 @@ class Mirror:
                 back_menu_count += 1
                 main_loop_count = 250
 
+        self._finish_node_record()
         msg = "开始进行镜牢奖励领取"
         log.info(msg)
 
@@ -1044,14 +1080,17 @@ class Mirror:
     def search_road(self):
         if cfg.mirror_keyboard_simple_pathfinding:
             if search_road_simple_keyboard():
+                self._start_node_record("unknown")
                 return True
             log.debug("简单键盘寻路失败，回退到常规寻路")
 
         try:
             if next_node := self.mirror_map.get_next_step():
                 if next_node is True:
+                    self._start_node_record(self.mirror_map.last_selected_node_class or "unknown")
                     return True
                 if self.mirror_map.enter_next_node(next_node):
+                    self._start_node_record(self.mirror_map.last_selected_node_class or "unknown")
                     return True
             log.debug("未能构建路线图，尝试使用最近节点法重新寻路")
         except Exception as e:
@@ -1062,10 +1101,12 @@ class Mirror:
             for _ in range(3):
                 while auto.take_screenshot() is None:
                     continue
-                if search_road_default_distance():
+                if node_type := search_road_default_distance():
+                    self._start_node_record(node_type if isinstance(node_type, str) else "unknown")
                     sleep(1)
                     return True
                 if auto.click_element("mirror/road_in_mir/enter_assets.png"):
+                    self._start_node_record("unknown")
                     return True
                 if retry() is False:
                     return False
@@ -1075,6 +1116,7 @@ class Mirror:
                 while auto.take_screenshot() is None:
                     continue
                 if search_road_farthest_distance():
+                    self._start_node_record("unknown")
                     sleep(1)
                     return True
                 if retry() is False:
@@ -1086,6 +1128,7 @@ class Mirror:
             log.error(f"寻路出错:{e}")
             return False
         if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
+            self._start_node_record("unknown")
             return True
         start_time = time.time()
         log.info("寻路出错, 尝试重进镜牢")
@@ -1102,6 +1145,7 @@ class Mirror:
                 return False
             auto.mouse_to_blank()
             if auto.click_element("mirror/road_in_mir/enter_assets.png"):
+                self._start_node_record("unknown")
                 return True
             if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
                 sleep(0.5)
