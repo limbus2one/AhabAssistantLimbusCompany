@@ -388,8 +388,8 @@ def search_road_from_road_map(hard_mode=False):
     return [], []
 
 
-# battle 是常规遭遇战，boss_battle 是boss战，event 是事件，hard_battle 是集中遭遇战（非拉链），hard_battle_2 是精锐遭遇战（有拉链）
-# shop 是商店，small_boss_battle 是异想体遭遇战
+# battle 是常规遭遇战，boss_battle 是boss战，event 是事件，Focused_Encounter 是集中遭遇战（非拉链），Risky Encounter 是精锐遭遇战（有拉链）
+# shop 是商店，Abnormality Focused Encounter 是异想体遭遇战
 
 
 def identify_nodes(bus_x):
@@ -401,10 +401,10 @@ def identify_nodes(bus_x):
         "battle",
         "boss_battle",
         "event",
-        "hard_battle",
-        "hard_battle_2",
+        "Focused_Encounter",
+        "Risky Encounter",
         "shop",
-        "small_boss_battle",
+        "Abnormality Focused Encounter",
     ]
 
     no_flag = False  # 标记是否检测到目标（初始为 False，未检测到时设为 True）
@@ -754,10 +754,10 @@ all_node_weight = {
     "battle": 30,
     "boss_battle": 1,
     "event": 18,
-    "hard_battle": 75,
-    "hard_battle_2": 100,
+    "Focused_Encounter": 75,
+    "Risky Encounter": 100,
     "shop": 1,
-    "small_boss_battle": 999,
+    "Abnormality Focused Encounter": 999,
 }
 
 DEFAULT_WEIGHT = 999  # 默认不可达权重
