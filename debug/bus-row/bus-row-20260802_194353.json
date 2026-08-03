@@ -1,0 +1,93 @@
+{
+  "mode": "hard",
+  "bus_position": [
+    704.0,
+    396.0
+  ],
+  "bus_row": "mid",
+  "confidence": 0.95,
+  "candidates": [
+    "mid"
+  ],
+  "reason": "complete_column_signature",
+  "current_node_unfinished": false,
+  "current_node_completed": false,
+  "raw_observation_count": 10,
+  "nodes": [
+    {
+      "type": "battle",
+      "screen_position": [
+        1086.0,
+        109.0
+      ],
+      "sources": [
+        "onnx"
+      ],
+      "column": 1,
+      "relative_row": -1,
+      "logical_row": "up",
+      "geometry_valid": true
+    },
+    {
+      "type": "battle",
+      "screen_position": [
+        1086.0,
+        429.0
+      ],
+      "sources": [
+        "light_marker",
+        "onnx"
+      ],
+      "column": 1,
+      "relative_row": 0,
+      "logical_row": "mid",
+      "geometry_valid": true
+    },
+    {
+      "type": "battle",
+      "screen_position": [
+        1086.0,
+        750.0
+      ],
+      "sources": [
+        "light_marker",
+        "onnx"
+      ],
+      "column": 1,
+      "relative_row": 1,
+      "logical_row": "down",
+      "geometry_valid": true
+    },
+    {
+      "type": "battle",
+      "screen_position": [
+        1469.0,
+        103.0
+      ],
+      "sources": [
+        "light_marker",
+        "onnx"
+      ],
+      "column": 2,
+      "relative_row": -1,
+      "logical_row": "up",
+      "geometry_valid": true
+    },
+    {
+      "type": "event",
+      "screen_position": [
+        1469.0,
+        421.0
+      ],
+      "sources": [
+        "event_marker",
+        "onnx"
+      ],
+      "column": 2,
+      "relative_row": 0,
+      "logical_row": "mid",
+      "geometry_valid": true
+    }
+  ],
+  "annotated_screenshot": "C:\\Users\\12192\\AhabAssistantLimbusCompany\\debug\\bus-row\\bus-row-20260802_194353.png"
+}

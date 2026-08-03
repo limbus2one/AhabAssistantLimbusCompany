@@ -1,0 +1,69 @@
+{
+  "mode": "hard",
+  "bus_position": [
+    1812.0,
+    519.0
+  ],
+  "bus_row": "mid",
+  "confidence": 0.95,
+  "candidates": [
+    "mid"
+  ],
+  "reason": "first_node_y_offset",
+  "current_node_unfinished": false,
+  "current_node_completed": false,
+  "initial_bus_position": [
+    781,
+    184
+  ],
+  "view_normalized": true,
+  "raw_observation_count": 3,
+  "nodes": [
+    {
+      "type": "battle",
+      "screen_position": [
+        1429.0,
+        548.0
+      ],
+      "sources": [
+        "onnx"
+      ],
+      "column": -1,
+      "relative_row": 0,
+      "logical_row": "mid",
+      "geometry_valid": true,
+      "is_first_node": true
+    },
+    {
+      "type": "battle",
+      "screen_position": [
+        1429.0,
+        873.0
+      ],
+      "sources": [
+        "onnx"
+      ],
+      "column": -1,
+      "relative_row": 1,
+      "logical_row": "down",
+      "geometry_valid": true,
+      "is_first_node": false
+    },
+    {
+      "type": "event",
+      "screen_position": [
+        1815.0,
+        867.0
+      ],
+      "sources": [
+        "onnx"
+      ],
+      "column": 0,
+      "relative_row": 1,
+      "logical_row": "down",
+      "geometry_valid": true,
+      "is_first_node": false
+    }
+  ],
+  "annotated_screenshot": "C:\\Users\\12192\\AhabAssistantLimbusCompany\\debug\\bus-row\\bus-row-20260802_200650.png"
+}

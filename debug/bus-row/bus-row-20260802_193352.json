@@ -1,0 +1,13 @@
+{
+  "mode": "normal",
+  "bus_position": null,
+  "bus_row": null,
+  "confidence": 0.0,
+  "candidates": [],
+  "reason": "bus_not_found",
+  "current_node_unfinished": false,
+  "current_node_completed": false,
+  "raw_observation_count": 0,
+  "nodes": [],
+  "annotated_screenshot": "C:\\Users\\12192\\AhabAssistantLimbusCompany\\debug\\bus-row\\bus-row-20260802_193352.png"
+}
