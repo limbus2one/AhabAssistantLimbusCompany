@@ -127,18 +127,18 @@ def get_node_info(x, y):
         y + 125 * scale,
     )
     if auto.find_feature_element("mirror/road_in_mir/shop.png", road_node_bbox, 50):
-        return 3, "shop"
+        return 10, "shop"
     elif auto.find_feature_element("mirror/road_in_mir/event.png", road_node_bbox):
-        return 3, "event"
+        return 10, "event"
     elif auto.find_feature_element(
         "mirror/road_in_mir/battle.png",
         road_node_bbox,
     ):
-        return 2, "battle"
+        return 10, "battle"
     elif auto.find_feature_element("mirror/road_in_mir/hard_battle.png", road_node_bbox):
-        return 1, "Focused_Encounter"
+        return 10, "Focused_Encounter"
     elif auto.find_feature_element("mirror/road_in_mir/hard_battle2.png", road_node_bbox):
-        return 0, "Risky Encounter"
+        return 10, "Risky Encounter"
     return -5, "unknown"
 
 
@@ -200,7 +200,7 @@ def search_road_default_distance():
         continue
     if retry() is False:
         return False
-    # 判断中、下两个节点是否有权重3的节点，有的话直接选择进入
+    # 先识别中、下两个节点，后续与上方节点一起按统一权重排序
     node_weight = {}
     node_class = {}
     if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
@@ -210,16 +210,7 @@ def search_road_default_distance():
             weight, class_name = get_node_info(node_x, node_y)
             node_weight[(node_x, node_y)] = weight
             node_class[(node_x, node_y)] = class_name
-        max_weight = max(node_weight.values())
-        if max_weight == 3:
-            road_list = sorted(node_weight, key=node_weight.get, reverse=True)
-            road = road_list[0]
-            if 0 < road[0] < cfg.set_win_size * 16 / 9 and 0 < road[1] < cfg.set_win_size:
-                auto.mouse_click(road[0], road[1])
-                sleep(0.75)
-                if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-                    return node_class[road]
-    # 如果中、下两个节点没有权重3的节点，查看所有节点的权重，选择权重最大的节点进入
+    # 查看所有节点，选择权重最高的节点进入；同权重时保持检测顺序
     if bus_position := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
         from tasks.base.retry import check_times
 
@@ -782,13 +773,13 @@ import heapq
 from enum import Enum
 
 all_node_weight = {
-    "battle": 30,
-    "boss_battle": 1,
-    "event": 18,
-    "Focused_Encounter": 75,
-    "Risky Encounter": 100,
-    "shop": 1,
-    "Abnormality Focused Encounter": 999,
+    "battle": 10,
+    "boss_battle": 10,
+    "event": 10,
+    "Focused_Encounter": 10,
+    "Risky Encounter": 10,
+    "shop": 10,
+    "Abnormality Focused Encounter": 10,
 }
 
 DEFAULT_WEIGHT = 999  # 默认不可达权重
