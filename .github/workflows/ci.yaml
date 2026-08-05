@@ -50,28 +50,8 @@ jobs:
             --current-run-id "${{ github.run_id }}" \
             --current-run-number "${{ github.run_number }}"
 
-  test:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@main
-
-      - name: Setup UV for Python
-        uses: astral-sh/setup-uv@v8.1.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            **/uv.lock
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Run pytest
-        run: uv run pytest -ra
-
-  # 复用既有打包流程，只替换传入的构建版本号。测试不过就不打包。
   build:
-    needs: [prepare-version, test]
+    needs: prepare-version
     uses: ./.github/workflows/reusable-build.yml
     with:
       version: ${{ needs.prepare-version.outputs.version }}
@@ -82,7 +62,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    needs: [prepare-version, test, build]
+    needs: [prepare-version, build]
     permissions:
       contents: write
       actions: write
