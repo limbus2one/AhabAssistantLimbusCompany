@@ -7,17 +7,9 @@ permissions:
 on:
   workflow_dispatch:
   pull_request:
-    branches:
-      - main
-    paths-ignore: # 文档更新不必触发 CI
-      - "**.md"
-      - "readme/**"
   push:
     branches:
-      - main
-    paths-ignore: # 文档更新不必触发 CI
-      - "**.md"
-      - "readme/**"
+      - "**"
 
 jobs:
   # 先计算符合语义化版本的 CI 预发布版本，再把结果传给复用构建流程。
@@ -101,7 +93,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@main
         with:
-          name: AALC_${{ needs.prepare-version.outputs.version }}.7z
+          name: AALC_${{ needs.prepare-version.outputs.version }}
           path: release
 
       - name: Generate release notes

@@ -97,7 +97,9 @@ def reserves_channel_number(run: dict[str, Any], channel: str, published_at: dat
         return event in {"push", "workflow_dispatch"} and head_branch == "main"
 
     if channel == "alpha":
-        return event == "pull_request" or (event == "workflow_dispatch" and head_branch not in {None, "main"})
+        return event == "pull_request" or (
+            event in {"push", "workflow_dispatch"} and head_branch not in {None, "main"}
+        )
 
     raise ValueError(f"Unsupported CI version channel: {channel}")
 
