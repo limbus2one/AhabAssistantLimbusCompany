@@ -425,6 +425,7 @@ def identify_nodes(bus_x):
 
     # 读取原始图像（BGR 格式，由 OpenCV 读取）
     auto.take_screenshot(gray=False)
+    auto.screenshot.save("onnx_node_screenshot.png")
     original_image: np.ndarray = np.array(auto.screenshot)
     [height, width, _] = original_image.shape  # 获取原始图像的高、宽、通道数
 
