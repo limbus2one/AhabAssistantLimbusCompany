@@ -18,6 +18,7 @@ from module.game_and_screen import game_process, screen
 from module.game_and_screen.hdr import get_monitor_hdr_info
 from module.logger import log
 from module.my_error.my_error import (
+    MirrorPathfindingError,
     backMainWinError,
     cannotOperateGameError,
     netWorkUnstableError,
@@ -101,6 +102,8 @@ def onetime_mir_process(team_setting: TeamSetting, team_num: int):
             return True
         else:
             return False
+    except MirrorPathfindingError:
+        raise
     except Exception as e:
         log.exception(f"镜牢行动出错: {e}")
         return False
