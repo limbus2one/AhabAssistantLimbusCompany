@@ -246,6 +246,7 @@ class Mirror:
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
                 sleep(2)
                 select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                self.mirror_map.save_shifted_images = True
                 if self.re_formation_each_floor:
                     self.first_battle = True
                 try:
@@ -1056,7 +1057,15 @@ class Mirror:
         if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
             return True
 
-        direction = self.mirror_map.get_next_node_direction()
+        try:
+            direction = self.mirror_map.get_next_node_direction()
+        except MirrorPathfindingError as error:
+            if str(error) != "镜牢 ONNX 节点识别失败":
+                raise
+            log.warning("镜牢 ONNX 节点识别为空，使用简单键盘寻路兜底")
+            if not search_road_simple_keyboard():
+                raise MirrorPathfindingError("ONNX 识别为空且简单键盘寻路兜底失败") from error
+            return True
         return self.mirror_map.enter_next_node(direction)
 
     def re_start(self):

@@ -66,10 +66,16 @@ class MirrorMap:
         self.hard_mode = hard_mode
         self.floor_route = []
         self.floor_map = {}
+        self.save_shifted_images = False
 
     def get_next_node_direction(self):
         if len(self.floor_route) < 2:
-            floor_route, floor_map = search_road_from_road_map(hard_mode=self.hard_mode)
+            save_shifted_images = self.save_shifted_images
+            self.save_shifted_images = False
+            floor_route, floor_map = search_road_from_road_map(
+                hard_mode=self.hard_mode,
+                save_shifted_images=save_shifted_images,
+            )
             if self.hard_mode:
                 floor_route = floor_route[:2]
             if len(floor_route) < 2:
@@ -138,11 +144,7 @@ def _enter_succeeded():
 
 
 def search_road_simple_keyboard():
-    """显式简单模式：始终按上，不进入 ONNX 寻路。"""
-    if not cfg.mirror_keyboard_navigation:
-        log.warning("简单键盘寻路需要启用键盘寻路模式")
-        return False
-
+    """始终按上，不进入 ONNX 寻路。"""
     auto.mouse_to_blank()
     sleep(0.3)
     for attempt in range(2):
@@ -156,8 +158,8 @@ def search_road_simple_keyboard():
     return False
 
 
-def search_road_from_road_map(hard_mode=False):
-    onnx_result = onnx()
+def search_road_from_road_map(hard_mode=False, save_shifted_images=False):
+    onnx_result = onnx(save_shifted_images=save_shifted_images)
     if onnx_result is None:
         raise MirrorPathfindingError("镜牢 ONNX 节点识别失败")
 
@@ -242,7 +244,42 @@ def move_bus(bus_position, bus_row):
     return moved_bus_position
 
 
-def onnx():
+def _save_shifted_onnx_images(capture_id):
+    scale = cfg.set_win_size / REFERENCE_SCREEN_HEIGHT
+    shifted = 0
+    try:
+        for index in range(1, 7):
+            auto.mouse_drag(
+                1600 * scale,
+                700 * scale,
+                drag_time=0.5,
+                dx=-X_GAP * scale,
+            )
+            shifted += 1
+            sleep(0.5)
+            if auto.take_screenshot(gray=False) is None:
+                raise MirrorPathfindingError("镜牢 ONNX 日志截图失败")
+            auto.screenshot.save(Path("logs") / f"onnx_nodes_{capture_id}_shift_{index}.png")
+    finally:
+        for gap_count in (min(3, shifted), max(0, shifted - 3)):
+            if not gap_count:
+                continue
+            auto.mouse_drag(
+                400 * scale,
+                700 * scale,
+                drag_time=0.5,
+                dx=gap_count * X_GAP * scale,
+            )
+            sleep(0.5)
+
+        if auto.find_element(
+            "mirror/mybus_default_distance.png",
+            take_screenshot=True,
+        ) is None:
+            raise MirrorPathfindingError("镜牢 ONNX 日志采集后未找到 Bus")
+
+
+def onnx(save_shifted_images=False):
     bus_result = find_bus()
     if bus_result is None:
         return None
@@ -257,6 +294,8 @@ def onnx():
     points = identify_nodes(bus_position[0], image=auto.screenshot)
     if not points:
         return None
+    if save_shifted_images:
+        _save_shifted_onnx_images(capture_id)
     return bus_position, points, capture_id
 
 
@@ -301,7 +340,7 @@ def identify_nodes(bus_x, image=None):
     class_ids = []
     for output in outputs:
         _, max_score, _, (_, class_id) = cv2.minMaxLoc(output[4:])
-        if max_score < 0.25:
+        if max_score < 0.15:
             continue
         boxes.append(
             [

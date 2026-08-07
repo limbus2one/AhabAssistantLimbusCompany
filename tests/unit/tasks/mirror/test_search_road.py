@@ -102,6 +102,7 @@ def test_route_targets_the_furthest_column_not_an_early_boss():
 def test_normal_mode_reuses_the_remaining_floor_route():
     route, floor_map = make_route()
     mirror_map = search_road.MirrorMap(hard_mode=False)
+    mirror_map.save_shifted_images = True
 
     with (
         patch.object(search_road, "search_road_from_road_map", return_value=(route, floor_map)) as build,
@@ -114,12 +115,14 @@ def test_normal_mode_reuses_the_remaining_floor_route():
         assert mirror_map.enter_next_node("M")
         assert mirror_map.get_next_node_direction() == "U"
 
-    build.assert_called_once_with(hard_mode=False)
+    build.assert_called_once_with(hard_mode=False, save_shifted_images=True)
+    assert mirror_map.save_shifted_images is False
 
 
 def test_hard_mode_naturally_rebuilds_after_each_node():
     route, floor_map = make_route()
     mirror_map = search_road.MirrorMap(hard_mode=True)
+    mirror_map.save_shifted_images = True
 
     with (
         patch.object(search_road, "search_road_from_road_map", return_value=(route, floor_map)) as build,
@@ -134,7 +137,10 @@ def test_hard_mode_naturally_rebuilds_after_each_node():
         assert len(mirror_map.floor_route) == 1
         assert mirror_map.get_next_node_direction() == "M"
 
-    assert build.call_count == 2
+    assert build.call_args_list == [
+        call(hard_mode=True, save_shifted_images=True),
+        call(hard_mode=True, save_shifted_images=False),
+    ]
 
 
 def test_failed_entry_does_not_consume_the_route():
@@ -216,6 +222,44 @@ def test_hard_mode_logs_only_the_cached_bus_and_next_node():
     save.assert_called_once_with(13, floor_map, route[:2], 5, True)
 
 
+def test_shifted_onnx_images_are_saved_and_the_map_is_restored():
+    screenshot = Mock()
+    with (
+        patch.object(search_road.cfg, "set_win_size", 1440),
+        patch.object(search_road.auto, "mouse_drag") as drag,
+        patch.object(search_road.auto, "take_screenshot", return_value=True),
+        patch.object(search_road.auto, "screenshot", screenshot),
+        patch.object(search_road.auto, "find_element", return_value=(999, 999)),
+        patch.object(search_road, "sleep"),
+    ):
+        search_road._save_shifted_onnx_images(13)
+
+    assert drag.call_args_list == [
+        *[call(1600, 700, drag_time=0.5, dx=-520) for _ in range(6)],
+        call(400, 700, drag_time=0.5, dx=1560),
+        call(400, 700, drag_time=0.5, dx=1560),
+    ]
+    assert screenshot.save.call_args_list == [
+        call(search_road.Path("logs") / f"onnx_nodes_13_shift_{index}.png")
+        for index in range(1, 7)
+    ]
+
+
+def test_empty_onnx_result_does_not_save_shifted_images():
+    screenshot = Mock()
+    with (
+        patch.object(search_road, "find_bus", return_value=((100, 700), search_road.Position.MID)),
+        patch.object(search_road, "move_bus", return_value=(100, 700)),
+        patch.object(search_road.auto, "take_screenshot", return_value=True),
+        patch.object(search_road.auto, "screenshot", screenshot),
+        patch.object(search_road, "identify_nodes", return_value=[]),
+        patch.object(search_road, "_save_shifted_onnx_images") as save_shifted,
+    ):
+        assert search_road.onnx(save_shifted_images=True) is None
+
+    save_shifted.assert_not_called()
+
+
 def test_simple_keyboard_mode_failure_does_not_fall_back_to_onnx():
     mirror = Mirror.__new__(Mirror)
     mirror.mirror_map = Mock()
@@ -228,6 +272,25 @@ def test_simple_keyboard_mode_failure_does_not_fall_back_to_onnx():
         mirror.search_road()
 
     mirror.mirror_map.get_next_node_direction.assert_not_called()
+
+
+def test_empty_onnx_result_falls_back_to_simple_keyboard():
+    mirror = Mirror.__new__(Mirror)
+    mirror.mirror_map = Mock()
+    mirror.mirror_map.get_next_node_direction.side_effect = MirrorPathfindingError(
+        "镜牢 ONNX 节点识别失败"
+    )
+
+    with (
+        patch.object(search_road.cfg, "mirror_keyboard_simple_pathfinding", False),
+        patch("tasks.mirror.mirror.auto.find_element", return_value=None),
+        patch("tasks.mirror.mirror.auto.click_element", return_value=False),
+        patch("tasks.mirror.mirror.search_road_simple_keyboard", return_value=True) as fallback,
+    ):
+        assert mirror.search_road()
+
+    fallback.assert_called_once_with()
+    mirror.mirror_map.enter_next_node.assert_not_called()
 
 
 def test_floor_is_read_once_and_refreshes_the_cache():
