@@ -20,7 +20,7 @@ from module.logger import log
 from utils.utils import decrypt_string
 
 md_renderer = MarkdownIt("gfm-like", {"html": True})
-LOCAL_BUILD_VERSION = "do not use hard mode"
+LOCAL_BUILD_VERSION = "记录镜牢路径图 - 不要运行困牢"
 
 
 class UpdateStatus(Enum):

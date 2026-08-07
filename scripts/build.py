@@ -7,7 +7,7 @@ import PyInstaller.__main__
 
 # 读取版本号
 parser = argparse.ArgumentParser(description="Build AALC")
-parser.add_argument("--version", default="do not use hard mode", help="AALC Version")
+parser.add_argument("--version", default="记录镜牢路径图 - 不要运行困牢", help="AALC Version")
 args = parser.parse_args()
 version = args.version
 
