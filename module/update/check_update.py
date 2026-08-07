@@ -20,6 +20,7 @@ from module.logger import log
 from utils.utils import decrypt_string
 
 md_renderer = MarkdownIt("gfm-like", {"html": True})
+LOCAL_BUILD_VERSION = "do not use hard mode"
 
 
 class UpdateStatus(Enum):
@@ -132,6 +133,12 @@ class UpdateThread(QThread):
         try:
             # 如果标志位为 False 且配置中的检查更新标志也为 False，则直接返回
             if self.flag and not cfg.get_value("check_update"):
+                return
+
+            if cfg.version == LOCAL_BUILD_VERSION:
+                self.new_version = cfg.version
+                self.is_current_version_latest = True
+                self.updateSignal.emit(UpdateStatus.SUCCESS)
                 return
 
             # 第一步：优先从 Mirror酱 获取最新版本信息，并同步记录版本门禁需要的数据。

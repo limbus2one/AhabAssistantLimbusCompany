@@ -1060,11 +1060,11 @@ class Mirror:
         try:
             direction = self.mirror_map.get_next_node_direction()
         except MirrorPathfindingError as error:
-            if str(error) != "镜牢 ONNX 节点识别失败":
+            if str(error) != "镜牢节点图中不存在可达路线":
                 raise
-            log.warning("镜牢 ONNX 节点识别为空，使用简单键盘寻路兜底")
+            log.warning("镜牢节点图中不存在可达路线，使用简单键盘寻路兜底")
             if not search_road_simple_keyboard():
-                raise MirrorPathfindingError("ONNX 识别为空且简单键盘寻路兜底失败") from error
+                raise MirrorPathfindingError("不存在可达路线且简单键盘寻路兜底失败") from error
             return True
         return self.mirror_map.enter_next_node(direction)
 

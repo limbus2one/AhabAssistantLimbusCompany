@@ -171,7 +171,7 @@ def search_road_from_road_map(hard_mode=False, save_shifted_images=False):
     min_weight, floor_route = find_min_weight_route(floor_map)
     route_for_log = floor_route[:2] if hard_mode else floor_route
     _save_pathfinding_logs(capture_id, floor_map, route_for_log, min_weight, hard_mode)
-    if not floor_route:
+    if len(floor_route) < 2:
         raise MirrorPathfindingError("镜牢节点图中不存在可达路线")
 
     directions, node_types = route_to_directions(floor_route)
@@ -292,8 +292,6 @@ def onnx(save_shifted_images=False):
     Path("logs").mkdir(exist_ok=True)
     auto.screenshot.save(Path("logs") / f"onnx_nodes_{capture_id}.png")
     points = identify_nodes(bus_position[0], image=auto.screenshot)
-    if not points:
-        return None
     if save_shifted_images:
         _save_shifted_onnx_images(capture_id)
     return bus_position, points, capture_id
@@ -340,7 +338,7 @@ def identify_nodes(bus_x, image=None):
     class_ids = []
     for output in outputs:
         _, max_score, _, (_, class_id) = cv2.minMaxLoc(output[4:])
-        if max_score < 0.15:
+        if max_score < 0.25:
             continue
         boxes.append(
             [

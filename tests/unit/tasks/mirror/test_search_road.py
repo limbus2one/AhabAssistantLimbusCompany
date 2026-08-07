@@ -245,7 +245,7 @@ def test_shifted_onnx_images_are_saved_and_the_map_is_restored():
     ]
 
 
-def test_empty_onnx_result_does_not_save_shifted_images():
+def test_empty_node_result_still_returns_capture():
     screenshot = Mock()
     with (
         patch.object(search_road, "find_bus", return_value=((100, 700), search_road.Position.MID)),
@@ -254,10 +254,21 @@ def test_empty_onnx_result_does_not_save_shifted_images():
         patch.object(search_road.auto, "screenshot", screenshot),
         patch.object(search_road, "identify_nodes", return_value=[]),
         patch.object(search_road, "_save_shifted_onnx_images") as save_shifted,
+        patch.object(search_road.time, "time_ns", return_value=13),
     ):
-        assert search_road.onnx(save_shifted_images=True) is None
+        assert search_road.onnx(save_shifted_images=True) == ((100, 700), [], 13)
 
-    save_shifted.assert_not_called()
+    save_shifted.assert_called_once_with(13)
+
+
+def test_empty_node_result_becomes_no_reachable_route():
+    with (
+        patch.object(search_road, "onnx", return_value=((100, 700), [], 13)),
+        patch.object(search_road.auto, "take_screenshot", return_value=True),
+        patch.object(search_road, "_save_pathfinding_logs"),
+        pytest.raises(MirrorPathfindingError, match="不存在可达路线"),
+    ):
+        search_road.search_road_from_road_map()
 
 
 def test_simple_keyboard_mode_failure_does_not_fall_back_to_onnx():
@@ -274,11 +285,11 @@ def test_simple_keyboard_mode_failure_does_not_fall_back_to_onnx():
     mirror.mirror_map.get_next_node_direction.assert_not_called()
 
 
-def test_empty_onnx_result_falls_back_to_simple_keyboard():
+def test_no_reachable_route_falls_back_to_simple_keyboard():
     mirror = Mirror.__new__(Mirror)
     mirror.mirror_map = Mock()
     mirror.mirror_map.get_next_node_direction.side_effect = MirrorPathfindingError(
-        "镜牢 ONNX 节点识别失败"
+        "镜牢节点图中不存在可达路线"
     )
 
     with (
@@ -291,6 +302,25 @@ def test_empty_onnx_result_falls_back_to_simple_keyboard():
 
     fallback.assert_called_once_with()
     mirror.mirror_map.enter_next_node.assert_not_called()
+
+
+def test_bus_detection_failure_does_not_fall_back_to_simple_keyboard():
+    mirror = Mirror.__new__(Mirror)
+    mirror.mirror_map = Mock()
+    mirror.mirror_map.get_next_node_direction.side_effect = MirrorPathfindingError(
+        "镜牢 ONNX 节点识别失败"
+    )
+
+    with (
+        patch.object(search_road.cfg, "mirror_keyboard_simple_pathfinding", False),
+        patch("tasks.mirror.mirror.auto.find_element", return_value=None),
+        patch("tasks.mirror.mirror.auto.click_element", return_value=False),
+        patch("tasks.mirror.mirror.search_road_simple_keyboard") as fallback,
+        pytest.raises(MirrorPathfindingError, match="ONNX 节点识别失败"),
+    ):
+        mirror.search_road()
+
+    fallback.assert_not_called()
 
 
 def test_floor_is_read_once_and_refreshes_the_cache():
