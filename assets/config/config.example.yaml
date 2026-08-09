@@ -128,6 +128,7 @@ no_weekly_bonuses: False # 不使用每周加成
 floor_3_exit: False # 只打三层
 infinite_dungeons: False # 无限刷牢
 save_rewards: False # 保存奖励不领
+forfeit_mirror_rewards: False # 不领取镜牢奖励
 hard_mirror_single_bonuses: False # 困难镜牢使用单次加成
 select_event_pack: False # 第五层选择（最左边）活动卡包
 skip_event_pack: False # 第五层跳过（最左边）活动卡包

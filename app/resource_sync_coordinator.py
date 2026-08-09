@@ -23,6 +23,7 @@ from module.resource_sync import (
     ResourceWorkerMode,
 )
 from module.update.check_update import (
+    LOCAL_BUILD_VERSION,
     UpdateStatus,
     check_update,
 )
@@ -75,6 +76,11 @@ class ResourceSyncCoordinator(QObject):
 
     def start_startup_check(self) -> None:
         """触发启动阶段的资源同步门禁检查。"""
+        if cfg.version == LOCAL_BUILD_VERSION:
+            log.debug("本地构建版本，跳过启动阶段软件更新和图片资源同步")
+            self._continue_startup_sequence_once()
+            return
+
         # 对外暴露的启动入口
         self._start_resource_sync_gate_check(trigger="startup")
 

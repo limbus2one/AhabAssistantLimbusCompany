@@ -123,7 +123,7 @@ def select_theme_pack(hard_switch=False, floor=None, team_num=None, use_custom_t
                         min(pack[1] + 390 * scale, cfg.set_win_size),
                     )
                     crop = (top_left[0], top_left[1], bottom_right[0], bottom_right[1])
-                    result = auto.find_language_text(theme_pack_list_zh, theme_pack_list_en, crop)
+                    result = auto.find_language_text(theme_pack_list_zh, theme_pack_list_en, crop, fuzzy=True)
                     if isinstance(result, TextMatchResult):
                         theme_pack_weight = result.value
                         theme_pack_name = result.text
@@ -136,7 +136,7 @@ def select_theme_pack(hard_switch=False, floor=None, team_num=None, use_custom_t
 
                 # 选择权重最大的主题包
                 max_weight = max(weight_list)
-                log.debug(f"当前主题包权重列表：{list(zip(pack_name, weight_list))}")
+                log.info(f"当前主题包权重列表：{list(zip(pack_name, weight_list))}")
                 # 如果存在权重最大值大于等于优选阈值的主题包，则选择该主题包
                 if max_weight >= int(theme_list.preferred_thresholds):
                     max_index = weight_list.index(max_weight)
@@ -144,8 +144,16 @@ def select_theme_pack(hard_switch=False, floor=None, team_num=None, use_custom_t
                     auto.mouse_drag_down(pack[0], pack[1])
                     log.debug(f"选择卡包: {pack}")
                     sleep(3)
-                    msg = f"此次选择卡包关键词：{pack_name[max_index]}"
+                    selected_name = pack_name[max_index]
+                    msg = f"此次选择卡包关键词：{selected_name}"
                     log.info(msg)
+                    theme_list.decrement_theme_pack_weight(
+                        selected_name,
+                        hard_switch,
+                        "zh_cn" if selected_name in theme_pack_list_zh else "en",
+                        team_num,
+                        use_custom_theme_pack_weight,
+                    )
                     return
 
         except Exception as e:
@@ -155,7 +163,7 @@ def select_theme_pack(hard_switch=False, floor=None, team_num=None, use_custom_t
         if refresh_times >= 0 and auto.click_element("mirror/theme_pack/refresh_assets.png"):
             refresh_times -= 1
             auto.mouse_to_blank()
-            sleep(1)
+            sleep(5)
             continue
         if refresh_times >= 0 and loop_count < 15:
             auto.mouse_to_blank(move_back=False)
@@ -170,8 +178,16 @@ def select_theme_pack(hard_switch=False, floor=None, team_num=None, use_custom_t
                 log.debug(f"选择卡包: {pack}")
                 sleep(3)
                 log.debug("无匹配最低阈值的主题包，选择最高权重主题包")
-                msg = f"无匹配最低阈值的主题包，选择最高权重主题包\n此次选择卡包关键词：{pack_name[max_index]}"
+                selected_name = pack_name[max_index]
+                msg = f"无匹配最低阈值的主题包，选择最高权重主题包\n此次选择卡包关键词：{selected_name}"
                 log.info(msg)
+                theme_list.decrement_theme_pack_weight(
+                    selected_name,
+                    hard_switch,
+                    "zh_cn" if selected_name in theme_pack_list_zh else "en",
+                    team_num,
+                    use_custom_theme_pack_weight,
+                )
                 return
             except Exception as e:
                 log.error(f"选择主题包出错:{e},尝试回到初始界面")

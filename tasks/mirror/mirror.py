@@ -9,7 +9,7 @@ from module.config import TeamSetting, cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from module.my_error.my_error import (
-    InputAttributeError,
+    MirrorPathfindingError,
     backMainWinError,
     cannotOperateGameError,
     unableToFindTeamError,
@@ -24,12 +24,7 @@ from tasks.battle.battle import DefenseForSoloState
 from tasks.event import event_handling
 from tasks.mirror.in_shop import Shop
 from tasks.mirror.reward_card import get_reward_card
-from tasks.mirror.search_road import (
-    MirrorMap,
-    search_road_default_distance,
-    search_road_farthest_distance,
-    search_road_simple_keyboard,
-)
+from tasks.mirror.search_road import MirrorMap, search_road_simple_keyboard
 from tasks.mirror.select_theme_pack import select_theme_pack
 from tasks.teams.team_formation import check_team, load_team_code_in_game, select_battle_team, team_formation
 from utils.image_utils import ImageUtils
@@ -113,6 +108,21 @@ class Mirror:
             defense_for_solo_state=self.defense_for_solo_state,
         )
         self.battle_total_time += elapsed
+
+    def _forfeit_mirror_rewards(self) -> bool:
+        if not auto.click_element("mirror/claim_reward/claim_rewards_assets.png"):
+            return False
+        sleep(1)
+        position = auto.find_element(
+            "mirror/claim_reward/use_enkephalin_assets.png",
+            take_screenshot=True,
+        )
+        if position is None:
+            raise cannotOperateGameError("无法定位不领取镜牢奖励按钮，已停止以避免消耗脑啡肽模块")
+        scale = cfg.set_win_size / 1440
+        auto.mouse_click(position[0] - 800 * scale, position[1])
+        sleep(1)
+        return True
 
     def road_to_mir(self):
         loop_count = 30
@@ -249,8 +259,11 @@ class Mirror:
 
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
+                self.mirror_map.reset_bus_row()
                 sleep(2)
                 select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                sleep(3)
+                self.mirror_map.save_shifted_images = True
                 if self.re_formation_each_floor:
                     self.first_battle = True
                 try:
@@ -527,7 +540,10 @@ class Mirror:
                 if auto.click_element("mirror/claim_reward/claim_forfeit_assets.png", model="normal", take_screenshot=True):
                     continue
             else:
-                if self.hard_switch and cfg.save_rewards:
+                if cfg.forfeit_mirror_rewards:
+                    if self._forfeit_mirror_rewards():
+                        continue
+                elif self.hard_switch and cfg.save_rewards:
                     auto.click_element("mirror/claim_reward/claim_rewards_assets.png")
                     sleep(1)
                     pos = auto.find_element(
@@ -614,7 +630,9 @@ class Mirror:
                         sleep(1)
                     retry()
                     continue
-            if auto.click_element("mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75):  # 降低识别阈值
+            if not cfg.forfeit_mirror_rewards and auto.click_element(
+                "mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75
+            ):  # 降低识别阈值
                 sleep(1)
                 continue
             # 处理周年活动弹出的窗口
@@ -1052,78 +1070,26 @@ class Mirror:
     @begin_and_finish_time_log(task_name="镜牢寻路")
     def search_road(self):
         if cfg.mirror_keyboard_simple_pathfinding:
-            if search_road_simple_keyboard():
-                return True
-            log.debug("简单键盘寻路失败，回退到常规寻路")
+            if not search_road_simple_keyboard():
+                raise MirrorPathfindingError("简单键盘寻路失败")
+            return True
 
-        try:
-            if next_node := self.mirror_map.get_next_step():
-                if next_node is True:
-                    return True
-                if self.mirror_map.enter_next_node(next_node):
-                    return True
-            log.debug("未能构建路线图，尝试使用最近节点法重新寻路")
-        except Exception as e:
-            log.debug(f"使用onnx模型寻路出错:{e}")
-        finally:
-            auto.mouse_to_blank()
-        try:
-            for _ in range(3):
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_default_distance():
-                    sleep(1)
-                    return True
-                if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                    return True
-                if retry() is False:
-                    return False
-            for _ in range(3):
-                if cfg.background_click:
-                    continue
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_farthest_distance():
-                    sleep(1)
-                    return True
-                if retry() is False:
-                    return False
-        except InputAttributeError as e:
-            log.error(f"寻路出错:{e}, 尝试重进镜牢")
-            pass
-        except Exception as e:
-            log.error(f"寻路出错:{e}")
-            return False
+        if bus := auto.find_element("mirror/mybus_default_distance.png", take_screenshot=True):
+            auto.mouse_action_with_pos(bus, interval=1)
         if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
             return True
-        start_time = time.time()
-        log.info("寻路出错, 尝试重进镜牢")
-        while True:
-            from tasks.base.retry import check_times
 
-            # 自动截图
-            if auto.take_screenshot() is None:
-                continue
-            if auto.get_restore_time() is not None:
-                start_time = max(start_time, auto.get_restore_time())
-            if check_times(start_time):
-                back_init_menu()
-                return False
-            auto.mouse_to_blank()
-            if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                return True
-            if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
-                sleep(0.5)
-                break
-            if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
-                break
-            if auto.click_element("mirror/road_in_mir/to_window_assets.png"):
-                continue
-            if auto.click_element("mirror/road_in_mir/setting_assets.png"):
-                sleep(1)
-                continue
-            if retry() is False:
-                return False
+        try:
+            direction = self.mirror_map.get_next_node_direction()
+        except MirrorPathfindingError as error:
+            if str(error) not in {"镜牢节点图中不存在可达路线", "镜牢 Bus 所在行未知"}:
+                raise
+            log.warning(f"{error}，使用简单键盘寻路兜底")
+            if not search_road_simple_keyboard():
+                raise MirrorPathfindingError(f"{error}且简单键盘寻路兜底失败") from error
+            self.mirror_map.forget_bus_row()
+            return True
+        return self.mirror_map.enter_next_node(direction)
 
     def re_start(self):
         while True:
@@ -1470,7 +1436,7 @@ class Mirror:
             # 如果回到主界面，退出循环
             if auto.click_element("mirror/claim_reward/rewards_acquired_assets.png"):
                 return True
-            if cfg.no_weekly_bonuses:
+            if not cfg.forfeit_mirror_rewards and cfg.no_weekly_bonuses:
                 bonuses = auto.find_element(
                     "mirror/claim_reward/weekly_bonuses.png",
                     find_type="image_with_multiple_targets",
@@ -1479,7 +1445,7 @@ class Mirror:
                     for _ in range(len(bonuses)):
                         position = bonuses.pop(-1)
                         auto.mouse_click(position[0], position[1])
-            if cfg.hard_mirror_single_bonuses:
+            if not cfg.forfeit_mirror_rewards and cfg.hard_mirror_single_bonuses:
                 bonuses = auto.find_element(
                     "mirror/claim_reward/weekly_bonuses.png",
                     find_type="image_with_multiple_targets",
@@ -1495,7 +1461,10 @@ class Mirror:
                 model="clam",
             ):
                 continue
-            if self.hard_switch and cfg.save_rewards:
+            if cfg.forfeit_mirror_rewards:
+                if self._forfeit_mirror_rewards():
+                    continue
+            elif self.hard_switch and cfg.save_rewards:
                 auto.click_element("mirror/claim_reward/claim_rewards_assets.png")
                 sleep(1)
                 pos = auto.find_element(
@@ -1515,7 +1484,9 @@ class Mirror:
                     sleep(1)
                 # TODO: 统计获取的coins
                 continue
-            if auto.click_element("mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75):  # 降低识别阈值
+            if not cfg.forfeit_mirror_rewards and auto.click_element(
+                "mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75
+            ):  # 降低识别阈值
                 sleep(1)
                 continue
             # 处理周年活动弹出的窗口
@@ -1540,9 +1511,6 @@ class Mirror:
         self.shop.in_shop(self.floor)
 
     def get_which_floor(self):
-        auto.click_element("mirror/road_in_mir/setting_assets.png", take_screenshot=True)
-        sleep(1)
-
         scale = cfg.set_win_size / 1440
         floor_progress_crop = (
             900 * scale,
@@ -1550,19 +1518,47 @@ class Mirror:
             1700 * scale,
             720 * scale,
         )
-        if to_window_position := auto.find_element("mirror/road_in_mir/to_window_assets.png", take_screenshot=True):
-            not_passed_floors = auto.find_element(
-                "mirror/road_in_mir/not_passed_floor.png",
-                find_type="image_with_multiple_targets",
-                my_crop=floor_progress_crop,
+        for _ in range(3):
+            if auto.click_element("mirror/road_in_mir/setting_assets.png", take_screenshot=True):
+                break
+            sleep(0.5)
+        else:
+            raise MirrorPathfindingError("无法打开镜牢设置页面读取楼层")
+
+        to_window_position = None
+        for _ in range(3):
+            sleep(0.5)
+            to_window_position = auto.find_element(
+                "mirror/road_in_mir/to_window_assets.png",
                 take_screenshot=True,
-                min_dist= 80 * scale
             )
-            not_passed_floor_count = len(not_passed_floors)
-            self.floor = 5 - not_passed_floor_count
-            log.debug(f"当前镜牢层数: {self.floor}")
-            self.get_floor_num = False
-            auto.mouse_action_with_pos(
-                (to_window_position[0] - 200 * cfg.set_win_size / 1440, to_window_position[1])
-            )
-            self.mirror_map.refresh_floor(self.floor)
+            if to_window_position:
+                break
+        if to_window_position is None:
+            raise MirrorPathfindingError("无法确认镜牢设置页面已打开")
+
+        not_passed_floors = auto.find_element(
+            "mirror/road_in_mir/not_passed_floor.png",
+            find_type="image_with_multiple_targets",
+            my_crop=floor_progress_crop,
+            take_screenshot=True,
+            min_dist=80 * scale,
+        )
+        floor = 5 - len(not_passed_floors)
+        if floor not in range(1, 6):
+            raise MirrorPathfindingError(f"识别到无效镜牢楼层: {floor}")
+        if self.floor and floor != self.floor + 1:
+            raise MirrorPathfindingError(f"镜牢楼层未按预期更新: {self.floor} -> {floor}")
+
+        auto.mouse_action_with_pos((to_window_position[0] - 200 * scale, to_window_position[1]))
+        for _ in range(3):
+            sleep(0.5)
+            if not auto.find_element("mirror/road_in_mir/to_window_assets.png", take_screenshot=True):
+                break
+        else:
+            raise MirrorPathfindingError("无法关闭镜牢设置页面")
+
+        self.floor = floor
+        self.get_floor_num = False
+        self.mirror_map.refresh_floor(floor)
+        log.debug(f"当前镜牢层数: {floor}")

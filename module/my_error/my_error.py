@@ -165,3 +165,7 @@ class InputAttributeError(Exception):
 
     def __str__(self):
         return self.errorInfo
+
+
+class MirrorPathfindingError(Exception):
+    """镜牢无法继续寻路。"""
