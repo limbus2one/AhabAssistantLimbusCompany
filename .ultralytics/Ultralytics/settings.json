@@ -1,0 +1,20 @@
+{
+  "settings_version": "0.0.7",
+  "datasets_dir": "C:\\Users\\12192\\AhabAssistantLimbusCompany\\datasets",
+  "weights_dir": "weights",
+  "runs_dir": "runs",
+  "uuid": "05e2e07fee80538635eec1ac3de10984cd73b30dd568fa83275aefa63fbb1290",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": false,
+  "wandb": false,
+  "vscode_msg": true,
+  "openvino_msg": true
+}

@@ -769,6 +769,37 @@ class Theme_pack_list(metaclass=SingletonMeta):
         log.debug(f"已加载自定义权重。path={custom_path}, keys={setting_keys}, count={len(effective_list)}")
         return effective_list
 
+    def decrement_theme_pack_weight(
+        self,
+        pack_name: str,
+        hard_switch: bool,
+        language: str | None,
+        team_num: int | None,
+        use_custom_theme_pack_weight: bool,
+    ) -> int | None:
+        """将本次选中的主题卡包权重减一并持久化。"""
+        if pack_name == "unknown":
+            return None
+
+        path = self.theme_pack_list_path
+        config_data = self.config
+        if use_custom_theme_pack_weight:
+            custom_path = self.build_team_weight_path(team_num)
+            custom_config = self.load_config(custom_path)
+            if custom_config is not None:
+                path = custom_path
+                config_data = custom_config
+
+        for key in reversed(self.build_setting_key(hard_switch, language)):
+            weights = config_data.get(key, {})
+            if pack_name not in weights:
+                continue
+            weights[pack_name] -= 1
+            self.save_config(path, config_data)
+            log.info(f"已降低主题卡包权重: {pack_name} -> {weights[pack_name]}")
+            return weights[pack_name]
+        return None
+
     def _load_version(self, version_path: str) -> str:
         """加载版本信息"""
         try:

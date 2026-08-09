@@ -102,6 +102,7 @@ def test_route_targets_the_furthest_column_not_an_early_boss():
 def test_normal_mode_reuses_the_remaining_floor_route():
     route, floor_map = make_route()
     mirror_map = search_road.MirrorMap(hard_mode=False)
+    mirror_map.reset_bus_row()
     mirror_map.save_shifted_images = True
 
     with (
@@ -115,13 +116,18 @@ def test_normal_mode_reuses_the_remaining_floor_route():
         assert mirror_map.enter_next_node("M")
         assert mirror_map.get_next_node_direction() == "U"
 
-    build.assert_called_once_with(hard_mode=False, save_shifted_images=True)
+    build.assert_called_once_with(
+        hard_mode=False,
+        save_shifted_images=True,
+        bus_row=search_road.Position.MID,
+    )
     assert mirror_map.save_shifted_images is False
 
 
 def test_hard_mode_naturally_rebuilds_after_each_node():
     route, floor_map = make_route()
     mirror_map = search_road.MirrorMap(hard_mode=True)
+    mirror_map.reset_bus_row()
     mirror_map.save_shifted_images = True
 
     with (
@@ -138,8 +144,8 @@ def test_hard_mode_naturally_rebuilds_after_each_node():
         assert mirror_map.get_next_node_direction() == "M"
 
     assert build.call_args_list == [
-        call(hard_mode=True, save_shifted_images=True),
-        call(hard_mode=True, save_shifted_images=False),
+        call(hard_mode=True, save_shifted_images=True, bus_row=search_road.Position.MID),
+        call(hard_mode=True, save_shifted_images=False, bus_row=search_road.Position.MID),
     ]
 
 
@@ -161,10 +167,29 @@ def test_failed_entry_does_not_consume_the_route():
     assert mirror_map.floor_route == route
 
 
+def test_unknown_bus_row_does_not_try_onnx():
+    mirror_map = search_road.MirrorMap()
+
+    with (
+        patch.object(search_road, "search_road_from_road_map") as build,
+        pytest.raises(MirrorPathfindingError, match="Bus 所在行未知"),
+    ):
+        mirror_map.get_next_node_direction()
+
+    build.assert_not_called()
+
+
+def test_find_bus_does_not_guess_its_row_from_node_templates():
+    with patch.object(search_road.auto, "find_element", return_value=(100, 700)) as find:
+        assert search_road.find_bus() == (100, 700)
+
+    find.assert_called_once_with("mirror/mybus_default_distance.png", take_screenshot=True)
+
+
 def test_onnx_screenshots_use_unique_log_names():
     screenshot = Mock()
     with (
-        patch.object(search_road, "find_bus", return_value=((100, 700), search_road.Position.MID)),
+        patch.object(search_road, "find_bus", return_value=(100, 700)),
         patch.object(search_road, "move_bus", return_value=(120, 700)),
         patch.object(search_road.auto, "take_screenshot", return_value=object()) as take_screenshot,
         patch.object(search_road.auto, "screenshot", screenshot),
@@ -248,7 +273,7 @@ def test_shifted_onnx_images_are_saved_and_the_map_is_restored():
 def test_empty_node_result_still_returns_capture():
     screenshot = Mock()
     with (
-        patch.object(search_road, "find_bus", return_value=((100, 700), search_road.Position.MID)),
+        patch.object(search_road, "find_bus", return_value=(100, 700)),
         patch.object(search_road, "move_bus", return_value=(100, 700)),
         patch.object(search_road.auto, "take_screenshot", return_value=True),
         patch.object(search_road.auto, "screenshot", screenshot),

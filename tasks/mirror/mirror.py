@@ -109,6 +109,21 @@ class Mirror:
         )
         self.battle_total_time += elapsed
 
+    def _forfeit_mirror_rewards(self) -> bool:
+        if not auto.click_element("mirror/claim_reward/claim_rewards_assets.png"):
+            return False
+        sleep(1)
+        position = auto.find_element(
+            "mirror/claim_reward/use_enkephalin_assets.png",
+            take_screenshot=True,
+        )
+        if position is None:
+            raise cannotOperateGameError("无法定位不领取镜牢奖励按钮，已停止以避免消耗脑啡肽模块")
+        scale = cfg.set_win_size / 1440
+        auto.mouse_click(position[0] - 800 * scale, position[1])
+        sleep(1)
+        return True
+
     def road_to_mir(self):
         loop_count = 30
         auto.model = "clam"
@@ -244,8 +259,10 @@ class Mirror:
 
             # 选择楼层主题包的情况
             if auto.find_element("mirror/theme_pack/feature_theme_pack_assets.png"):
+                self.mirror_map.reset_bus_row()
                 sleep(2)
                 select_theme_pack(self.hard_switch, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                sleep(3)
                 self.mirror_map.save_shifted_images = True
                 if self.re_formation_each_floor:
                     self.first_battle = True
@@ -523,7 +540,10 @@ class Mirror:
                 if auto.click_element("mirror/claim_reward/claim_forfeit_assets.png", model="normal", take_screenshot=True):
                     continue
             else:
-                if self.hard_switch and cfg.save_rewards:
+                if cfg.forfeit_mirror_rewards:
+                    if self._forfeit_mirror_rewards():
+                        continue
+                elif self.hard_switch and cfg.save_rewards:
                     auto.click_element("mirror/claim_reward/claim_rewards_assets.png")
                     sleep(1)
                     pos = auto.find_element(
@@ -610,7 +630,9 @@ class Mirror:
                         sleep(1)
                     retry()
                     continue
-            if auto.click_element("mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75):  # 降低识别阈值
+            if not cfg.forfeit_mirror_rewards and auto.click_element(
+                "mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75
+            ):  # 降低识别阈值
                 sleep(1)
                 continue
             # 处理周年活动弹出的窗口
@@ -1060,11 +1082,12 @@ class Mirror:
         try:
             direction = self.mirror_map.get_next_node_direction()
         except MirrorPathfindingError as error:
-            if str(error) != "镜牢节点图中不存在可达路线":
+            if str(error) not in {"镜牢节点图中不存在可达路线", "镜牢 Bus 所在行未知"}:
                 raise
-            log.warning("镜牢节点图中不存在可达路线，使用简单键盘寻路兜底")
+            log.warning(f"{error}，使用简单键盘寻路兜底")
             if not search_road_simple_keyboard():
-                raise MirrorPathfindingError("不存在可达路线且简单键盘寻路兜底失败") from error
+                raise MirrorPathfindingError(f"{error}且简单键盘寻路兜底失败") from error
+            self.mirror_map.forget_bus_row()
             return True
         return self.mirror_map.enter_next_node(direction)
 
@@ -1413,7 +1436,7 @@ class Mirror:
             # 如果回到主界面，退出循环
             if auto.click_element("mirror/claim_reward/rewards_acquired_assets.png"):
                 return True
-            if cfg.no_weekly_bonuses:
+            if not cfg.forfeit_mirror_rewards and cfg.no_weekly_bonuses:
                 bonuses = auto.find_element(
                     "mirror/claim_reward/weekly_bonuses.png",
                     find_type="image_with_multiple_targets",
@@ -1422,7 +1445,7 @@ class Mirror:
                     for _ in range(len(bonuses)):
                         position = bonuses.pop(-1)
                         auto.mouse_click(position[0], position[1])
-            if cfg.hard_mirror_single_bonuses:
+            if not cfg.forfeit_mirror_rewards and cfg.hard_mirror_single_bonuses:
                 bonuses = auto.find_element(
                     "mirror/claim_reward/weekly_bonuses.png",
                     find_type="image_with_multiple_targets",
@@ -1438,7 +1461,10 @@ class Mirror:
                 model="clam",
             ):
                 continue
-            if self.hard_switch and cfg.save_rewards:
+            if cfg.forfeit_mirror_rewards:
+                if self._forfeit_mirror_rewards():
+                    continue
+            elif self.hard_switch and cfg.save_rewards:
                 auto.click_element("mirror/claim_reward/claim_rewards_assets.png")
                 sleep(1)
                 pos = auto.find_element(
@@ -1458,7 +1484,9 @@ class Mirror:
                     sleep(1)
                 # TODO: 统计获取的coins
                 continue
-            if auto.click_element("mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75):  # 降低识别阈值
+            if not cfg.forfeit_mirror_rewards and auto.click_element(
+                "mirror/claim_reward/use_enkephalin_assets.png", threshold=0.75
+            ):  # 降低识别阈值
                 sleep(1)
                 continue
             # 处理周年活动弹出的窗口

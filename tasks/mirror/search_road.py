@@ -67,14 +67,25 @@ class MirrorMap:
         self.floor_route = []
         self.floor_map = {}
         self.save_shifted_images = False
+        self.bus_row = None
+
+    def reset_bus_row(self):
+        self.bus_row = Position.MID
+        log.debug("镜牢 Bus 所在行已由主题包流程重置为 MID")
+
+    def forget_bus_row(self):
+        self.bus_row = None
 
     def get_next_node_direction(self):
         if len(self.floor_route) < 2:
+            if self.bus_row is None:
+                raise MirrorPathfindingError("镜牢 Bus 所在行未知")
             save_shifted_images = self.save_shifted_images
             self.save_shifted_images = False
             floor_route, floor_map = search_road_from_road_map(
                 hard_mode=self.hard_mode,
                 save_shifted_images=save_shifted_images,
+                bus_row=self.bus_row,
             )
             if self.hard_mode:
                 floor_route = floor_route[:2]
@@ -91,7 +102,7 @@ class MirrorMap:
     def enter_next_node(self, direction):
         if cfg.mirror_keyboard_navigation:
             auto.key_press({"U": "up", "M": "right", "D": "down"}[direction])
-            sleep(0.5)
+            sleep(1.25)
             auto.key_press("enter")
         else:
             position = self._get_next_node_position(direction)
@@ -103,6 +114,10 @@ class MirrorMap:
         if not _enter_succeeded():
             raise MirrorPathfindingError("无法确认已进入镜牢节点")
 
+        rows = [Position.UP, Position.MID, Position.DOWN]
+        if self.bus_row in rows:
+            row_index = rows.index(self.bus_row) + {"U": -1, "M": 0, "D": 1}[direction]
+            self.bus_row = rows[row_index] if 0 <= row_index < len(rows) else None
         self.floor_route.pop(0)
         return True
 
@@ -158,8 +173,8 @@ def search_road_simple_keyboard():
     return False
 
 
-def search_road_from_road_map(hard_mode=False, save_shifted_images=False):
-    onnx_result = onnx(save_shifted_images=save_shifted_images)
+def search_road_from_road_map(hard_mode=False, save_shifted_images=False, bus_row=Position.MID):
+    onnx_result = onnx(bus_row=bus_row, save_shifted_images=save_shifted_images)
     if onnx_result is None:
         raise MirrorPathfindingError("镜牢 ONNX 节点识别失败")
 
@@ -180,7 +195,7 @@ def search_road_from_road_map(hard_mode=False, save_shifted_images=False):
 
 
 def find_bus(take_screenshot=True):
-    """定位 Bus，并根据可见节点判断 Bus 所在行。"""
+    """定位 Bus；所在行由主题包流程和已选路线维护。"""
     bus_position = None
     for _ in range(3):
         bus_position = auto.find_element(
@@ -192,33 +207,7 @@ def find_bus(take_screenshot=True):
         sleep(0.5)
     if bus_position is None:
         return None
-
-    scale = cfg.set_win_size / REFERENCE_SCREEN_HEIGHT
-    light_positions = (
-        auto.find_element(
-            "mirror/road_in_mir/light.png",
-            find_type="image_with_multiple_targets",
-        )
-        or []
-    )
-    event_positions = (
-        auto.find_element(
-            "mirror/road_in_mir/event.png",
-            find_type="image_with_multiple_targets",
-        )
-        or []
-    )
-    visible_positions = light_positions + event_positions
-
-    up_exists = any(y < bus_position[1] - Y_GAP * scale / 2 for _, y in visible_positions)
-    down_exists = any(y > bus_position[1] + Y_GAP * scale / 2 for _, y in visible_positions)
-    if up_exists == down_exists:
-        bus_row = Position.MID
-    elif up_exists:
-        bus_row = Position.DOWN
-    else:
-        bus_row = Position.UP
-    return bus_position, bus_row
+    return bus_position
 
 
 def move_bus(bus_position, bus_row):
@@ -279,12 +268,12 @@ def _save_shifted_onnx_images(capture_id):
             raise MirrorPathfindingError("镜牢 ONNX 日志采集后未找到 Bus")
 
 
-def onnx(save_shifted_images=False):
-    bus_result = find_bus()
-    if bus_result is None:
+def onnx(bus_row=Position.MID, save_shifted_images=False):
+    bus_position = find_bus()
+    if bus_position is None:
         return None
 
-    bus_position = move_bus(*bus_result)
+    bus_position = move_bus(bus_position, bus_row)
     if bus_position is None or auto.take_screenshot(gray=False) is None:
         return None
 

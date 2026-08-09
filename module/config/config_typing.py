@@ -493,6 +493,9 @@ class ConfigModel(BaseModel):
     save_rewards: bool
     """保存奖励不领"""
 
+    forfeit_mirror_rewards: bool
+    """放弃领取镜牢奖励"""
+
     hard_mirror_single_bonuses: bool
     """困难镜牢使用单次加成"""
 

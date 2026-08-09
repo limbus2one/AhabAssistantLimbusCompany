@@ -456,6 +456,13 @@ class PageMirror(PageCard):
             tips=QT_TRANSLATE_NOOP("BaseCheckBox", "仅在进行困难镜牢时生效，普通难度不生效"),
             center=False,
         )
+        self.forfeit_mirror_rewards = BaseCheckBox(
+            "forfeit_mirror_rewards",
+            None,
+            QT_TRANSLATE_NOOP("BaseCheckBox", "不领取镜牢奖励"),
+            tips=QT_TRANSLATE_NOOP("BaseCheckBox", "放弃本次镜牢奖励且不消耗脑啡肽模块，优先于其他奖励选项"),
+            center=False,
+        )
         self.hard_mirror_single_bonuses = BaseCheckBox(
             "hard_mirror_single_bonuses",
             None,
@@ -526,6 +533,7 @@ class PageMirror(PageCard):
         self.vbox_advanced.addWidget(self.floor_3_exit)
         self.vbox_advanced.addWidget(self.infinite_dungeons)
         self.vbox_advanced.addWidget(self.save_rewards)
+        self.vbox_advanced.addWidget(self.forfeit_mirror_rewards)
         self.vbox_advanced.addWidget(self.hard_mirror_single_bonuses)
         self.vbox_advanced.addWidget(self.select_event_pack)
         self.vbox_advanced.addWidget(self.skip_event_pack)
@@ -803,6 +811,7 @@ class PageMirror(PageCard):
         self.floor_3_exit.retranslateUi()
         self.infinite_dungeons.retranslateUi()
         self.save_rewards.retranslateUi()
+        self.forfeit_mirror_rewards.retranslateUi()
         self.hard_mirror_single_bonuses.retranslateUi()
         self.select_event_pack.retranslateUi()
         self.skip_event_pack.retranslateUi()
