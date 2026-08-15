@@ -3,7 +3,8 @@ from tasks.mirror.mirror import Mirror
 from tasks.mirror.search_road import (
     MID,
     ONNX_CONFIDENCE_THRESHOLD,
-    ONNX_IMAGE_SIZE,
+    ONNX_IMAGE_HEIGHT,
+    ONNX_IMAGE_WIDTH,
     MirrorMap,
     Node,
     _append_missing_terminal_nodes,
@@ -124,6 +125,6 @@ def test_hard_mode_only_caches_bus_and_next_node(monkeypatch):
 def test_yolo26_model_matches_preprocessor():
     session = _get_onnx_session()
 
-    assert session.get_inputs()[0].shape == [1, 3, ONNX_IMAGE_SIZE, ONNX_IMAGE_SIZE]
+    assert session.get_inputs()[0].shape == [1, 3, ONNX_IMAGE_HEIGHT, ONNX_IMAGE_WIDTH]
     assert session.get_outputs()[0].shape[1] == 11
     assert ONNX_CONFIDENCE_THRESHOLD == 0.4

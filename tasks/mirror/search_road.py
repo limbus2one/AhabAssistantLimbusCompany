@@ -21,7 +21,8 @@ ROW_PRIORITY = {MID: 0, UP: 1, DOWN: 2}
 CONNECTION_X_RADIUS = 150
 CONNECTION_Y_RADIUS = 120
 CONNECTION_MATCH_THRESHOLD = 0.75
-ONNX_IMAGE_SIZE = 960
+ONNX_IMAGE_HEIGHT = 544
+ONNX_IMAGE_WIDTH = 960
 ONNX_CONFIDENCE_THRESHOLD = 0.4
 
 NODE_WEIGHT = {
@@ -255,18 +256,18 @@ def identify_nodes(bus_x, image=None):
 
     original = np.array(image)
     height, width = original.shape[:2]
-    image_scale = min(ONNX_IMAGE_SIZE / width, ONNX_IMAGE_SIZE / height)
+    image_scale = min(ONNX_IMAGE_WIDTH / width, ONNX_IMAGE_HEIGHT / height)
     resized_width = round(width * image_scale)
     resized_height = round(height * image_scale)
     resized = cv2.resize(original[:, :, :3], (resized_width, resized_height))
-    pad_x = (ONNX_IMAGE_SIZE - resized_width) // 2
-    pad_y = (ONNX_IMAGE_SIZE - resized_height) // 2
-    model_input = np.full((ONNX_IMAGE_SIZE, ONNX_IMAGE_SIZE, 3), 114, np.uint8)
+    pad_x = (ONNX_IMAGE_WIDTH - resized_width) // 2
+    pad_y = (ONNX_IMAGE_HEIGHT - resized_height) // 2
+    model_input = np.full((ONNX_IMAGE_HEIGHT, ONNX_IMAGE_WIDTH, 3), 114, np.uint8)
     model_input[pad_y : pad_y + resized_height, pad_x : pad_x + resized_width] = resized
     blob = cv2.dnn.blobFromImage(
         model_input,
         scalefactor=1 / 255,
-        size=(ONNX_IMAGE_SIZE, ONNX_IMAGE_SIZE),
+        size=(ONNX_IMAGE_WIDTH, ONNX_IMAGE_HEIGHT),
         swapRB=False,
     )
 
