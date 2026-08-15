@@ -59,7 +59,7 @@ def test_identify_road_does_not_connect_across_a_missing_column():
 def test_route_graph_only_connects_template_matches():
     graph = search_road.RouteGraph(
         [[["battle", (620, 560)]]],
-        initial_bus_pos=search_road.Row.MID,
+        bus_row=search_road.Row.MID,
         bus_position=(100, 560),
         hard_mode=True,
     )

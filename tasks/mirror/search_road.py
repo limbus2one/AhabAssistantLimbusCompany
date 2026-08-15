@@ -313,17 +313,17 @@ def search_road_from_road_map(hard_mode=False):
     all_nodes = identify_nodes(bus[0])
     y_area = divide_the_area_by_y(all_nodes)
     reset_position = False
-    initial_bus_pos = Row.MID
+    bus_row = Row.MID
     if len(y_area) == 2:
         if bus_pos[1] > y_area[0][0][1][1] + 50 * scale:
             reset_position = "Bottom"
-            initial_bus_pos = Row.BOTTOM
+            bus_row = Row.BOTTOM
         else:
             reset_position = "Top"
-            initial_bus_pos = Row.TOP
+            bus_row = Row.TOP
     elif len(y_area) == 1:
-        all_nodes_layer = divide_the_area_by_x(all_nodes)
-        connections = identify_road(bus, all_nodes_layer[:1], initial_bus_pos)
+        nodes_column = divide_the_area_by_x(all_nodes)
+        connections = identify_road(bus, nodes_column[:1], bus_row)
         if not connections:
             return [], []
 
@@ -363,12 +363,12 @@ def search_road_from_road_map(hard_mode=False):
                     break
         all_nodes = identify_nodes(bus[0])
 
-    all_nodes_layer = divide_the_area_by_x(all_nodes)
-    connections = identify_road(bus, all_nodes_layer, initial_bus_pos)
+    nodes_column = divide_the_area_by_x(all_nodes)
+    connections = identify_road(bus, nodes_column, bus_row)
 
     route_graph = RouteGraph(
-        all_nodes_layer,
-        initial_bus_pos=initial_bus_pos,
+        nodes_column,
+        bus_row=bus_row,
         bus_position=bus,
         hard_mode=hard_mode,
     )
@@ -465,31 +465,31 @@ def identify_nodes(bus_x):
     return node_list
 
 
-def identify_road(bus_position, all_nodes_layer, initial_bus_pos):
+def identify_road(bus_position, nodes_column, bus_row):
     """返回相邻节点列中经模板确认的连接。"""
-    if not all_nodes_layer or auto.take_screenshot() is None:
+    if not nodes_column or auto.take_screenshot() is None:
         return []
 
     scale = cfg.set_win_size / 1440
-    source_layers = [[["bus", bus_position]], *all_nodes_layer[:-1]]
+    source_layers = [[["bus", bus_position]], *nodes_column[:-1]]
     connections = []
 
     for layer_number, (source_nodes, target_nodes) in enumerate(
-        zip(source_layers, all_nodes_layer),
+        zip(source_layers, nodes_column),
         start=1,
     ):
         for source in source_nodes:
             source_position = (
-                initial_bus_pos
+                bus_row
                 if layer_number == 1
-                else _position_from_y(source[1][1], bus_position, initial_bus_pos)
+                else _position_from_y(source[1][1], bus_position, bus_row)
             )
 
             for target in target_nodes:
                 x_gap = target[1][0] - source[1][0]
                 if abs(x_gap - ROAD_COLUMN_GAP * scale) > ROAD_COLUMN_GAP * scale / 4:
                     continue
-                target_position = _position_from_y(target[1][1], bus_position, initial_bus_pos)
+                target_position = _position_from_y(target[1][1], bus_position, bus_row)
                 if source_position is None or target_position is None:
                     continue
 
@@ -520,10 +520,10 @@ def identify_road(bus_position, all_nodes_layer, initial_bus_pos):
     return connections
 
 
-def _position_from_y(y, bus_position, initial_bus_pos):
+def _position_from_y(y, bus_position, bus_row):
     """把屏幕 Y 坐标映射到相对 Bus 的逻辑行。"""
     y_gap = ROAD_ROW_GAP * cfg.set_win_size / 1440
-    position_value = initial_bus_pos.value + round((bus_position[1] - y) / y_gap)
+    position_value = bus_row.value + round((bus_position[1] - y) / y_gap)
 
     try:
         return Row(position_value)
@@ -624,16 +624,16 @@ class RouteGraph:
     def __init__(
         self,
         all_nodes: list,
-        initial_bus_pos,
+        bus_row,
         bus_position,
         hard_mode=False,
     ):
         """初始化三行路线图；连线由 init_road() 写入。"""
-        self.initial_bus_pos = initial_bus_pos
+        self.bus_row = bus_row
         self.layer_nums = 0
         self.layers = {}
         self._add_new_layer()
-        self._set_node(1, initial_bus_pos, "bus", 1)
+        self._set_node(1, bus_row, "bus", 1)
         self.hard_mode = hard_mode
         self._init_node(all_nodes, bus_position)
 
@@ -654,7 +654,7 @@ class RouteGraph:
         for layer_data in all_nodes:
             self._add_new_layer()
             for node_entry in layer_data:
-                vertical_pos = _position_from_y(node_entry[1][1], bus_position, self.initial_bus_pos)
+                vertical_pos = _position_from_y(node_entry[1][1], bus_position, self.bus_row)
                 if vertical_pos is None:
                     continue
                 self._set_node(
@@ -718,7 +718,7 @@ class RouteGraph:
         返回：(最小总权重, 路径节点列表)
         """
         # 确定起点节点（layer1的初始公交位置）
-        start_node = self.layers["layer1"][self.initial_bus_pos]
+        start_node = self.layers["layer1"][self.bus_row]
 
         # 收集所有终点节点（boss_battle）
         end_nodes = []
