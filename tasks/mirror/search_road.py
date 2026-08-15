@@ -11,18 +11,9 @@ from module.logger import log
 from module.my_error.my_error import InputAttributeError
 from tasks.base.retry import retry
 
-# 图片匹配参数基于 2560×1440 游戏截图标定。
-REFERENCE_SCREEN_HEIGHT = 1440
+# 道路网格参数基于 2560×1440 游戏截图标定。
 ROAD_COLUMN_GAP = 520
-ROAD_COLUMN_GAP_TOLERANCE = 100
 ROAD_ROW_GAP = 437
-CONNECTION_X_RADIUS = 150
-CONNECTION_Y_RADIUS = 120
-CONNECTION_MATCH_THRESHOLD = 0.75
-ROAD_TEMPLATE_BY_ROW_DELTA = {1: "up", 0: "mid", -1: "down"}
-ONNX_IMAGE_HEIGHT = 544
-ONNX_IMAGE_WIDTH = 960
-ONNX_CONFIDENCE_THRESHOLD = 0.4
 
 
 class MirrorMap:
@@ -322,14 +313,14 @@ def search_road_from_road_map(hard_mode=False):
     all_nodes = identify_nodes(bus[0])
     y_area = divide_the_area_by_y(all_nodes)
     reset_position = False
-    initial_bus_pos = Position.MID
+    initial_bus_pos = Row.MID
     if len(y_area) == 2:
         if bus_pos[1] > y_area[0][0][1][1] + 50 * scale:
             reset_position = "Bottom"
-            initial_bus_pos = Position.BOTTOM
+            initial_bus_pos = Row.BOTTOM
         else:
             reset_position = "Top"
-            initial_bus_pos = Position.TOP
+            initial_bus_pos = Row.TOP
     elif len(y_area) == 1:
         all_nodes_layer = divide_the_area_by_x(all_nodes)
         connections = identify_road(bus, all_nodes_layer[:1], initial_bus_pos)
@@ -406,6 +397,9 @@ def identify_nodes(bus_x):
     import numpy as np
     import onnxruntime as ort
 
+    image_height = 544
+    image_width = 960
+    confidence_threshold = 0.4
     classes = [
         "battle",
         "boss_battle",
@@ -420,18 +414,18 @@ def identify_nodes(bus_x):
     auto.take_screenshot(gray=False)
     original = np.array(auto.screenshot)
     height, width = original.shape[:2]
-    image_scale = min(ONNX_IMAGE_WIDTH / width, ONNX_IMAGE_HEIGHT / height)
+    image_scale = min(image_width / width, image_height / height)
     resized_width = round(width * image_scale)
     resized_height = round(height * image_scale)
     resized = cv2.resize(original[:, :, :3], (resized_width, resized_height))
-    pad_x = (ONNX_IMAGE_WIDTH - resized_width) // 2
-    pad_y = (ONNX_IMAGE_HEIGHT - resized_height) // 2
-    model_input = np.full((ONNX_IMAGE_HEIGHT, ONNX_IMAGE_WIDTH, 3), 114, np.uint8)
+    pad_x = (image_width - resized_width) // 2
+    pad_y = (image_height - resized_height) // 2
+    model_input = np.full((image_height, image_width, 3), 114, np.uint8)
     model_input[pad_y : pad_y + resized_height, pad_x : pad_x + resized_width] = resized
     blob = cv2.dnn.blobFromImage(
         model_input,
         scalefactor=1 / 255,
-        size=(ONNX_IMAGE_WIDTH, ONNX_IMAGE_HEIGHT),
+        size=(image_width, image_height),
         swapRB=False,
     )
 
@@ -442,7 +436,7 @@ def identify_nodes(bus_x):
     class_ids = []
     for output in outputs:
         _, max_score, _, (_, class_id) = cv2.minMaxLoc(output[4:])
-        if max_score < ONNX_CONFIDENCE_THRESHOLD:
+        if max_score < confidence_threshold:
             continue
         boxes.append([output[0] - output[2] / 2, output[1] - output[3] / 2, output[2], output[3]])
         scores.append(float(max_score))
@@ -451,7 +445,7 @@ def identify_nodes(bus_x):
     result_boxes = cv2.dnn.NMSBoxes(
         boxes,
         scores,
-        ONNX_CONFIDENCE_THRESHOLD,
+        confidence_threshold,
         0.4,
         0.5,
     )
@@ -476,7 +470,7 @@ def identify_road(bus_position, all_nodes_layer, initial_bus_pos):
     if not all_nodes_layer or auto.take_screenshot() is None:
         return []
 
-    scale = cfg.set_win_size / REFERENCE_SCREEN_HEIGHT
+    scale = cfg.set_win_size / 1440
     source_layers = [[["bus", bus_position]], *all_nodes_layer[:-1]]
     connections = []
 
@@ -493,14 +487,14 @@ def identify_road(bus_position, all_nodes_layer, initial_bus_pos):
 
             for target in target_nodes:
                 x_gap = target[1][0] - source[1][0]
-                if abs(x_gap - ROAD_COLUMN_GAP * scale) > ROAD_COLUMN_GAP_TOLERANCE * scale:
+                if abs(x_gap - ROAD_COLUMN_GAP * scale) > ROAD_COLUMN_GAP * scale / 4:
                     continue
                 target_position = _position_from_y(target[1][1], bus_position, initial_bus_pos)
                 if source_position is None or target_position is None:
                     continue
 
                 row_delta = target_position.value - source_position.value
-                template = ROAD_TEMPLATE_BY_ROW_DELTA.get(row_delta)
+                template = {1: "up", 0: "mid", -1: "down"}.get(row_delta)
                 if template is None:
                     continue
 
@@ -510,15 +504,14 @@ def identify_road(bus_position, all_nodes_layer, initial_bus_pos):
                 )
 
                 crop = (
-                    midpoint[0] - CONNECTION_X_RADIUS * scale,
-                    midpoint[1] - CONNECTION_Y_RADIUS * scale,
-                    midpoint[0] + CONNECTION_X_RADIUS * scale,
-                    midpoint[1] + CONNECTION_Y_RADIUS * scale,
+                    midpoint[0] - 150 * scale,
+                    midpoint[1] - 120 * scale,
+                    midpoint[0] + 150 * scale,
+                    midpoint[1] + 120 * scale,
                 )
 
                 if auto.find_element(
                     f"mirror/road_in_mir/{template}.png",
-                    threshold=CONNECTION_MATCH_THRESHOLD,
                     my_crop=crop,
                     model="aggressive",
                 ):
@@ -529,11 +522,11 @@ def identify_road(bus_position, all_nodes_layer, initial_bus_pos):
 
 def _position_from_y(y, bus_position, initial_bus_pos):
     """把屏幕 Y 坐标映射到相对 Bus 的逻辑行。"""
-    y_gap = ROAD_ROW_GAP * cfg.set_win_size / REFERENCE_SCREEN_HEIGHT
+    y_gap = ROAD_ROW_GAP * cfg.set_win_size / 1440
     position_value = initial_bus_pos.value + round((bus_position[1] - y) / y_gap)
 
     try:
-        return Position(position_value)
+        return Row(position_value)
     except ValueError:
         return None
 
@@ -543,7 +536,7 @@ def divide_the_area_by_y(data):
     sorted_by_y = sorted(data, key=lambda item: item[1][1])  # item[1]是坐标元组，item[1][1]是y值
 
     # 步骤2：分组（y相近的归为一组，阈值可根据需求调整）
-    tolerance = 20  # y差值小于等于20视为相近（可根据实际数据调整）
+    tolerance = ROAD_ROW_GAP * cfg.set_win_size / 1440 / 4
     groups = []
     for item in sorted_by_y:
         current_y = item[1][1]
@@ -567,7 +560,7 @@ def divide_the_area_by_x(data):
     sorted_by_x = sorted(data, key=lambda item: item[1][0])
 
     # 步骤2：分组（x相近的归为一组，阈值可根据需求调整）
-    tolerance = 80  # x差值小于等于tolerance视为相近
+    tolerance = ROAD_COLUMN_GAP * cfg.set_win_size / 1440 / 4
     groups = []
     for item in sorted_by_x:
         current_x = item[1][0]
@@ -606,7 +599,7 @@ all_node_weight = {
 DEFAULT_WEIGHT = 999  # 默认不可达权重
 
 
-class Position(Enum):
+class Row(Enum):
     TOP = 1
     MID = 0
     BOTTOM = -1
@@ -646,9 +639,9 @@ class RouteGraph:
 
     def _add_new_layer(self):
         self.layers[f"layer{self.layer_nums + 1}"] = {
-            Position.TOP: Node(),
-            Position.MID: Node(),
-            Position.BOTTOM: Node(),
+            Row.TOP: Node(),
+            Row.MID: Node(),
+            Row.BOTTOM: Node(),
         }
         self.layer_nums += 1
 
@@ -673,7 +666,7 @@ class RouteGraph:
 
         if self.hard_mode is False:
             exit_flag = False
-            for j in [Position.TOP, Position.MID, Position.BOTTOM]:
+            for j in [Row.TOP, Row.MID, Row.BOTTOM]:
                 if self.layers[f"layer{self.layer_nums}"][j].node_class in [
                     "shop",
                     "boss_battle",
@@ -682,23 +675,23 @@ class RouteGraph:
                     break
             if exit_flag is False:
                 self._add_new_layer()
-                self._set_node(self.layer_nums, Position.MID, "shop", 1)
-                for j in [Position.TOP, Position.MID, Position.BOTTOM]:
+                self._set_node(self.layer_nums, Row.MID, "shop", 1)
+                for j in [Row.TOP, Row.MID, Row.BOTTOM]:
                     self.layers[f"layer{self.layer_nums - 1}"][j].add_next_node(
-                        self.layers[f"layer{self.layer_nums}"][Position.MID]
+                        self.layers[f"layer{self.layer_nums}"][Row.MID]
                     )
 
             exit_flag = False
-            for j in [Position.TOP, Position.MID, Position.BOTTOM]:
+            for j in [Row.TOP, Row.MID, Row.BOTTOM]:
                 if self.layers[f"layer{self.layer_nums}"][j].node_class in ["boss_battle"]:
                     exit_flag = True
                     break
             if exit_flag is False:
                 self._add_new_layer()
-                self._set_node(self.layer_nums, Position.MID, "boss_battle", 1)
-                for j in [Position.TOP, Position.MID, Position.BOTTOM]:
+                self._set_node(self.layer_nums, Row.MID, "boss_battle", 1)
+                for j in [Row.TOP, Row.MID, Row.BOTTOM]:
                     self.layers[f"layer{self.layer_nums - 1}"][j].add_next_node(
-                        self.layers[f"layer{self.layer_nums}"][Position.MID]
+                        self.layers[f"layer{self.layer_nums}"][Row.MID]
                     )
 
     def init_road(self, connections):
