@@ -18,6 +18,9 @@ CONNECTION_X_RADIUS = 150
 CONNECTION_Y_RADIUS = 120
 CONNECTION_MATCH_THRESHOLD = 0.75
 ROAD_TEMPLATE_BY_ROW_DELTA = {1: "up", 0: "mid", -1: "down"}
+ONNX_IMAGE_HEIGHT = 544
+ONNX_IMAGE_WIDTH = 960
+ONNX_CONFIDENCE_THRESHOLD = 0.4
 
 
 class MirrorMap:
@@ -401,8 +404,7 @@ def identify_nodes(bus_x):
     import numpy as np
     import onnxruntime as ort
 
-    # 定义检测目标的类别标签（与模型训练时的类别一致）
-    CLASSES = [
+    classes = [
         "battle",
         "boss_battle",
         "event",
@@ -411,118 +413,60 @@ def identify_nodes(bus_x):
         "shop",
         "abnormality_focused_encounter",
     ]
-
-    no_flag = False  # 标记是否检测到目标（初始为 False，未检测到时设为 True）
-
-    # 加载 ONNX 格式的目标检测模型
     session = ort.InferenceSession("./assets/model/best.onnx")
 
-    # 读取原始图像（BGR 格式，由 OpenCV 读取）
     auto.take_screenshot(gray=False)
     auto.screenshot.save(f"logs/onnx_nodes_{time.time_ns()}.png")
-    original_image: np.ndarray = np.array(auto.screenshot)
-    [height, width, _] = original_image.shape  # 获取原始图像的高、宽、通道数
+    original = np.array(auto.screenshot)
+    height, width = original.shape[:2]
+    image_scale = min(ONNX_IMAGE_WIDTH / width, ONNX_IMAGE_HEIGHT / height)
+    resized_width = round(width * image_scale)
+    resized_height = round(height * image_scale)
+    resized = cv2.resize(original[:, :, :3], (resized_width, resized_height))
+    pad_x = (ONNX_IMAGE_WIDTH - resized_width) // 2
+    pad_y = (ONNX_IMAGE_HEIGHT - resized_height) // 2
+    model_input = np.full((ONNX_IMAGE_HEIGHT, ONNX_IMAGE_WIDTH, 3), 114, np.uint8)
+    model_input[pad_y : pad_y + resized_height, pad_x : pad_x + resized_width] = resized
+    blob = cv2.dnn.blobFromImage(
+        model_input,
+        scalefactor=1 / 255,
+        size=(ONNX_IMAGE_WIDTH, ONNX_IMAGE_HEIGHT),
+        swapRB=False,
+    )
 
-    # 创建正方形空白图像（边长为原始图像的最大边），用于保持图像比例并避免变形
-    length = max((height, width))  # 正方形边长取原始图像的高或宽的最大值
-    image = np.zeros((length, length, 3), np.uint8)  # 初始化全黑正方形图像
-    image[0:height, 0:width] = original_image  # 将原始图像粘贴到正方形的左上角区域
+    outputs = session.run(None, {session.get_inputs()[0].name: blob})[0]
+    outputs = cv2.transpose(outputs[0])
+    boxes = []
+    scores = []
+    class_ids = []
+    for output in outputs:
+        _, max_score, _, (_, class_id) = cv2.minMaxLoc(output[4:])
+        if max_score < ONNX_CONFIDENCE_THRESHOLD:
+            continue
+        boxes.append([output[0] - output[2] / 2, output[1] - output[3] / 2, output[2], output[3]])
+        scores.append(float(max_score))
+        class_ids.append(class_id)
 
-    # 计算缩放比例（正方形边长 → 模型输入尺寸 640 的缩放因子）
-    scale = length / 640
-
-    # 将图像转换为模型所需的输入格式（blob）
-    # blobFromImage 参数说明：
-    # - image: 输入图像（正方形）
-    # - scalefactor=1/255: 像素值归一化（0-255 → 0-1）
-    # - size=(640, 640): 模型输入的尺寸（宽高均为 640）
-    # - swapRB=True: 交换 RGB 通道（OpenCV 读取的是 BGR，模型可能需要 RGB）
-    blob = cv2.dnn.blobFromImage(image, scalefactor=1 / 255, size=(640, 640), swapRB=True)
-
-    # 执行模型推理（输入为 blob）
-    outputs = session.run(None, {session.get_inputs()[0].name: blob})  # 输出为模型预测结果
-
-    outputs = outputs[0]  # 提取第一个输出（YOLO 通常输出一个包含所有检测结果的数组）
-    outputs = np.array([cv2.transpose(outputs[0])])  # 转置维度（适配后续处理逻辑）
-    rows = outputs.shape[1]  # 获取检测结果的数量（每行对应一个目标的预测信息）
-
-    boxes = []  # 存储边界框坐标（格式：[x_center, y_center, width, height]）
-    scores = []  # 存储检测置信度
-    class_ids = []  # 存储类别 ID
-
-    # 遍历所有检测结果（每行对应一个目标的预测信息）
-    for i in range(rows):
-        # 提取类别置信度（前 4 列是边界框坐标，第 5 列及之后是各分类得分）
-        classes_scores = outputs[0][i][4:]
-
-        # 找到当前目标的最大类别置信度及其对应的类别索引
-        (minScore, maxScore, minClassLoc, (x, maxClassIndex)) = cv2.minMaxLoc(classes_scores)
-
-        # 若最大置信度超过阈值（0.25），则保留该检测结果
-        if maxScore >= 0.25:
-            # 计算边界框的左上角坐标和宽高（YOLO 输出为中心点坐标 + 宽高，需转换）
-            box = [
-                outputs[0][i][0] - (0.5 * outputs[0][i][2]),  # 左上角 x = 中心点 x - 半宽
-                outputs[0][i][1] - (0.5 * outputs[0][i][3]),  # 左上角 y = 中心点 y - 半高
-                outputs[0][i][2],  # 宽度（中心点 x 到右边界点的距离）
-                outputs[0][i][3],  # 高度（中心点 y 到下边界点的距离）
-            ]
-            boxes.append(box)  # 保存边界框
-            scores.append(maxScore)  # 保存置信度
-            class_ids.append(maxClassIndex)  # 保存类别 ID
-
-    # 使用 NMS 抑制重叠的边界框（保留置信度高的框）
-    # 参数说明：
-    # - boxes: 边界框列表（格式：[x1, y1, w, h]）
-    # - scores: 置信度列表
-    # - score_threshold=0: 置信度阈值（此处未过滤低分，因前面已过滤）
-    # - nms_threshold=0.4: 重叠框的交并比（IoU）阈值（>0.4 则抑制）
-    result_boxes = cv2.dnn.NMSBoxes(boxes, scores, 0, 0.4, 0.5)
-
-    detections = []  # 存储最终的检测结果（字典列表）
-
-    if len(result_boxes) > 0:  # 若有有效检测结果
-        for i in range(len(result_boxes)):
-            index = result_boxes[i]  # 获取当前框在原始列表中的索引（NMS 输出为二维数组）
-            box = boxes[index]  # 获取对应的边界框
-
-            # 构造检测结果字典（包含类别、置信度、边界框等信息）
-            detection = {
-                "class_id": class_ids[index],
-                "class_name": CLASSES[class_ids[index]],
-                "confidence": scores[index],
-                "box": box,  # 原始边界框（基于 640x640 输入尺寸）
-                "scale": scale,  # 缩放比例（用于还原到原始图像尺寸）
-            }
-            detections.append(detection)  # 添加到结果列表
-    else:
-        no_flag = True  # 无检测结果时标记为 True
-
-    if no_flag:
+    result_boxes = cv2.dnn.NMSBoxes(
+        boxes,
+        scores,
+        ONNX_CONFIDENCE_THRESHOLD,
+        0.4,
+        0.5,
+    )
+    if len(result_boxes) == 0:
         return None
 
     node_list = []
-
-    # 遍历每个字典并处理
-    for d in detections:
-        # 提取class_name
-        class_name = d["class_name"]
-
-        # 提取box并计算中心点（转换为Python浮点数）
-        box = d["box"]
-        x1 = box[0].item()  # 左上角x（转换为Python float）
-        y1 = box[1].item()  # 左上角y（转换为Python float）
-        w = box[2].item()  # 宽度（转换为Python float）
-        h = box[3].item()  # 高度（转换为Python float）
-        center_x = int((x1 + w / 2) * scale)
-        center_y = int((y1 + h / 2) * scale)
-
-        if center_x < bus_x + 50:
-            continue
-
-        # 组成子列表并添加到节点总列表
-        node_list.append([class_name, (center_x, center_y)])  # 中心点用元组存储，也可改为列表
-
+    for result_index in result_boxes:
+        index = int(np.asarray(result_index).reshape(-1)[0])
+        x, y, box_width, box_height = (float(value) for value in boxes[index])
+        center = (
+            int((x + box_width / 2 - pad_x) / image_scale),
+            int((y + box_height / 2 - pad_y) / image_scale),
+        )
+        if center[0] >= bus_x + 50 and 0 <= center[1] < height:
+            node_list.append([classes[class_ids[index]], center])
     return node_list
 
 

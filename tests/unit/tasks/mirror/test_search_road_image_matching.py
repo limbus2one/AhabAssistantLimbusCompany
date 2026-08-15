@@ -3,6 +3,21 @@ from unittest.mock import patch
 from tasks.mirror import search_road
 
 
+def test_yolo26_model_matches_preprocessor():
+    import onnxruntime as ort
+
+    session = ort.InferenceSession("assets/model/best.onnx")
+
+    assert session.get_inputs()[0].shape == [
+        1,
+        3,
+        search_road.ONNX_IMAGE_HEIGHT,
+        search_road.ONNX_IMAGE_WIDTH,
+    ]
+    assert session.get_outputs()[0].shape[1] == 11
+    assert search_road.ONNX_CONFIDENCE_THRESHOLD == 0.4
+
+
 def test_identify_road_matches_connection_template():
     nodes = [[["battle", (620, 560)]]]
 
@@ -45,6 +60,7 @@ def test_route_graph_only_connects_template_matches():
 
 def test_single_row_does_not_guess_straight_road_when_matching_fails():
     with (
+        patch.object(search_road.cfg, "set_win_size", 1440),
         patch.object(search_road.auto, "click_element", return_value=False),
         patch.object(search_road.auto, "find_element", side_effect=[(80, 690), (80, 690)]),
         patch.object(
