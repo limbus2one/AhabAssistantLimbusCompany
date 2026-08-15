@@ -13,6 +13,8 @@ from tasks.base.retry import retry
 
 # 图片匹配参数基于 2560×1440 游戏截图标定。
 REFERENCE_SCREEN_HEIGHT = 1440
+ROAD_COLUMN_GAP = 520
+ROAD_COLUMN_GAP_TOLERANCE = 100
 ROAD_ROW_GAP = 437
 CONNECTION_X_RADIUS = 150
 CONNECTION_Y_RADIUS = 120
@@ -416,7 +418,6 @@ def identify_nodes(bus_x):
     session = ort.InferenceSession("./assets/model/best.onnx")
 
     auto.take_screenshot(gray=False)
-    auto.screenshot.save(f"logs/onnx_nodes_{time.time_ns()}.png")
     original = np.array(auto.screenshot)
     height, width = original.shape[:2]
     image_scale = min(ONNX_IMAGE_WIDTH / width, ONNX_IMAGE_HEIGHT / height)
@@ -491,6 +492,9 @@ def identify_road(bus_position, all_nodes_layer, initial_bus_pos):
             )
 
             for target in target_nodes:
+                x_gap = target[1][0] - source[1][0]
+                if abs(x_gap - ROAD_COLUMN_GAP * scale) > ROAD_COLUMN_GAP_TOLERANCE * scale:
+                    continue
                 target_position = _position_from_y(target[1][1], bus_position, initial_bus_pos)
                 if source_position is None or target_position is None:
                     continue

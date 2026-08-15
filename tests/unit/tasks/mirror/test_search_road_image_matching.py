@@ -42,6 +42,27 @@ def test_identify_road_matches_connection_template():
     )
 
 
+def test_identify_road_does_not_connect_across_a_missing_column():
+    nodes = [
+        [["battle", (620, 560)]],
+        [["event", (1660, 560)]],
+    ]
+
+    with (
+        patch.object(search_road.cfg, "set_win_size", 1440),
+        patch.object(search_road.auto, "take_screenshot", return_value=object()),
+        patch.object(search_road.auto, "find_element", return_value=(360, 560)) as find,
+    ):
+        connections = search_road.identify_road(
+            (100, 560),
+            nodes,
+            search_road.Position.MID,
+        )
+
+    assert connections == [(1, search_road.Position.MID, search_road.Position.MID)]
+    assert find.call_count == 1
+
+
 def test_route_graph_only_connects_template_matches():
     graph = search_road.RouteGraph(
         [[["battle", (620, 560)]]],
