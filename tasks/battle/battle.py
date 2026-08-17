@@ -27,14 +27,16 @@ class DefenseForSoloState:
     """一次镜牢任务内共享的连续防御回合状态。"""
 
     remaining_turns: int = DEFENSE_FOR_SOLO_TURN_LIMIT
+    completed_turns: int = 0
 
     @property
-    def completed_turns(self) -> int:
-        return DEFENSE_FOR_SOLO_TURN_LIMIT - self.remaining_turns
+    def total_turns(self) -> int:
+        return self.completed_turns + self.remaining_turns
 
     def consume_turn(self) -> None:
         if self.remaining_turns > 0:
             self.remaining_turns -= 1
+            self.completed_turns += 1
 
 
 class Battle:
@@ -135,7 +137,7 @@ class Battle:
         ):
             if use_limited_defense:
                 next_count = defense_for_solo_state.completed_turns + 1
-                msg = f"小指良单通连续防御（{next_count}/{DEFENSE_FOR_SOLO_TURN_LIMIT}），开始战斗"
+                msg = f"小指良单通连续防御（{next_count}/{defense_for_solo_state.total_turns}），开始战斗"
             else:
                 msg = "第一回合全员防御，开始战斗"
             if self._defense_this_round() is False:
@@ -151,10 +153,10 @@ class Battle:
                 limited_defense_succeeded = True
                 log.info(
                     f"小指良单通连续防御已执行 "
-                    f"{defense_for_solo_state.completed_turns}/{DEFENSE_FOR_SOLO_TURN_LIMIT} 回合"
+                    f"{defense_for_solo_state.completed_turns}/{defense_for_solo_state.total_turns} 回合"
                 )
                 if defense_for_solo_state.remaining_turns == 0:
-                    log.info("本次镜牢的连续5回合防御已完成，后续回合恢复普通战斗操作")
+                    log.info(f"本次镜牢的连续{defense_for_solo_state.total_turns}回合防御已完成，后续回合恢复普通战斗操作")
             sleep(2)
             if not auto.find_element("battle/pause_assets.png", take_screenshot=True):
                 auto.key_press("p")
