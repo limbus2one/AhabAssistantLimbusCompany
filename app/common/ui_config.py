@@ -51,7 +51,7 @@ def get_title_bar_style(is_dark: bool) -> dict:
 
 
 # 独立窗口样式配置
-TOOL_WINDOW_STYLES = {
+STANDALONE_WINDOW_STYLES = {
     "dark": {
         "window_bg": "#1f1f1f",
         "window_fg": "#f0f0f0",
@@ -78,7 +78,7 @@ TOOL_WINDOW_STYLES = {
     },
 }
 
-TOOL_WINDOW_QSS = """\
+STANDALONE_WINDOW_QSS = """\
 {selector} {{
     background-color: {window_bg};
     color: {window_fg};
@@ -209,8 +209,12 @@ def get_status_label_style() -> str:
 
 
 def get_tool_window_style(widget_selector: str) -> str:
-    theme = TOOL_WINDOW_STYLES["dark"] if isDarkTheme() else TOOL_WINDOW_STYLES["light"]
-    return TOOL_WINDOW_QSS.format(selector=widget_selector, **theme)
+    theme = (
+        STANDALONE_WINDOW_STYLES["dark"]
+        if isDarkTheme()
+        else STANDALONE_WINDOW_STYLES["light"]
+    )
+    return STANDALONE_WINDOW_QSS.format(selector=widget_selector, **theme)
 
 
 def apply_tool_window_theme(widget, widget_selector: str) -> None:
@@ -243,7 +247,7 @@ def _set_windows_title_bar_theme(widget, dark: bool) -> None:
             if result == 0:
                 break
 
-        theme = TOOL_WINDOW_STYLES["dark"] if dark else TOOL_WINDOW_STYLES["light"]
+        theme = STANDALONE_WINDOW_STYLES["dark"] if dark else STANDALONE_WINDOW_STYLES["light"]
         for attribute, color_name in ((34, "border"), (35, "window_bg"), (36, "window_fg")):
             color = wintypes.DWORD(_colorref(theme[color_name]))
             dwm_set_attribute(hwnd, attribute, ctypes.byref(color), ctypes.sizeof(color))
