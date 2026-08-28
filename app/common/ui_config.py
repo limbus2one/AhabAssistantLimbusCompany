@@ -24,8 +24,8 @@ FONT_FAMILIES = [
 
 # 主窗口样式配置
 MAIN_WINDOW_STYLES = {
-    "dark": {"bg_color": "rgba(28, 28, 28, 1)"},
-    "light": {"bg_color": "rgba(255, 255, 255, 1)"},
+    "dark": {"bg_color": "#1c1c1c"},
+    "light": {"bg_color": "#ffffff"},
 }
 
 # 标题栏样式配置
@@ -233,6 +233,15 @@ def _set_windows_title_bar_theme(widget, dark: bool) -> None:
             )
             if result == 0:
                 break
+
+        value = QColor(get_main_window_style(dark)["bg_color"])
+        caption_color = wintypes.DWORD(value.red() | (value.green() << 8) | (value.blue() << 16))
+        dwm_set_attribute(
+            hwnd,
+            35,
+            ctypes.byref(caption_color),
+            ctypes.sizeof(caption_color),
+        )
 
     except Exception:
         pass
