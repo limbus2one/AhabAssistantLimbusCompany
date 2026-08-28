@@ -208,25 +208,12 @@ def get_status_label_style() -> str:
     return "QLabel { background-color: #f0f0f0; color: #202020; padding: 5px; border: 1px solid #ccc; }"
 
 
-def get_standalone_window_style(widget_selector: str) -> str:
-    theme = (
-        STANDALONE_WINDOW_STYLES["dark"]
-        if isDarkTheme()
-        else STANDALONE_WINDOW_STYLES["light"]
-    )
-    return STANDALONE_WINDOW_QSS.format(selector=widget_selector, **theme)
-
-
 def apply_standalone_window_theme(widget, widget_selector: str) -> None:
     dark = isDarkTheme()
-    widget.setStyleSheet(get_standalone_window_style(widget_selector))
+    theme = STANDALONE_WINDOW_STYLES["dark"] if dark else STANDALONE_WINDOW_STYLES["light"]
+    widget.setStyleSheet(STANDALONE_WINDOW_QSS.format(selector=widget_selector, **theme))
     if os.name == "nt":
         _set_windows_title_bar_theme(widget, dark)
-
-
-def _colorref(color: str) -> int:
-    value = QColor(color)
-    return value.red() | (value.green() << 8) | (value.blue() << 16)
 
 
 def _set_windows_title_bar_theme(widget, dark: bool) -> None:
@@ -249,7 +236,8 @@ def _set_windows_title_bar_theme(widget, dark: bool) -> None:
 
         theme = STANDALONE_WINDOW_STYLES["dark"] if dark else STANDALONE_WINDOW_STYLES["light"]
         for attribute, color_name in ((34, "border"), (35, "window_bg"), (36, "window_fg")):
-            color = wintypes.DWORD(_colorref(theme[color_name]))
+            value = QColor(theme[color_name])
+            color = wintypes.DWORD(value.red() | (value.green() << 8) | (value.blue() << 16))
             dwm_set_attribute(hwnd, attribute, ctypes.byref(color), ctypes.sizeof(color))
     except Exception:
         pass
