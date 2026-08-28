@@ -3,12 +3,11 @@ from typing import Callable
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import QApplication, QDialog, QTextEdit
+from PySide6.QtWidgets import QApplication, QDialog, QTextEdit, QWidget
 from qfluentwidgets import (
     BodyLabel,
     CheckBox,
     ComboBox,
-    FlyoutViewBase,
     PopUpAniStackedWidget,
     PrimaryPushButton,
     PushButton,
@@ -16,14 +15,13 @@ from qfluentwidgets import (
     ToolTipFilter,
     ToolTipPosition,
     TransparentToolButton,
-    isDarkTheme,
     qconfig,
     setCustomStyleSheet,
 )
 
 from app.base_combination import *
 from app.base_tools import *
-from app.common.ui_config import get_log_text_edit_qss, set_border_style
+from app.common.ui_config import apply_tool_window_theme, get_log_text_edit_qss, set_border_style
 from app.language_manager import LanguageManager
 from app.page_card import (
     PageDailyTask,
@@ -55,11 +53,10 @@ from module.system_actions import (
     set_after_completion_config,
 )
 from tasks.base.script_task_scheme import my_script_task
-from tasks.tools.ui_style import _set_windows_title_bar_theme
 from utils.utils import check_hard_mirror_time
 
 
-class AfterCompletionActionEditor(FlyoutViewBase):
+class AfterCompletionActionEditor(QWidget):
     def __init__(
         self,
         actions: list[str],
@@ -283,7 +280,7 @@ class AfterCompletionSelector(QFrame):
         dialog.finished.connect(lambda _: setattr(self, "_editor_dialog", None))
         self._editor_dialog = dialog
         dialog.show()
-        _set_windows_title_bar_theme(dialog, isDarkTheme())
+        apply_tool_window_theme(dialog, "QDialog")
 
     def _set_after_completion_config(self, actions: list[str], power_action: str, persist: bool):
         # UI 层统一先规范化一次，避免一次性设置把脏值写入配置。

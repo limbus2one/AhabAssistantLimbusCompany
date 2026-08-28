@@ -9,13 +9,13 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import CheckBox, qconfig
 
+from app.common.ui_config import apply_tool_window_theme, get_status_label_style
 from module.automation import auto
 from module.config import cfg
 from module.game_and_screen import screen
 from module.hotkey_listener import ExactGlobalHotKeys
 from module.logger import log
 from tasks.battle.battle import Battle
-from tasks.tools.ui_style import apply_tool_window_theme, get_status_label_style
 from utils.path_manager import path_manager
 
 
