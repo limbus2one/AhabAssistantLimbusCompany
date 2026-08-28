@@ -53,8 +53,8 @@ def get_title_bar_style(is_dark: bool) -> dict:
 # 独立顶层窗口及其子控件样式配置
 STANDALONE_WINDOW_STYLES = {
     "dark": {
-        "window_bg": "#1f1f1f",
-        "window_fg": "#f0f0f0",
+        "window_bg": MAIN_WINDOW_STYLES["dark"]["bg_color"],
+        "window_fg": TITLE_BAR_STYLES["dark"]["text_color"],
         "control_bg": "#2b2b2b",
         "button_hover": "#3a3a3a",
         "border": "#555555",
@@ -65,8 +65,8 @@ STANDALONE_WINDOW_STYLES = {
         "arrow": "#f0f0f0",
     },
     "light": {
-        "window_bg": "#ffffff",
-        "window_fg": "#202020",
+        "window_bg": MAIN_WINDOW_STYLES["light"]["bg_color"],
+        "window_fg": TITLE_BAR_STYLES["light"]["text_color"],
         "control_bg": "#ffffff",
         "button_hover": "#f5f5f5",
         "border": "#d0d0d0",
