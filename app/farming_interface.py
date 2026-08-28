@@ -16,6 +16,7 @@ from qfluentwidgets import (
     ToolTipFilter,
     ToolTipPosition,
     TransparentToolButton,
+    isDarkTheme,
     qconfig,
     setCustomStyleSheet,
 )
@@ -54,6 +55,7 @@ from module.system_actions import (
     set_after_completion_config,
 )
 from tasks.base.script_task_scheme import my_script_task
+from tasks.tools.ui_style import set_windows_title_bar_theme
 from utils.utils import check_hard_mirror_time
 
 
@@ -281,6 +283,7 @@ class AfterCompletionSelector(QFrame):
         dialog.finished.connect(lambda _: setattr(self, "_editor_dialog", None))
         self._editor_dialog = dialog
         dialog.show()
+        set_windows_title_bar_theme(dialog, isDarkTheme())
 
     def _set_after_completion_config(self, actions: list[str], power_action: str, persist: bool):
         # UI 层统一先规范化一次，避免一次性设置把脏值写入配置。

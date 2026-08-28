@@ -2,7 +2,6 @@ import os
 
 from qfluentwidgets import isDarkTheme
 
-
 _THEMES = {
     "dark": {
         "window_bg": "#1f1f1f",
@@ -169,10 +168,10 @@ def apply_tool_window_theme(widget, widget_selector: str) -> None:
     dark = isDarkTheme()
     widget.setStyleSheet(get_tool_window_style(widget_selector))
     if os.name == "nt":
-        _set_windows_title_bar_theme(widget, dark=dark)
+        set_windows_title_bar_theme(widget, dark=dark)
 
 
-def _set_windows_title_bar_theme(widget, dark: bool) -> None:
+def set_windows_title_bar_theme(widget, dark: bool) -> None:
     try:
         import ctypes
         from ctypes import wintypes
