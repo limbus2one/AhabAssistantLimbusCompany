@@ -234,11 +234,6 @@ def _set_windows_title_bar_theme(widget, dark: bool) -> None:
             if result == 0:
                 break
 
-        theme = STANDALONE_WINDOW_STYLES["dark"] if dark else STANDALONE_WINDOW_STYLES["light"]
-        for attribute, color_name in ((34, "border"), (35, "window_bg"), (36, "window_fg")):
-            value = QColor(theme[color_name])
-            color = wintypes.DWORD(value.red() | (value.green() << 8) | (value.blue() << 16))
-            dwm_set_attribute(hwnd, attribute, ctypes.byref(color), ctypes.sizeof(color))
     except Exception:
         pass
 
