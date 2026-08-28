@@ -50,7 +50,7 @@ def get_title_bar_style(is_dark: bool) -> dict:
     return TITLE_BAR_STYLES["dark"] if is_dark else TITLE_BAR_STYLES["light"]
 
 
-# 独立窗口样式配置
+# 独立顶层窗口及其子控件样式配置
 STANDALONE_WINDOW_STYLES = {
     "dark": {
         "window_bg": "#1f1f1f",
@@ -208,7 +208,7 @@ def get_status_label_style() -> str:
     return "QLabel { background-color: #f0f0f0; color: #202020; padding: 5px; border: 1px solid #ccc; }"
 
 
-def get_tool_window_style(widget_selector: str) -> str:
+def get_standalone_window_style(widget_selector: str) -> str:
     theme = (
         STANDALONE_WINDOW_STYLES["dark"]
         if isDarkTheme()
@@ -217,9 +217,9 @@ def get_tool_window_style(widget_selector: str) -> str:
     return STANDALONE_WINDOW_QSS.format(selector=widget_selector, **theme)
 
 
-def apply_tool_window_theme(widget, widget_selector: str) -> None:
+def apply_standalone_window_theme(widget, widget_selector: str) -> None:
     dark = isDarkTheme()
-    widget.setStyleSheet(get_tool_window_style(widget_selector))
+    widget.setStyleSheet(get_standalone_window_style(widget_selector))
     if os.name == "nt":
         _set_windows_title_bar_theme(widget, dark)
 

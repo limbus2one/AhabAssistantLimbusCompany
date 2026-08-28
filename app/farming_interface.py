@@ -21,7 +21,7 @@ from qfluentwidgets import (
 
 from app.base_combination import *
 from app.base_tools import *
-from app.common.ui_config import apply_tool_window_theme, get_log_text_edit_qss, set_border_style
+from app.common.ui_config import apply_standalone_window_theme, get_log_text_edit_qss, set_border_style
 from app.language_manager import LanguageManager
 from app.page_card import (
     PageDailyTask,
@@ -280,7 +280,7 @@ class AfterCompletionSelector(QFrame):
         dialog.finished.connect(lambda _: setattr(self, "_editor_dialog", None))
         self._editor_dialog = dialog
         dialog.show()
-        apply_tool_window_theme(dialog, "QDialog")
+        apply_standalone_window_theme(dialog, "QDialog")
 
     def _set_after_completion_config(self, actions: list[str], power_action: str, persist: bool):
         # UI 层统一先规范化一次，避免一次性设置把脏值写入配置。

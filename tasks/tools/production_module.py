@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import CheckBox, qconfig
 
-from app.common.ui_config import apply_tool_window_theme, get_status_label_style
+from app.common.ui_config import apply_standalone_window_theme, get_status_label_style
 from module.automation import auto
 from module.config import cfg
 from module.game_and_screen import screen
@@ -250,7 +250,7 @@ class ProductionModule(QWidget):
         self.setLayout(layout)
 
     def _apply_theme_style(self):
-        apply_tool_window_theme(self, "ProductionModule")
+        apply_standalone_window_theme(self, "ProductionModule")
         self.status_label.setStyleSheet(get_status_label_style())
 
     def start_production(self):
