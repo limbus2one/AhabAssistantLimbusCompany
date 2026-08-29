@@ -6,8 +6,6 @@ from datetime import datetime, time, timedelta
 from time import sleep
 from zoneinfo import ZoneInfo  # Python 3.9+ 内置模块
 
-import cv2
-import numpy as np
 import win32crypt
 
 from module.config import cfg
@@ -63,6 +61,9 @@ def calculate_the_teams():
 
 
 def find_skill3(background, known_rgb, threshold=40, min_pixels=10):
+    import cv2
+    import numpy as np
+
     median_rgb = np.median(background, axis=(0, 1)).astype(int)
     blended_rgb = (median_rgb * 0.45 + np.array(known_rgb) * 0.55).astype(int)
 

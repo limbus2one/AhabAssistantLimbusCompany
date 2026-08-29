@@ -45,7 +45,6 @@ from app.language_manager import LanguageManager
 from app.page_card import MarkdownViewer
 from app.resource_sync_coordinator import ResourceSyncCoordinator
 from app.setting_interface import SettingInterface
-from app.team_setting_card import TeamSettingCard
 from app.tools_interface import ToolsInterface
 from module.after_completion_types import (
     LEGACY_AFTER_COMPLETION_TO_CONFIG,
@@ -497,6 +496,8 @@ class MainWindow(FramelessWindow):
                 self.pivot.setCurrentItem("team_setting")
             else:
                 """切换页面（带越界保护）"""
+                from app.team_setting_card import TeamSettingCard
+
                 self.addSubInterface(TeamSettingCard(num), "team_setting", self.tr("队伍设置"))
                 QTimer.singleShot(0, lambda: self.pivot.setCurrentItem("team_setting"))
         except Exception as e:
@@ -504,6 +505,8 @@ class MainWindow(FramelessWindow):
 
     def close_setting_page(self):
         try:
+            from app.team_setting_card import TeamSettingCard
+
             list(self.pivot.items.values())[0].click()
             page = self.findChild(TeamSettingCard, "team_setting")
 

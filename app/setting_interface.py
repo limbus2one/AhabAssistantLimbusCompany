@@ -36,10 +36,8 @@ from app.base_combination import (
 from app.card.messagebox_custom import BaseInfoBar
 from app.common.ui_config import get_setting_interface_qss
 from app.language_manager import SUPPORTED_LANG_NAME, LanguageManager
-from app.theme_pack_setting_interface import ThemePackSettingDialog
 from app.widget.setting_nav import SettingNav
 from module.config import cfg, theme_list
-from utils.schedule_helper import ScheduleHelper
 
 
 class SettingInterface(QWidget):
@@ -679,6 +677,8 @@ class SettingInterface(QWidget):
         )
 
     def __onAutostartCardChanged(self, checked: bool):
+        from utils.schedule_helper import ScheduleHelper
+
         TASK_NAME = "AALC Autostart"
         helper = ScheduleHelper()
         if checked:
@@ -691,6 +691,8 @@ class SettingInterface(QWidget):
 
     def __onThemePackCardClicked(self):
         """打开主题包权重配置对话框"""
+        from app.theme_pack_setting_interface import ThemePackSettingDialog
+
         dialog = ThemePackSettingDialog(
             self,
             config_data=theme_list.config,

@@ -6,7 +6,6 @@ from pathlib import Path
 from time import localtime, strftime, time
 from typing import Any, Optional
 
-import numpy as np
 from pydantic import BaseModel, ValidationError
 from ruamel.yaml import YAML, YAMLError
 
@@ -211,7 +210,9 @@ class Config(metaclass=SingletonMeta):
                 return
             with open(path, "r", encoding="utf-8") as file:
                 loaded_config: dict = self.yaml.load(file)
+                needs_save = path != self.config_path
                 if loaded_config is None:
+                    needs_save = True
                     log.error("读取到的设置文件为空, 请确认是否因为罕见情况丢失了数据")
                     if self.backup_path.exists():
                         backup_files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
@@ -233,6 +234,7 @@ class Config(metaclass=SingletonMeta):
                 if not isinstance(loaded_config.get("config_version", 0), int):
                     raise TypeError("配置文件版本号不是 int 类型")
                 if loaded_config.get("config_version", 0) < self.config.config_version:
+                    needs_save = True
                     saved_version = loaded_config.get("config_version", 0)
                     loaded_config["config_version"] = self.config.config_version
                     self._old_version_cfg_upgrade(saved_version, loaded_config)
@@ -246,7 +248,8 @@ class Config(metaclass=SingletonMeta):
                 self._sync_legacy_team_state(normalized_queue)
                 # 成功加载后保存当前文件为备份
                 self.backup_config()
-                self._save_config()
+                if needs_save or self.config.model_dump() != loaded_config:
+                    self._save_config()
         except FileNotFoundError:
             if self.backup_path.exists():
                 backup_files = [f for f in self.backup_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
@@ -642,6 +645,8 @@ class Config(metaclass=SingletonMeta):
 
 def migrate_legacy_team_setting_data(data: dict) -> dict:
     """Return team setting data with legacy starlight fields folded into opening_bonus."""
+    import numpy as np
+
     migrated = dict(data)
 
     if migrated.get("choose_opening_bonus", False):

@@ -53,7 +53,7 @@ class AnnouncementThread(QThread):
         try:
             url = "https://gitee.com/KIYI/aalcresource/raw/main/AALC/announcements.json"
 
-            response = requests.get(url)
+            response = requests.get(url, timeout=5)
             response.raise_for_status()  # 如果状态码非200则抛出异常
 
             # 解析 JSON 数据

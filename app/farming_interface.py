@@ -30,7 +30,6 @@ from app.page_card import (
     PageMirror,
     PageSetWindows,
 )
-from app.team_setting_card import TeamSettingCard
 from module.after_completion_types import (
     ACTION_EXIT_AALC,
     ACTION_EXIT_EMULATOR,
@@ -42,9 +41,7 @@ from module.after_completion_types import (
     POWER_ACTION_SLEEP,
     normalize_after_completion_config,
 )
-from module.automation import auto
 from module.config import TeamSetting, cfg
-from module.game_and_screen import screen
 from module.hotkey_listener import ExactGlobalHotKeys
 from module.logger import log
 from module.logger.my_log import ui_log_dispatcher
@@ -52,8 +49,6 @@ from module.system_actions import (
     get_after_completion_config,
     set_after_completion_config,
 )
-from tasks.base.script_task_scheme import my_script_task
-from utils.utils import check_hard_mirror_time
 
 
 class AfterCompletionActionEditor(QWidget):
@@ -533,6 +528,8 @@ class FarmingInterfaceLeft(QWidget):
 
     def check_setting(self):
         # 检测是否有未保存的镜牢队伍设置
+        from app.team_setting_card import TeamSettingCard
+
         if self.parent().parent().findChild(TeamSettingCard):
             list(self.parent().parent().parent().pivot.items.values())[-1].click()
             mediator.save_warning.emit()
@@ -546,6 +543,8 @@ class FarmingInterfaceLeft(QWidget):
                 if cfg.last_auto_change == 1715990400:
                     cfg.set_value("last_auto_change", datetime.now().timestamp())
                     cfg.flush()
+                from utils.utils import check_hard_mirror_time
+
                 if check_hard_mirror_time():
                     log.info("识别到新的困牢周期，自动切换困难镜牢，设置困牢次数为3")
                     cfg.set_value("last_auto_change", datetime.now().timestamp())
@@ -618,6 +617,8 @@ class FarmingInterfaceLeft(QWidget):
         else:
             if cfg.set_reduce_miscontact and cfg.simulator is False:
                 # 手动停止时仍需恢复游戏窗口，但这里不再要求抢前台。
+                from module.game_and_screen import screen
+
                 screen.reset_win(activate=False)
             else:
                 if cfg.simulator_type == 0:
@@ -650,6 +651,8 @@ class FarmingInterfaceLeft(QWidget):
             thread_was_running = self.my_script is not None and self.my_script.isRunning()
             self.stop_script()
             if thread_was_running:
+                from module.automation import auto
+
                 auto.clear_img_cache()
             mediator.mirror_bar_kill_signal.emit()
 
@@ -712,6 +715,8 @@ class FarmingInterfaceLeft(QWidget):
 
     def create_and_start_script(self):
         try:
+            from tasks.base.script_task_scheme import my_script_task
+
             msg = "开始进行所有任务"
             log.info(msg)
             ui_log_dispatcher.clear()
@@ -740,6 +745,8 @@ class FarmingInterfaceLeft(QWidget):
         if self.link_start_button.get_text() == "Link Start!":
             self.reset_pause_resume_button()
             return
+        from module.automation import auto
+
         auto.set_pause()
         self.sync_pause_resume_button()
 
@@ -747,6 +754,8 @@ class FarmingInterfaceLeft(QWidget):
         if self.link_start_button.get_text() == "Link Start!":
             self.reset_pause_resume_button()
             return
+        from module.automation import auto
+
         paused = False
         try:
             paused = auto.check_pause()
@@ -756,6 +765,11 @@ class FarmingInterfaceLeft(QWidget):
         self.pause_resume_button.setVisible(True)
 
     def reset_pause_resume_button(self):
+        if self.my_script is None:
+            self.pause_resume_button.setVisible(False)
+            return
+        from module.automation import auto
+
         try:
             if auto.check_pause():
                 auto.set_pause()

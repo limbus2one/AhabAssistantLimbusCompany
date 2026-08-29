@@ -180,13 +180,13 @@ class UpdateThread(QThread):
         if not cfg.update_prerelease_enable:
             response = requests.get(
                 f"https://api.github.com/repos/{self.user}/{self.repo}/releases/latest",
-                timeout=10,
+                timeout=self.timeout,
                 headers=cfg.useragent,
             )
         else:
             response = requests.get(
                 f"https://api.github.com/repos/{self.user}/{self.repo}/releases",
-                timeout=10,
+                timeout=self.timeout,
                 headers=cfg.useragent,
             )
         response.raise_for_status()
@@ -206,13 +206,13 @@ class UpdateThread(QThread):
         if not cfg.update_prerelease_enable:
             response = requests.get(
                 f"https://mirrorchyan.com/api/resources/AALC/latest?current_version={cfg.version}&user_agent={self.repo}&cdk={cdk}",
-                timeout=10,
+                timeout=self.timeout,
                 headers=cfg.useragent,
             )
         else:
             response = requests.get(
                 f"https://mirrorchyan.com/api/resources/AALC/latest?current_version={cfg.version}&user_agent={self.repo}&channel=beta&cdk={cdk}",
-                timeout=10,
+                timeout=self.timeout,
                 headers=cfg.useragent,
             )
         if cdk == "":

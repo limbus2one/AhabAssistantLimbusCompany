@@ -1,8 +1,10 @@
+import ctypes
 import json
 import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path, PurePosixPath
 
 import psutil
@@ -43,27 +45,26 @@ class Updater:
     def extract_file(self):
         """解压下载的文件。"""
         print("开始解压...")
-        while True:
-            try:
-                self._reset_extraction_workspace()
-                if os.path.exists(self.exe_path):
-                    subprocess.run(
-                        [
-                            self.exe_path,
-                            "x",
-                            self.download_file_path,
-                            f"-o{self.temp_path}",
-                            "-aoa",
-                        ],
-                        check=True,
-                    )
-                else:
-                    shutil.unpack_archive(self.download_file_path, self.temp_path)
-                print("解压完成")
-                return True
-            except Exception:
-                input("解压失败，按回车键重新解压. . .多次失败请手动下载更新")
-                return False
+        try:
+            self._reset_extraction_workspace()
+            if os.path.exists(self.exe_path):
+                subprocess.run(
+                    [
+                        self.exe_path,
+                        "x",
+                        self.download_file_path,
+                        f"-o{self.temp_path}",
+                        "-aoa",
+                    ],
+                    check=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+            else:
+                shutil.unpack_archive(self.download_file_path, self.temp_path)
+            print("解压完成")
+            return True
+        except Exception as exc:
+            raise RuntimeError(f"解压更新包失败: {exc}") from exc
 
     def _reset_extraction_workspace(self):
         """清理本次解压目标，避免复用上一次更新残留的载荷或清单。"""
@@ -87,14 +88,16 @@ class Updater:
             except Exception as e:
                 print(f"删除旧资源文件失败: {e}")
             print("开始覆盖安装...")
-            while True:
+            for attempt in range(1, 4):
                 try:
                     shutil.copytree(self.extract_folder_path, self.cover_folder_path, dirs_exist_ok=True)
                     print("覆盖安装完成")
                     break
-                except Exception as e:
-                    print(f"覆盖安装失败: {e}")
-                    input("按回车键重试. . . \n Press any key to continue")
+                except Exception as exc:
+                    if attempt == 3:
+                        raise RuntimeError(f"覆盖安装失败: {exc}") from exc
+                    print(f"覆盖安装失败，1 秒后自动重试（{attempt}/3）: {exc}")
+                    time.sleep(1)
 
     def _apply_incremental_update(self):
         """根据 changes.json 执行增量更新。"""
@@ -224,9 +227,7 @@ class Updater:
         if apply_mode and os.path.isdir(self.extract_folder_path) and os.listdir(self.extract_folder_path):
             print("复用引导进程的解压结果...")
             return
-        while True:
-            if self.extract_file():
-                return
+        self.extract_file()
 
     def _handoff_to_new_updater(self, current_executable=None):
         if not self.file_name:
@@ -312,22 +313,49 @@ class Updater:
         except Exception as e:
             print(f"清理{label}失败: {e}")
 
+    @staticmethod
+    def _show_error(message):
+        """窗口化更新器失败时使用原生消息框报告错误。"""
+        print(message)
+        try:
+            ctypes.windll.user32.MessageBoxW(None, message, "AALC 更新失败", 0x10)
+        except Exception:
+            pass
+
+    def restart_application(self):
+        """更新完成后直接启动主程序，并跳过一次重复更新检查。"""
+        app_path = os.path.join(self.cover_folder_path, "AALC.exe")
+        if not os.path.isfile(app_path):
+            raise FileNotFoundError(f"更新后未找到主程序: {app_path}")
+        subprocess.Popen(
+            [app_path, "--post-update"],
+            cwd=self.cover_folder_path,
+            creationflags=subprocess.DETACHED_PROCESS,
+        )
+
     def run(self, apply_mode=False):
         """运行更新流程。"""
-        self._prepare_update_payload(apply_mode)
         try:
+            self._prepare_update_payload(apply_mode)
             self.validate_update_payload()
         except UpdateManifestError as exc:
-            print(f"更新清单无效，已取消更新: {exc}")
+            self._show_error(f"更新清单无效，已取消更新: {exc}")
             return False
-        if not apply_mode and self._handoff_to_new_updater():
-            return
-        self.terminate_processes()
-        self.cover_folder()
-        self.cleanup()
-        input("已完成更新，按回车键退出并打开软件\nThe update is complete, press enter to exit and open the software")
-        if os.system(f'cmd /c start "" "{os.path.abspath("./AALC.exe")}"'):
-            subprocess.Popen(os.path.abspath("./AALC.exe"))
+        except Exception as exc:
+            self._show_error(f"准备更新失败: {exc}")
+            return False
+
+        try:
+            if not apply_mode and self._handoff_to_new_updater():
+                return True
+            self.terminate_processes()
+            self.cover_folder()
+            self.cleanup()
+            self.restart_application()
+            return True
+        except Exception as exc:
+            self._show_error(f"应用更新失败: {exc}")
+            return False
 
 
 def check_temp_dir_and_run():

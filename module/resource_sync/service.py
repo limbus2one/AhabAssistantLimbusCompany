@@ -27,6 +27,8 @@ DEFAULT_LOCAL_STATE_PATH = Path(LOCAL_STATE_PATH)
 DEFAULT_TEMP_DIR = Path("update_temp")
 # 网络请求超时时间，单位为秒。
 DEFAULT_REQUEST_TIMEOUT = 10
+# 启动阶段只下载很小的清单，使用更短超时，避免失效源拖慢启动。
+DEFAULT_MANIFEST_REQUEST_TIMEOUT = 5
 
 
 class ResourceCheckStatus(Enum):
@@ -292,7 +294,7 @@ class ResourceSyncService:
                 )
                 manifest_response = self.session.get(
                     source.manifest_url,
-                    timeout=DEFAULT_REQUEST_TIMEOUT,
+                    timeout=DEFAULT_MANIFEST_REQUEST_TIMEOUT,
                     headers=request_headers,
                 )
                 if manifest_response.status_code == requests.codes.not_modified:

@@ -12,7 +12,6 @@ from qfluentwidgets import FluentIcon as FIF
 from app.base_combination import BasePushSettingCard, BaseSettingCardGroup
 from app.card.messagebox_custom import BaseInfoBar
 from app.language_manager import LanguageManager
-from tasks import tools
 
 
 class ToolsInterface(ScrollArea):
@@ -91,6 +90,8 @@ class ToolsInterface(ScrollArea):
         self.get_screenshot_card.clicked.connect(lambda: self._tool_start("screenshot", self.get_screenshot_card))
 
     def _tool_start(self, tool_name: str, card: BasePushSettingCard):
+        from tasks import tools
+
         if tool_name in self.tools:
             tool = self.tools[tool_name]
             if isinstance(tool.w, QWidget):

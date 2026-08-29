@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import partial
 from typing import Any, Callable
 
@@ -75,6 +76,13 @@ class ResourceSyncCoordinator(QObject):
 
     def start_startup_check(self) -> None:
         """触发启动阶段的资源同步门禁检查。"""
+        fast_dev_start = os.environ.get("AALC_DEV_MODE") == "1" and os.environ.get("AALC_FAST_START") == "1"
+        if "--post-update" in self._startup_argv or fast_dev_start:
+            reason = "软件更新后首次启动" if "--post-update" in self._startup_argv else "开发快速启动"
+            log.info(f"{reason}，本次跳过软件与图片资源更新检查")
+            self._continue_startup_sequence_once()
+            return
+
         # 对外暴露的启动入口
         self._start_resource_sync_gate_check(trigger="startup")
 

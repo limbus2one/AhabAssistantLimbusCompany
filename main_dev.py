@@ -208,9 +208,6 @@ os.environ['AALC_DEV_MODE'] = '1'
 {main_content}
 """
 
-        # Replace admin check
-        dev_content = dev_content.replace("if not pyuac.isUserAdmin():", "if False and not pyuac.isUserAdmin():")
-
         # Replace mutex check
         dev_content = dev_content.replace(
             "if not mutex or last_error > 0:",

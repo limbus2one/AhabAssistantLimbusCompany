@@ -32,6 +32,18 @@ except (AttributeError, OSError):
         except Exception:
             pass
 
+import pyuac
+
+# 源码模式先完成提权，再加载 Qt、OpenCV 和 OCR 等重型模块，避免提权前后重复初始化。
+# 开发启动器通过 AALC_SKIP_ADMIN 跳过提权；打包版本不接受该环境变量。
+skip_admin = not getattr(sys, "frozen", False) and os.environ.get("AALC_SKIP_ADMIN") == "1"
+if not skip_admin and not pyuac.isUserAdmin():
+    try:
+        pyuac.runAsAdmin(False)
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)
+
 # 先配好日志（给 "AALC" logger 挂 handler），再 import 会在 import 期就打日志的 app/config 模块，
 # 否则那些启动日志会丢。
 from module.logger import log
@@ -39,19 +51,9 @@ from module.logger.my_log import Logger
 
 Logger()
 
-# 获取管理员权限
-import pyuac
-
 from app.language_manager import LanguageManager
 from app.my_app import MainWindow
 from module.config import cfg
-
-if not pyuac.isUserAdmin():
-    try:
-        pyuac.runAsAdmin(False)
-        sys.exit(0)
-    except Exception:
-        sys.exit(1)
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication
@@ -96,7 +98,7 @@ def send_args_to_existing_instance(port, args):
 if __name__ == "__main__":
     if _ORIG_SSLKEYLOGFILE is not None:
         log.warning(f"检测到冲突的环境变量 SSLKEYLOGFILE={_ORIG_SSLKEYLOGFILE}，"
-                     f"已在进程内清除，避免 OpenSSL 崩溃")
+                    f"已在进程内清除，避免 OpenSSL 崩溃")
 
     # 定义一个唯一的端口号（建议选择 1024-65535 之间的随机数）
     APP_PORT = 62333
