@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from enum import Enum
 
 from PySide6.QtCore import (
@@ -89,7 +90,20 @@ class TrayRoundMenu(RoundMenu):
 # 使用无框窗口
 class MainWindow(FramelessWindow):
     def __init__(self, argv: list[str]):
+        startup_started = time.perf_counter()
+        startup_last = startup_started
+
+        def startup_checkpoint(name: str) -> None:
+            nonlocal startup_last
+            now = time.perf_counter()
+            log.debug(
+                f"[Startup][MainWindow] {name}: +{(now - startup_last) * 1000:.1f} ms "
+                f"(total {(now - startup_started) * 1000:.1f} ms)"
+            )
+            startup_last = now
+
         super().__init__()
+        startup_checkpoint("FramelessWindow 基础构造")
 
         # 应用全局字体配置
         apply_font_config()
@@ -100,6 +114,7 @@ class MainWindow(FramelessWindow):
         self.setObjectName("MainWindow")
         setThemeColor("#9c080b")
         LanguageManager().register_component(self)
+        startup_checkpoint("字体、标题栏、图标与翻译注册")
 
         # Apply theme
         setTheme(getattr(Theme, cfg.get_value("theme_mode", "AUTO"), Theme.AUTO))
@@ -144,6 +159,7 @@ class MainWindow(FramelessWindow):
             geometry = screen.availableGeometry() if screen else self.geometry()
             w, h = geometry.width(), geometry.height()
             self.move(w // 2 - self.width() // 2, h // 2 - self.height() // 2)
+        startup_checkpoint("主题、基础控件与窗口位置")
 
         self.pivot = FullWidthPivot()  # 顶部 Tab 导航栏
         self.stackedWidget = QStackedWidget()  # 页面容器（一次只显示一个页面）
@@ -153,8 +169,11 @@ class MainWindow(FramelessWindow):
 
         # 创建子界面
         self.farming_interface = FarmingInterface(self)
+        startup_checkpoint("创建 FarmingInterface")
         self.tools_interface = ToolsInterface(self)
+        startup_checkpoint("创建 ToolsInterface")
         self.setting_interface = SettingInterface(self)
+        startup_checkpoint("创建 SettingInterface")
         # 由独立协调类统一接管资源同步编排，主窗口只保留界面接缝。
         self.resource_sync_coordinator = ResourceSyncCoordinator(
             window=self,
@@ -168,6 +187,7 @@ class MainWindow(FramelessWindow):
         self.setting_interface.manualResourceSyncRequested.connect(
             self.resource_sync_coordinator.start_manual_resource_sync_check
         )
+        startup_checkpoint("创建资源同步协调器")
         # self.team_setting = TeamSettingCard(self)
 
         # 向 pivot 添加子界面
@@ -176,6 +196,7 @@ class MainWindow(FramelessWindow):
             self.help_interface = MarkdownViewer("./assets/doc/zh/How_to_use.md")
         else:
             self.help_interface = MarkdownViewer("./assets/doc/en/How_to_use_EN.md")
+        startup_checkpoint("创建 MarkdownViewer")
         self.addSubInterface(self.help_interface, "help_interface", "帮助")
         self.addSubInterface(self.tools_interface, "tools_interface", "小工具")
         self.addSubInterface(self.setting_interface, "setting_interface", "设置")
@@ -191,6 +212,7 @@ class MainWindow(FramelessWindow):
         # Tab 切换逻辑：点击 Tab 时切换对应页面
         self.pivot.currentItemChanged.connect(lambda k: self.stackedWidget.setCurrentWidget(self.findChild(QWidget, k)))
         self.pivot.setCurrentItem(self.farming_interface.objectName())  # 设置默认Tab
+        startup_checkpoint("注册子页面并完成主布局")
 
         # 標題置頂
         self.titleBar.raise_()
@@ -203,11 +225,13 @@ class MainWindow(FramelessWindow):
         self.connect_mediator()
 
         self.show()
+        startup_checkpoint("连接信号并显示窗口")
 
         # 初始化进度环
         self.set_ring()
         # 启动阶段先走软件更新检查，再决定是否继续执行资源同步。
         self.resource_sync_coordinator.start_startup_check()
+        startup_checkpoint("初始化进度环并触发启动检查")
 
         # 判断是否需要降低缩放以适配小屏幕
         screen_rect = self.screen().availableGeometry()  # 获取到的rect会经过缩放因子的缩放
@@ -240,6 +264,7 @@ class MainWindow(FramelessWindow):
                 scale_factor = 200
                 log.warning("计算得到的缩放因子大于最高预设值，调整为200%")
             cfg.set_value("zoom_scale", scale_factor)
+        startup_checkpoint("MainWindow 构造完成")
 
     def init_system_tray(self):
         """初始化系统托盘图标与点击事件。"""

@@ -2,6 +2,10 @@ import os
 import socket
 import sys
 import threading
+import time
+
+_STARTUP_STARTED = time.perf_counter()
+_STARTUP_LAST = _STARTUP_STARTED
 
 # 尽早清除 SSLKEYLOGFILE，避免 OpenSSL 在建立 HTTPS 连接时因跨 CRT 边界崩溃。
 # 该变量通常由调试代理（如 Fiddler/Charles/Wireshark）设置，Python 内嵌的 OpenSSL
@@ -51,15 +55,36 @@ from module.logger.my_log import Logger
 
 Logger()
 
+
+def _log_startup_checkpoint(name: str) -> None:
+    """记录启动阶段的单段耗时和累计耗时。"""
+    global _STARTUP_LAST
+    now = time.perf_counter()
+    log.debug(
+        f"[Startup] {name}: +{(now - _STARTUP_LAST) * 1000:.1f} ms "
+        f"(total {(now - _STARTUP_STARTED) * 1000:.1f} ms)"
+    )
+    _STARTUP_LAST = now
+
+
+_log_startup_checkpoint("日志系统就绪（含工作目录、DPI 与权限检查）")
+
 from app.language_manager import LanguageManager
+_log_startup_checkpoint("导入 LanguageManager")
+
 from app.my_app import MainWindow
+_log_startup_checkpoint("导入 MainWindow 及其页面依赖")
+
 from module.config import cfg
+_log_startup_checkpoint("导入配置实例")
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication
+_log_startup_checkpoint("导入 QtCore/QtWidgets")
 
 QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 QApplication.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
+_log_startup_checkpoint("设置 Qt 进程属性")
 
 
 # 创建一个辅助类用于在主线程处理信号
@@ -106,6 +131,7 @@ if __name__ == "__main__":
     # 1. 尝试发送参数给已有实例
     if send_args_to_existing_instance(APP_PORT, sys.argv[1:]):
         sys.exit(0)
+    _log_startup_checkpoint("单实例探测完成")
 
     # 2. 如果发送失败，说明是第一个实例，开始初始化
     if cfg.zoom_scale != 0:
@@ -113,12 +139,15 @@ if __name__ == "__main__":
 
     lang_manager = LanguageManager()
     lang = lang_manager.init_language()
+    _log_startup_checkpoint("语言配置初始化")
 
     app = QApplication(sys.argv)
     app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
+    _log_startup_checkpoint("创建 QApplication")
 
     # 创建主窗口
     ui = MainWindow(sys.argv)
+    _log_startup_checkpoint("创建 MainWindow")
 
     # 3. 设置参数监听信号
     signaler = ArgumentSignaler()
@@ -141,7 +170,9 @@ if __name__ == "__main__":
     except OSError:
         # 如果走到这说明刚才的 bind 突然成功了但又瞬间失败，通常直接退出即可
         sys.exit(1)
+    _log_startup_checkpoint("启动参数监听线程")
 
     QTimer.singleShot(50, lambda: lang_manager.set_language(lang))
+    _log_startup_checkpoint("进入 Qt 事件循环")
 
     sys.exit(app.exec())

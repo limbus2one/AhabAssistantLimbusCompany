@@ -1,5 +1,7 @@
 import os
 
+import time
+
 from markdown_it import MarkdownIt
 from mdit_py_plugins.anchors import anchors_plugin
 from PySide6.QtCore import QCoreApplication, Qt, QUrl
@@ -108,38 +110,57 @@ class PageCard(QFrame):
 
 class PageSetWindows(PageCard):
     def __init__(self, parent=None):
+        started = time.perf_counter()
         super().__init__(parent=parent)
+        log.debug(f"[Startup][PageSetWindows] PageCard 基础构造: {(time.perf_counter() - started) * 1000:.1f} ms")
 
+        started = time.perf_counter()
         self.__init_card()
+        log.debug(f"[Startup][PageSetWindows] 创建全部设置控件: {(time.perf_counter() - started) * 1000:.1f} ms")
+        started = time.perf_counter()
         self.__init_layout()
+        log.debug(f"[Startup][PageSetWindows] 挂载设置控件: {(time.perf_counter() - started) * 1000:.1f} ms")
         self.setObjectName("page_set_windows")
 
     def __init_card(self):
+        started = time.perf_counter()
+
+        def card_checkpoint(name: str) -> None:
+            nonlocal started
+            now = time.perf_counter()
+            log.debug(f"[Startup][PageSetWindows] {name}: {(now - started) * 1000:.1f} ms")
+            started = now
+
         self.win_size = LabelWithComboBox(
             QT_TRANSLATE_NOOP("LabelWithComboBox", "窗口分辨率"),
             "set_win_size",
             set_win_size_options,
         )
+        card_checkpoint("创建窗口分辨率下拉框")
         self.win_position = LabelWithComboBox(
             QT_TRANSLATE_NOOP("LabelWithComboBox", "窗口位置"),
             "set_win_position",
             set_win_position_options,
         )
+        card_checkpoint("创建窗口位置下拉框")
         self.recovery_window = LabelWithComboBox(
             QT_TRANSLATE_NOOP("LabelWithComboBox", "结束后恢复窗口"),
             "set_reduce_miscontact",
             set_reduce_miscontact_options,
         )
+        card_checkpoint("创建恢复窗口下拉框")
         self.screenshot_interval = LabelWithSpinBox(
             QT_TRANSLATE_NOOP("LabelWithSpinBox", "截图间隔"),
             "screenshot_interval",
             double=True,
         )
+        card_checkpoint("创建截图间隔输入框")
         self.mouse_action_interval = LabelWithSpinBox(
             QT_TRANSLATE_NOOP("LabelWithSpinBox", "鼠标活动间隔"),
             "mouse_action_interval",
             double=True,
         )
+        card_checkpoint("创建鼠标活动间隔输入框")
         self.mouse_down_duration = LabelWithSpinBox(
             QT_TRANSLATE_NOOP("LabelWithSpinBox", "鼠标按下持续时间"),
             "mouse_down_duration",
@@ -148,22 +169,39 @@ class PageSetWindows(PageCard):
                 "LabelWithSpinBox", "仅在使用异步方法进行鼠标输入时生效，单位为秒，每次鼠标按下都会增加对应的延迟"
             ),
         )
+        card_checkpoint("创建鼠标按下时长输入框")
         self.use_post_message = LabelWithComboBox(
             QT_TRANSLATE_NOOP("LabelWithComboBox", "使用异步方法进行键鼠输入"),
             "use_post_message",
             {QT_TRANSLATE_NOOP("BaseComboBox", "否 (默认)"): False, QT_TRANSLATE_NOOP("BaseComboBox", "是"): True},
             tips=QT_TRANSLATE_NOOP("LabelWithComboBox", "提高点击速度，但是对硬件与网络有一定需求，否则可能出现漏点"),
         )
+        card_checkpoint("创建异步输入下拉框")
 
     def __init_layout(self):
+        started = time.perf_counter()
+
+        def layout_checkpoint(name: str) -> None:
+            nonlocal started
+            now = time.perf_counter()
+            log.debug(f"[Startup][PageSetWindows] {name}: {(now - started) * 1000:.1f} ms")
+            started = now
+
         self.vbox_general.addWidget(self.win_size)
+        layout_checkpoint("挂载窗口分辨率下拉框")
         self.vbox_general.addWidget(self.win_position)
+        layout_checkpoint("挂载窗口位置下拉框")
         self.vbox_general.addWidget(self.recovery_window)
+        layout_checkpoint("挂载恢复窗口下拉框")
 
         self.vbox_advanced.addWidget(self.screenshot_interval)
+        layout_checkpoint("挂载截图间隔输入框")
         self.vbox_advanced.addWidget(self.mouse_action_interval)
+        layout_checkpoint("挂载鼠标活动间隔输入框")
         self.vbox_advanced.addWidget(self.mouse_down_duration)
+        layout_checkpoint("挂载鼠标按下时长输入框")
         self.vbox_advanced.addWidget(self.use_post_message)
+        layout_checkpoint("挂载异步输入下拉框")
 
     def retranslateUi(self):
         self.win_size.retranslateUi()
@@ -386,18 +424,36 @@ class PageLunacyToEnkephalin(PageCard):
 
 class PageMirror(PageCard):
     def __init__(self, parent=None):
+        startup_started = time.perf_counter()
+        startup_last = startup_started
+
+        def startup_checkpoint(name: str) -> None:
+            nonlocal startup_last
+            now = time.perf_counter()
+            log.debug(
+                f"[Startup][PageMirror] {name}: +{(now - startup_last) * 1000:.1f} ms "
+                f"(total {(now - startup_started) * 1000:.1f} ms)"
+            )
+            startup_last = now
+
         super().__init__(parent=parent)
+        startup_checkpoint("PageCard 基础构造")
 
         self.setObjectName("page_mirror")
         self.__init_card()
+        startup_checkpoint("创建镜牢设置控件")
         self.__init_layout()
+        startup_checkpoint("挂载镜牢设置控件")
 
         self.get_setting()
+        startup_checkpoint(f"重建 {len(cfg.config.teams)} 个队伍卡片")
         self.refresh()
+        startup_checkpoint("刷新队伍顺序")
         self.bar = None
         self.bar_layout = None
         self.connect_mediator()
         self.retranslateUi()
+        startup_checkpoint("连接信号并完成翻译")
 
     def __init_card(self):
         self.team = MirrorTeamCombination(

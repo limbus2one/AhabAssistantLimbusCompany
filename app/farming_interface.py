@@ -1,4 +1,5 @@
 import sys
+import time
 from typing import Callable
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
@@ -333,7 +334,20 @@ class AfterCompletionSelector(QFrame):
 
 class FarmingInterface(QWidget):
     def __init__(self, parent=None):
+        startup_started = time.perf_counter()
+        startup_last = startup_started
+
+        def startup_checkpoint(name: str) -> None:
+            nonlocal startup_last
+            now = time.perf_counter()
+            log.debug(
+                f"[Startup][FarmingInterface] {name}: +{(now - startup_last) * 1000:.1f} ms "
+                f"(total {(now - startup_started) * 1000:.1f} ms)"
+            )
+            startup_last = now
+
         super().__init__(parent=parent)
+        startup_checkpoint("QWidget 基础构造")
         # objectName 由 addSubInterface 设置，这里不需要设置
         self.hbox_layout = QHBoxLayout(self)
         self.hbox_layout_left = QVBoxLayout()
@@ -342,6 +356,7 @@ class FarmingInterface(QWidget):
         self.hbox_layout.addLayout(self.hbox_layout_left, stretch=3)
         self.hbox_layout.addLayout(self.hbox_layout_center, stretch=4)
         self.hbox_layout.addLayout(self.hbox_layout_right, stretch=3)
+        startup_checkpoint("创建三栏布局")
 
         """
         self.setWidget(self.scroll_widget)
@@ -350,18 +365,23 @@ class FarmingInterface(QWidget):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)"""
 
         self.interface_left = FarmingInterfaceLeft()
+        startup_checkpoint("创建 FarmingInterfaceLeft")
         self.interface_center = FarmingInterfaceCenter()
+        startup_checkpoint("创建 FarmingInterfaceCenter")
         self.interface_right = FarmingInterfaceRight()
+        startup_checkpoint("创建 FarmingInterfaceRight")
         self.listener = None
         self.hbox_layout_left.addWidget(self.interface_left)
         self.hbox_layout_center.addWidget(self.interface_center)
         self.hbox_layout_right.addWidget(self.interface_right)
+        startup_checkpoint("挂载三栏控件")
         # self.setStyleSheet("border: 1px solid black;")
         # 启动快捷键监听
 
         self._listener_start()
         mediator.hotkey_listener_stop_signal.connect(self._listener_stop)
         mediator.hotkey_listener_start_signal.connect(self._listener_start)
+        startup_checkpoint("启动快捷键监听并连接信号")
 
     def _listener_stop(self):
         if self.listener:
@@ -803,17 +823,35 @@ class FarmingInterfaceLeft(QWidget):
 
 class FarmingInterfaceCenter(QWidget):
     def __init__(self, parent=None):
+        startup_started = time.perf_counter()
+        startup_last = startup_started
+
+        def startup_checkpoint(name: str) -> None:
+            nonlocal startup_last
+            now = time.perf_counter()
+            log.debug(
+                f"[Startup][FarmingInterfaceCenter] {name}: +{(now - startup_last) * 1000:.1f} ms "
+                f"(total {(now - startup_started) * 1000:.1f} ms)"
+            )
+            startup_last = now
+
         super().__init__(parent=parent)
+        startup_checkpoint("QWidget 基础构造")
 
         self.setObjectName("FarmingInterfaceCenter")
         self.__init_widget()
+        startup_checkpoint("创建页面容器")
         self.__init_card()
+        startup_checkpoint("创建全部任务页面")
         self.__init_layout()
+        startup_checkpoint("挂载任务页面")
         self.__init_setting()
+        startup_checkpoint("恢复默认页面")
 
         self.connect_mediator()
 
         LanguageManager().register_component(self)
+        startup_checkpoint("连接信号并注册翻译")
 
     def __init_widget(self):
         # self.setting_box = CardWidget()
@@ -822,11 +860,24 @@ class FarmingInterfaceCenter(QWidget):
         self.setting_page = PopUpAniStackedWidget(self)
 
     def __init_card(self):
+        started = time.perf_counter()
         self.set_windows = PageSetWindows(self)
+        log.debug(f"[Startup][FarmingInterfaceCenter] 创建 PageSetWindows: {(time.perf_counter() - started) * 1000:.1f} ms")
+        started = time.perf_counter()
         self.daily_task = PageDailyTask(self)
+        log.debug(f"[Startup][FarmingInterfaceCenter] 创建 PageDailyTask: {(time.perf_counter() - started) * 1000:.1f} ms")
+        started = time.perf_counter()
         self.get_reward = PageGetPrize(self)
+        log.debug(f"[Startup][FarmingInterfaceCenter] 创建 PageGetPrize: {(time.perf_counter() - started) * 1000:.1f} ms")
+        started = time.perf_counter()
         self.buy_enkephalin = PageLunacyToEnkephalin(self)
+        log.debug(
+            f"[Startup][FarmingInterfaceCenter] 创建 PageLunacyToEnkephalin: "
+            f"{(time.perf_counter() - started) * 1000:.1f} ms"
+        )
+        started = time.perf_counter()
         self.mirror = PageMirror(self)
+        log.debug(f"[Startup][FarmingInterfaceCenter] 创建 PageMirror: {(time.perf_counter() - started) * 1000:.1f} ms")
 
     def __init_layout(self):
         self.setting_page.addWidget(self.set_windows)
