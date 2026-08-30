@@ -1,4 +1,6 @@
 # 应用 UI 配置
+import os
+
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame
@@ -22,8 +24,8 @@ FONT_FAMILIES = [
 
 # 主窗口样式配置
 MAIN_WINDOW_STYLES = {
-    "dark": {"bg_color": "rgba(28, 28, 28, 1)"},
-    "light": {"bg_color": "rgba(255, 255, 255, 1)"},
+    "dark": {"bg_color": "#1c1c1c"},
+    "light": {"bg_color": "#ffffff"},
 }
 
 # 标题栏样式配置
@@ -46,6 +48,191 @@ def get_main_window_style(is_dark: bool) -> dict:
 def get_title_bar_style(is_dark: bool) -> dict:
     """获取标题栏样式"""
     return TITLE_BAR_STYLES["dark"] if is_dark else TITLE_BAR_STYLES["light"]
+
+
+# 独立顶层窗口（自动战斗、自动换饼、结束后操作）及其子控件样式配置
+STANDALONE_WINDOW_STYLES = {
+    "dark": {
+        "window_bg": MAIN_WINDOW_STYLES["dark"]["bg_color"],
+        "window_fg": TITLE_BAR_STYLES["dark"]["text_color"],
+        "control_bg": "#2b2b2b",
+        "button_hover": "#3a3a3a",
+        "border": "#555555",
+        "scrollbar_bg": "#2b2b2b",
+        "scrollbar_handle": "#666666",
+        "scrollbar_handle_hover": "#666666",
+        "splitter": "#555555",
+        "arrow": "#f0f0f0",
+    },
+    "light": {
+        "window_bg": MAIN_WINDOW_STYLES["light"]["bg_color"],
+        "window_fg": TITLE_BAR_STYLES["light"]["text_color"],
+        "control_bg": "#ffffff",
+        "button_hover": "#f5f5f5",
+        "border": "#d0d0d0",
+        "scrollbar_bg": "#f3f3f3",
+        "scrollbar_handle": "#c8c8c8",
+        "scrollbar_handle_hover": "#a8a8a8",
+        "splitter": "#d0d0d0",
+        "arrow": "#202020",
+    },
+}
+
+STANDALONE_WINDOW_QSS = """\
+{selector} {{
+    background-color: {window_bg};
+    color: {window_fg};
+}}
+QLabel {{
+    background-color: transparent;
+    color: {window_fg};
+}}
+QCheckBox {{
+    background-color: transparent;
+    color: {window_fg};
+}}
+QPushButton {{
+    background-color: {control_bg};
+    color: {window_fg};
+    border: 1px solid {border};
+    border-radius: 4px;
+    padding: 3px 12px;
+}}
+QPushButton:hover {{
+    background-color: {button_hover};
+}}
+QTextEdit {{
+    background-color: {control_bg};
+    color: {window_fg};
+    border: 1px solid {border};
+    border-radius: 4px;
+}}
+QLineEdit, QComboBox, QTableWidget, QTreeWidget, QListWidget {{
+    background-color: {control_bg};
+    color: {window_fg};
+    border: 1px solid {border};
+    border-radius: 4px;
+    padding: 3px 6px;
+    selection-background-color: #9c080b;
+    selection-color: #ffffff;
+}}
+QComboBox::drop-down {{
+    border: none;
+    width: 24px;
+}}
+QComboBox::down-arrow {{
+    width: 0px;
+    height: 0px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid {arrow};
+    margin-right: 8px;
+}}
+QComboBox QAbstractItemView {{
+    background-color: {control_bg};
+    color: {window_fg};
+    border: 1px solid {border};
+    border-radius: 4px;
+    selection-background-color: #9c080b;
+    selection-color: #ffffff;
+    outline: none;
+}}
+QGroupBox {{
+    color: {window_fg};
+    border: 1px solid {border};
+    border-radius: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+}}
+QGroupBox::title {{
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+}}
+QHeaderView::section, QStatusBar {{
+    background-color: {control_bg};
+    color: {window_fg};
+    border: 1px solid {border};
+}}
+QSplitter::handle {{
+    background-color: {splitter};
+}}
+QSplitter::handle:horizontal {{
+    width: 1px;
+    margin: 0 4px;
+}}
+QSplitter::handle:vertical {{
+    height: 1px;
+    margin: 4px 0;
+}}
+QScrollBar:vertical {{
+    background-color: {scrollbar_bg};
+    width: 10px;
+    margin: 0;
+    border: none;
+}}
+QScrollBar::handle:vertical {{
+    background-color: {scrollbar_handle};
+    min-height: 24px;
+    border-radius: 5px;
+}}
+QScrollBar::handle:vertical:hover {{
+    background-color: {scrollbar_handle_hover};
+}}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+    height: 0px;
+}}
+QScrollBar:horizontal {{
+    background-color: {scrollbar_bg};
+    height: 10px;
+    margin: 0;
+    border: none;
+}}
+QScrollBar::handle:horizontal {{
+    background-color: {scrollbar_handle};
+    min-width: 24px;
+    border-radius: 5px;
+}}
+QScrollBar::handle:horizontal:hover {{
+    background-color: {scrollbar_handle_hover};
+}}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+    width: 0px;
+}}
+"""
+
+
+def get_status_label_style() -> str:
+    if isDarkTheme():
+        return "QLabel { background-color: #2b2b2b; color: #f0f0f0; padding: 5px; border: 1px solid #555; }"
+    return "QLabel { background-color: #f0f0f0; color: #202020; padding: 5px; border: 1px solid #ccc; }"
+
+
+def apply_standalone_window_theme(widget, widget_selector: str) -> None:
+    dark = isDarkTheme()
+    theme = STANDALONE_WINDOW_STYLES["dark"] if dark else STANDALONE_WINDOW_STYLES["light"]
+    widget.setStyleSheet(STANDALONE_WINDOW_QSS.format(selector=widget_selector, **theme))
+    if os.name == "nt":
+        _sync_windows_title_bar_theme(widget, dark)
+
+
+def _sync_windows_title_bar_theme(widget, dark: bool) -> None:
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        value = wintypes.BOOL(dark)
+        for attribute in (20, 19):
+            result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                wintypes.HWND(int(widget.winId())),
+                attribute,
+                ctypes.byref(value),
+                ctypes.sizeof(value),
+            )
+            if result == 0:
+                break
+    except Exception:
+        pass
 
 
 # 设置卡片样式配置

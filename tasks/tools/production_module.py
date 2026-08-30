@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import CheckBox, qconfig
 
+from app.common.ui_config import apply_standalone_window_theme, get_status_label_style
 from module.automation import auto
 from module.config import cfg
 from module.game_and_screen import screen
@@ -26,7 +27,6 @@ from tasks.base.make_enkephalin_module import (
     make_enkephalin_module,
 )
 from tasks.base.retry import kill_game
-from tasks.tools.ui_style import apply_tool_window_theme, get_status_label_style
 
 
 class ProductionWork(QThread):
@@ -250,7 +250,7 @@ class ProductionModule(QWidget):
         self.setLayout(layout)
 
     def _apply_theme_style(self):
-        apply_tool_window_theme(self, "ProductionModule")
+        apply_standalone_window_theme(self, "ProductionModule")
         self.status_label.setStyleSheet(get_status_label_style())
 
     def start_production(self):
