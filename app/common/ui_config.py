@@ -50,7 +50,7 @@ def get_title_bar_style(is_dark: bool) -> dict:
     return TITLE_BAR_STYLES["dark"] if is_dark else TITLE_BAR_STYLES["light"]
 
 
-# 独立顶层窗口及其子控件样式配置
+# 独立顶层窗口（自动战斗、自动换饼、结束后操作）及其子控件样式配置
 STANDALONE_WINDOW_STYLES = {
     "dark": {
         "window_bg": MAIN_WINDOW_STYLES["dark"]["bg_color"],
