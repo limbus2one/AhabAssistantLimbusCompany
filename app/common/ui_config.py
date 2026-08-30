@@ -1,4 +1,6 @@
 # 应用 UI 配置
+import os
+
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame
@@ -210,6 +212,27 @@ def apply_standalone_window_theme(widget, widget_selector: str) -> None:
     dark = isDarkTheme()
     theme = STANDALONE_WINDOW_STYLES["dark"] if dark else STANDALONE_WINDOW_STYLES["light"]
     widget.setStyleSheet(STANDALONE_WINDOW_QSS.format(selector=widget_selector, **theme))
+    if os.name == "nt":
+        _sync_windows_title_bar_theme(widget, dark)
+
+
+def _sync_windows_title_bar_theme(widget, dark: bool) -> None:
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        value = wintypes.BOOL(dark)
+        for attribute in (20, 19):
+            result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                wintypes.HWND(int(widget.winId())),
+                attribute,
+                ctypes.byref(value),
+                ctypes.sizeof(value),
+            )
+            if result == 0:
+                break
+    except Exception:
+        pass
 
 
 # 设置卡片样式配置
