@@ -140,14 +140,7 @@ def _keyboard_enter_succeeded() -> bool:
 
 # 简单键盘寻路：始终按↑选择第一个节点，完全避免鼠标拖动
 def search_road_simple_keyboard():
-    """最简单寻路策略：不进行路线规划/相机对齐/节点识别，仅按↑键选择第一个节点。
-
-    适用于 Steam 环境下鼠标拖动地图导致卡死的场景，依赖 mirror_keyboard_navigation。
-    """
-    if not cfg.mirror_keyboard_navigation:
-        log.warning("简单键盘寻路需要启用键盘寻路模式")
-        return False
-
+    """最简单寻路策略：不进行路线规划/相机对齐/节点识别，仅按↑键选择第一个节点。"""
     auto.mouse_to_blank()
     sleep(0.3)
 
@@ -159,7 +152,7 @@ def search_road_simple_keyboard():
         if _keyboard_enter_succeeded():
             return True
 
-    log.debug("简单键盘寻路失败，需回退到常规寻路")
+    log.debug("简单键盘寻路失败")
     return False
 
 
