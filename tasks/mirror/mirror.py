@@ -255,7 +255,9 @@ class Mirror:
                 break
 
             # 离开镜牢的设置页面
-            if to_window_position := auto.find_element("mirror/road_in_mir/to_window_assets.png"):
+            if to_window_position := auto.find_element(
+                "mirror/road_in_mir/to_window_assets.png", threshold=0.75
+            ):
                 auto.mouse_click(to_window_position[0] - 200 * cfg.set_win_size / 1440, to_window_position[1])
                 continue
 
@@ -1134,7 +1136,7 @@ class Mirror:
                 break
             if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
                 break
-            if auto.click_element("mirror/road_in_mir/to_window_assets.png"):
+            if auto.click_element("mirror/road_in_mir/to_window_assets.png", threshold=0.75):
                 continue
             if auto.click_element("mirror/road_in_mir/setting_assets.png"):
                 sleep(1)

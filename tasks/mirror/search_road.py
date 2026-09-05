@@ -312,13 +312,13 @@ def search_road_from_road_map(hard_mode=False):
                 bus = bus_position
                 break
 
-    bus_pos = auto.find_element("mirror/mybus_default_distance.png") or bus
+    bus = auto.find_element("mirror/mybus_default_distance.png")
     all_nodes = identify_nodes(bus[0])
     y_area = divide_the_area_by_y(all_nodes)
     reset_position = False
     bus_row = Row.MID
     if len(y_area) == 2:
-        if bus_pos[1] > y_area[0][0][1][1] + 50 * scale:
+        if bus[1] > y_area[0][0][1][1] + 50 * scale:
             reset_position = "Bottom"
             bus_row = Row.BOTTOM
         else:
