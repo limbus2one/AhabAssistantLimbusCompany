@@ -26,8 +26,6 @@ from tasks.mirror.in_shop import Shop
 from tasks.mirror.reward_card import get_reward_card
 from tasks.mirror.search_road import (
     MirrorMap,
-    search_road_default_distance,
-    search_road_farthest_distance,
     search_road_simple_keyboard,
 )
 from tasks.mirror.select_theme_pack import select_theme_pack, switch_theme_pack_difficulty
@@ -255,7 +253,9 @@ class Mirror:
                 break
 
             # 离开镜牢的设置页面
-            if to_window_position := auto.find_element("mirror/road_in_mir/to_window_assets.png"):
+            if to_window_position := auto.find_element(
+                "mirror/road_in_mir/to_window_assets.png", threshold=0.75
+            ):
                 auto.mouse_click(to_window_position[0] - 200 * cfg.set_win_size / 1440, to_window_position[1])
                 continue
 
@@ -1079,68 +1079,16 @@ class Mirror:
                     return True
                 if self.mirror_map.enter_next_node(next_node):
                     return True
-            log.debug("未能构建路线图，尝试使用最近节点法重新寻路")
+            log.debug("未能构建路线图，尝试使用简单键盘寻路兜底")
         except Exception as e:
             log.debug(f"使用onnx模型寻路出错:{e}")
         finally:
             auto.mouse_to_blank()
-        try:
-            for _ in range(3):
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_default_distance():
-                    sleep(1)
-                    return True
-                if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                    return True
-                if retry() is False:
-                    return False
-            for _ in range(3):
-                if cfg.background_click:
-                    continue
-                while auto.take_screenshot() is None:
-                    continue
-                if search_road_farthest_distance():
-                    sleep(1)
-                    return True
-                if retry() is False:
-                    return False
-        except InputAttributeError as e:
-            log.error(f"寻路出错:{e}, 尝试重进镜牢")
-            pass
-        except Exception as e:
-            log.error(f"寻路出错:{e}")
-            return False
-        if auto.click_element("mirror/road_in_mir/enter_assets.png", take_screenshot=True):
-            return True
-        start_time = time.time()
-        log.info("寻路出错, 尝试重进镜牢")
-        while True:
-            from tasks.base.retry import check_times
 
-            # 自动截图
-            if auto.take_screenshot() is None:
-                continue
-            if auto.get_restore_time() is not None:
-                start_time = max(start_time, auto.get_restore_time())
-            if check_times(start_time):
-                back_init_menu()
-                return False
-            auto.mouse_to_blank()
-            if auto.click_element("mirror/road_in_mir/enter_assets.png"):
-                return True
-            if auto.click_element("home/drive_assets.png") or auto.find_element("home/window_assets.png"):
-                sleep(0.5)
-                break
-            if auto.click_element("mirror/road_in_mir/towindow&forfeit_confirm_assets.png"):
-                break
-            if auto.click_element("mirror/road_in_mir/to_window_assets.png"):
-                continue
-            if auto.click_element("mirror/road_in_mir/setting_assets.png"):
-                sleep(1)
-                continue
-            if retry() is False:
-                return False
+        if search_road_simple_keyboard():
+            return True
+
+        return False
 
     def re_start(self):
         while True:
