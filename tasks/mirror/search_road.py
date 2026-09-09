@@ -312,8 +312,16 @@ def search_road_from_road_map(hard_mode=False):
                 bus = bus_position
                 break
 
-    bus = auto.find_element("mirror/mybus_default_distance.png")
+    bus = auto.find_element("mirror/mybus_default_distance.png") or bus
+    if bus is None:
+        log.warning("未识别到 Bus，无法继续寻路")
+        return [], []
+
     all_nodes = identify_nodes(bus[0])
+    if not all_nodes:
+        log.warning("未识别到节点，无法继续寻路")
+        return [], []
+
     y_area = divide_the_area_by_y(all_nodes)
     reset_position = False
     bus_row = Row.MID
@@ -544,6 +552,9 @@ def _position_from_y(y, bus_position, bus_row):
 
 
 def divide_the_area_by_y(data):
+    if not data:
+        return []
+
     # 步骤1：按y坐标从小到大排序（确保相近的y相邻）
     sorted_by_y = sorted(data, key=lambda item: item[1][1])  # item[1]是坐标元组，item[1][1]是y值
 
