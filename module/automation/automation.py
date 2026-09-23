@@ -20,6 +20,7 @@ from utils.singletonmeta import SingletonMeta
 from ..config import cfg
 from ..logger import log
 from ..ocr import ocr
+from ..yolo import Detection, yolo
 from .input_handlers.input import AbstractInput
 from .screenshot import ScreenShot
 
@@ -493,6 +494,73 @@ class Automation(metaclass=SingletonMeta):
         except Exception as e:
             log.error(f"寻找图片出错:{e}")
             return []
+
+    def _restore_gray_screenshot(self) -> None:
+        """把缓存截图还原为灰度，避免彩色帧影响后续模板匹配。"""
+        screenshot = self.screenshot
+        if screenshot is not None and getattr(screenshot, "mode", None) not in (None, "L"):
+            try:
+                self.screenshot = screenshot.convert("L")
+            except Exception:
+                pass
+
+    def find_yolo_elements(
+        self,
+        my_crop=None,
+        conf=None,
+        iou=None,
+        only_gifts=False,
+        take_screenshot=False,
+        additional_stack=0,
+    ) -> list["Detection"]:
+        """用 YOLO 模型在当前截图中检测目标。
+
+        与模板匹配 / 颜色检测不同，YOLO 直接输出「这是哪个饰品」，
+        因此不需要为每个饰品单独存模板。
+
+        Args:
+            my_crop: 限定结果范围 ``(x1, y1, x2, y2)``，绝对像素坐标；只保留
+                检测框中心落在该区域内的结果。**图像本身不裁剪** —— 模型是在
+                整屏 16:9 场景上训练的，裁小图再放大到推理尺寸会偏离训练分布，
+                反而掉精度。
+            conf: 置信度阈值，``None`` 时用模型默认值
+            iou: NMS 的 IoU 阈值，``None`` 时用模型默认值
+            only_gifts: 是否只返回 E.G.O 饰品（过滤掉 ``enhance_1`` / ``enhance_2`` 强化标记）
+            take_screenshot: 是否强制重新截图（默认复用当前帧）
+            additional_stack: 日志堆栈层级调整
+
+        Returns:
+            :class:`~module.yolo.yolo.Detection` 列表，坐标为整图绝对坐标；
+            模型不可用或未检测到目标时返回 ``[]``
+        """
+        try:
+            # YOLO 依赖颜色信息，灰度帧必须重新取一张彩色截图
+            if take_screenshot or self.screenshot is None or getattr(self.screenshot, "mode", None) == "L":
+                if self.take_screenshot(gray=False) is None:
+                    return []
+
+            image = np.array(self.screenshot)
+            detections = yolo.predict(image, conf=conf, iou=iou)
+            if only_gifts:
+                detections = [item for item in detections if item.gift_id]
+            if my_crop is not None:
+                detections = [item for item in detections if item.is_inside(my_crop)]
+
+            if not detections:
+                log.debug("YOLO 未检测到目标", stacklevel=additional_stack + 3)
+                return []
+            log.debug(
+                f"YOLO 检测到{len(detections)}个目标："
+                f"{[(item.class_name, round(item.confidence, 2), item.center) for item in detections]}",
+                stacklevel=additional_stack + 3,
+            )
+            return detections
+        except Exception as e:
+            log.error(f"YOLO 检测出错:{e}")
+            return []
+        finally:
+            # 检测需要彩色截图，用完立即还原，避免影响后续模板匹配
+            self._restore_gray_screenshot()
 
     def find_str_in_text(self, target, ocr_dict):
         """

@@ -34,6 +34,26 @@ from tasks.mirror.select_theme_pack import select_theme_pack, switch_theme_pack_
 from tasks.teams.team_formation import check_team, load_team_code_in_game, select_battle_team, team_formation
 from utils.image_utils import ImageUtils
 
+# 白棉花（White Gossypium）的饰品 id。奖励卡里出现它时默认跳过，
+# 除非用户显式关闭 not_skip_whitegossypium 过滤。
+WHITE_GOSSYPIUM_GIFT_ID = "9020"
+
+
+def match_gift_detection(detections, bbox):
+    """从 YOLO 检测结果里挑出中心落在卡片框 ``bbox`` 内、置信度最高的饰品。
+
+    找不到时返回 ``None``，调用方据此走兜底逻辑。
+    """
+    inside = [item for item in detections if item.is_inside(bbox)]
+    if not inside:
+        return None
+    return max(inside, key=lambda item: item.confidence)
+
+
+def is_white_gossypium(gift) -> bool:
+    """判断 YOLO 识别结果是否是白棉花。"""
+    return gift is not None and gift.gift_id == WHITE_GOSSYPIUM_GIFT_ID
+
 
 # 输出时间统计
 def to_log_with_time(msg, elapsed_time):
@@ -1302,6 +1322,36 @@ class Mirror:
         self.event_total_time += event_elapsed_time
         self.event_times += 1
 
+    def second_system_active(self) -> bool:
+        """当前是否启用副体系优先级。"""
+        return bool(
+            self.second_system
+            and (self.second_system_setting == 0 or (self.second_system_setting == 1 and self.shop.fuse_IV))
+        )
+
+    def match_system_template(self, bbox):
+        """按体系图标模板判断卡片所属体系。
+
+        这是 YOLO 没识别到饰品时的兜底路径：模型主要在合成场景上训练，
+        真实截图里出现遮挡、特效或未覆盖的饰品时可能给不出结果，
+        此时仍按原来的「每体系一张图标」模板匹配保住原有能力。
+        """
+        if auto.find_element(
+            f"mirror/road_in_mir/acquire_ego_gift/{self.system}.png",
+            my_crop=bbox,
+            threshold=0.85,
+        ):
+            return self.system
+        if self.second_system_active():
+            second_system = all_systems[self.second_system_select]
+            if auto.find_element(
+                f"mirror/road_in_mir/acquire_ego_gift/{second_system}.png",
+                my_crop=bbox,
+                threshold=0.85,
+            ):
+                return second_system
+        return None
+
     def acquire_ego_gift(self, type: int = 1):
         my_scale = cfg.set_win_size / 1440
         auto.model = "clam"
@@ -1318,8 +1368,12 @@ class Mirror:
                 return False
             return
         while True:
-            if auto.take_screenshot() is None:
+            # 取一帧彩色截图：YOLO 需要颜色信息，模板匹配需要灰度帧。
+            # find_yolo_elements 复用这一帧识别，用完会把缓存帧还原成灰度，
+            # 所以一次循环只截一次图。
+            if auto.take_screenshot(gray=False) is None:
                 continue
+            gift_detections = auto.find_yolo_elements(only_gifts=True)
 
             if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
                 break
@@ -1338,11 +1392,10 @@ class Mirror:
                             button[0] + 450 * my_scale,
                             button[1] + 350 * my_scale,
                         )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if isinstance(ocr_result, list):
-                                if len(ocr_result) >= 2:
-                                    continue
+                        gift = match_gift_detection(gift_detections, bbox)
+                        if not cfg.not_skip_whitegossypium and is_white_gossypium(gift):
+                            log.debug("YOLO 识别到白棉花，跳过该饰品")
+                            continue
                         is_owned = bool(auto.find_language_text("已持有", "Owned", bbox))
                         gift_candidates.append((is_owned, button))
 
@@ -1366,24 +1419,23 @@ class Mirror:
                             button[0] + 450 * my_scale,
                             button[1] + 350 * my_scale,
                         )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if isinstance(ocr_result, list):
-                                if len(ocr_result) >= 2:
-                                    time.sleep(1)
-                                    auto.click_element(
-                                        "mirror/road_in_mir/refuse_gift_assets.png",
-                                        take_screenshot=True,
-                                    )
-                                    sleep(1)
-                                    auto.click_element(
-                                        "mirror/road_in_mir/refuse_gift_confirm_assets.png",
-                                        take_screenshot=True,
-                                    )
-                                    time.sleep(2)
-                                    if retry() is False:
-                                        return False
-                                    return
+                        gift = match_gift_detection(gift_detections, bbox)
+                        if not cfg.not_skip_whitegossypium and is_white_gossypium(gift):
+                            log.debug("YOLO 识别到白棉花，拒绝该饰品")
+                            time.sleep(1)
+                            auto.click_element(
+                                "mirror/road_in_mir/refuse_gift_assets.png",
+                                take_screenshot=True,
+                            )
+                            sleep(1)
+                            auto.click_element(
+                                "mirror/road_in_mir/refuse_gift_confirm_assets.png",
+                                take_screenshot=True,
+                            )
+                            time.sleep(2)
+                            if retry() is False:
+                                return False
+                            return
                         auto.mouse_click(button[0], button[1])
                         time.sleep(1)
                         auto.click_element(
@@ -1396,6 +1448,7 @@ class Mirror:
                         return
                 else:
                     system_nums = 0
+                    second_system = all_systems[self.second_system_select] if self.second_system_active() else None
                     for button in acquire_card:
                         bbox = (
                             button[0] - 50 * my_scale,
@@ -1403,31 +1456,26 @@ class Mirror:
                             button[0] + 450 * my_scale,
                             button[1] + 350 * my_scale,
                         )
-                        if not cfg.not_skip_whitegossypium:
-                            ocr_result = auto.find_language_text("白棉花", ["white", "gossypium"], bbox)
-                            if ocr_result:
-                                continue
+                        gift = match_gift_detection(gift_detections, bbox)
+                        if not cfg.not_skip_whitegossypium and is_white_gossypium(gift):
+                            log.debug("YOLO 识别到白棉花，跳过该饰品")
+                            continue
                         is_owned = bool(auto.find_language_text("已持有", "Owned", bbox))
                         gift_candidate = (is_owned, button)
-                        if auto.find_element(
-                            f"mirror/road_in_mir/acquire_ego_gift/{self.system}.png",
-                            my_crop=bbox,
-                            threshold=0.85,
-                        ):
+                        # 体系优先由 YOLO 识别的饰品推出（类别元数据里的 keyword），
+                        # 识别不到时再退回体系图标模板匹配
+                        gift_system = gift.system if gift is not None else None
+                        if gift_system is None:
+                            gift_system = self.match_system_template(bbox)
+                        if gift_system == self.system:
                             my_list.insert(0, gift_candidate)
                             system_nums += 1
+                            log.debug(f"识别到本体系饰品：{gift.name_zh if gift else '（模板匹配兜底）'}")
+                        elif second_system is not None and gift_system == second_system:
+                            my_list.insert(system_nums, gift_candidate)
+                            log.debug(f"识别到副体系饰品：{gift.name_zh if gift else '（模板匹配兜底）'}")
+                            continue
                         else:
-                            if self.second_system and (
-                                self.second_system_setting == 0
-                                or (self.second_system_setting == 1 and self.shop.fuse_IV)
-                            ):
-                                if auto.find_element(
-                                    f"mirror/road_in_mir/acquire_ego_gift/{all_systems[self.second_system_select]}.png",
-                                    my_crop=bbox,
-                                    threshold=0.85,
-                                ):
-                                    my_list.insert(system_nums, gift_candidate)
-                                    continue
                             my_list.append(gift_candidate)
                     my_list.sort(key=lambda gift: gift[0])
                     owned_gifts = sum(gift[0] for gift in my_list)

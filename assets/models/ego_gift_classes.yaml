@@ -1,0 +1,2675 @@
+imgsz: 640
+model: ego_gift_yolo26n.onnx
+source: yoloego
+classes:
+- index: 0
+  name: gift_9001
+  gift_id: '9001'
+  name_zh: 炼狱炎蝶之梦
+  name_en: Hellterfly’s Dream
+  keyword: Burn
+  tier: '2'
+- index: 1
+  name: gift_9002
+  gift_id: '9002'
+  name_zh: 倒错症
+  name_en: Perversion
+  keyword: Keywordless
+  tier: '1'
+- index: 2
+  name: gift_9003
+  gift_id: '9003'
+  name_zh: 尘归尘
+  name_en: Ashes to Ashes
+  keyword: Burn
+  tier: '1'
+- index: 3
+  name: gift_9004
+  gift_id: '9004'
+  name_zh: 采血包
+  name_en: Phlebotomy Pack
+  keyword: Keywordless
+  tier: '1'
+- index: 4
+  name: gift_9005
+  gift_id: '9005'
+  name_zh: 嗜伤甲虫
+  name_en: Wound Clerid
+  keyword: Bleed
+  tier: '2'
+- index: 5
+  name: gift_9006
+  gift_id: '9006'
+  name_zh: 咖啡与纸鹤
+  name_en: Coffee and Cranes
+  keyword: Keywordless
+  tier: '2'
+- index: 6
+  name: gift_9007
+  gift_id: '9007'
+  name_zh: 朱红蛾群
+  name_en: Eclipse of Scarlet Moths
+  keyword: Keywordless
+  tier: '2'
+- index: 7
+  name: gift_9008
+  gift_id: '9008'
+  name_zh: 染血铁钉
+  name_en: Grimy Iron Stake
+  keyword: Bleed
+  tier: '1'
+- index: 8
+  name: gift_9009
+  gift_id: '9009'
+  name_zh: 炽热的羽毛
+  name_en: Fiery Down
+  keyword: Burn
+  tier: '2'
+- index: 9
+  name: gift_9010
+  gift_id: '9010'
+  name_zh: 鲜血装饰
+  name_en: Bloody Gadget
+  keyword: Keywordless
+  tier: '1'
+- index: 10
+  name: gift_9011
+  gift_id: '9011'
+  name_zh: 狐雨
+  name_en: Sunshower
+  keyword: Keywordless
+  tier: '3'
+- index: 11
+  name: gift_9012
+  gift_id: '9012'
+  name_zh: 此刻的神色
+  name_en: Today’s Expression
+  keyword: Blunt
+  tier: '2'
+- index: 12
+  name: gift_9013
+  gift_id: '9013'
+  name_zh: 成捆的符咒
+  name_en: Talisman Bundle
+  keyword: Rupture
+  tier: '1'
+- index: 13
+  name: gift_9014
+  gift_id: '9014'
+  name_zh: 锈蚀的纪念币
+  name_en: Rusty Commemorative Coin
+  keyword: Keywordless
+  tier: '3'
+- index: 14
+  name: gift_9015
+  gift_id: '9015'
+  name_zh: 膏血
+  name_en: Blood, Sweat, and Tears
+  keyword: Tremor
+  tier: '2'
+- index: 15
+  name: gift_9016
+  gift_id: '9016'
+  name_zh: 绿光果实
+  name_en: Green Spirit
+  keyword: Tremor
+  tier: '1'
+- index: 16
+  name: gift_9017
+  gift_id: '9017'
+  name_zh: 石版字符
+  name_en: Lithograph
+  keyword: Keywordless
+  tier: '1'
+- index: 17
+  name: gift_9018
+  gift_id: '9018'
+  name_zh: 玫瑰王冠
+  name_en: Crown of Roses
+  keyword: Rupture
+  tier: '1'
+- index: 18
+  name: gift_9019
+  gift_id: '9019'
+  name_zh: 黏性淤浆
+  name_en: Sticky Muck
+  keyword: Pierce
+  tier: '1'
+- index: 19
+  name: gift_9020
+  gift_id: '9020'
+  name_zh: 白棉花
+  name_en: White Gossypium
+  keyword: Bleed
+  tier: '2'
+- index: 20
+  name: gift_9021
+  gift_id: '9021'
+  name_zh: 蓝色芝宝牌打火机
+  name_en: Blue Zippo Lighter
+  keyword: Keywordless
+  tier: '1'
+- index: 21
+  name: gift_9022
+  gift_id: '9022'
+  name_zh: 幻痛
+  name_en: Phantom Pain
+  keyword: Keywordless
+  tier: '3'
+- index: 22
+  name: gift_9023
+  gift_id: '9023'
+  name_zh: 雷击木
+  name_en: Thunderbranch
+  keyword: Rupture
+  tier: '3'
+- index: 23
+  name: gift_9024
+  gift_id: '9024'
+  name_zh: 融化的眼球
+  name_en: Melted Eyeball
+  keyword: Tremor
+  tier: '3'
+- index: 24
+  name: gift_9025
+  gift_id: '9025'
+  name_zh: 灰色大衣
+  name_en: Grey Coat
+  keyword: Keywordless
+  tier: '2'
+- index: 25
+  name: gift_9026
+  gift_id: '9026'
+  name_zh: 刺青：大器晚成
+  name_en: Late-bloomer’s Tattoo
+  keyword: Keywordless
+  tier: '2'
+- index: 26
+  name: gift_9027
+  gift_id: '9027'
+  name_zh: 谷底之星
+  name_en: Lowest Star
+  keyword: Blunt
+  tier: '2'
+- index: 27
+  name: gift_9028
+  gift_id: '9028'
+  name_zh: 偏见
+  name_en: Prejudice
+  keyword: Keywordless
+  tier: '1'
+- index: 28
+  name: gift_9029
+  gift_id: '9029'
+  name_zh: 又小又可能很坏的玩偶
+  name_en: Little and To-be-Naughty Plushie
+  keyword: Bleed
+  tier: '2'
+- index: 29
+  name: gift_9030
+  gift_id: '9030'
+  name_zh: 头骨收藏
+  name_en: Gathering Skulls
+  keyword: Pierce
+  tier: '2'
+- index: 30
+  name: gift_9031
+  gift_id: '9031'
+  name_zh: 辉光变动仪
+  name_en: Nixie Divergence
+  keyword: Tremor
+  tier: '1'
+- index: 31
+  name: gift_9032
+  gift_id: '9032'
+  name_zh: 梦中的电子羊
+  name_en: Dreaming Electric Sheep
+  keyword: Slash
+  tier: '2'
+- index: 32
+  name: gift_9033
+  gift_id: '9033'
+  name_zh: 标准负载电池
+  name_en: Standard-duty Battery
+  keyword: Rupture
+  tier: '3'
+- index: 33
+  name: gift_9034
+  gift_id: '9034'
+  name_zh: 单点打击逻辑电路
+  name_en: Pinpoint Logic Circuit
+  keyword: Burn
+  tier: '2'
+- index: 34
+  name: gift_9035
+  gift_id: '9035'
+  name_zh: 巫毒娃娃
+  name_en: Voodoo Doll
+  keyword: Keywordless
+  tier: '1'
+- index: 35
+  name: gift_9036
+  gift_id: '9036'
+  name_zh: 卡蜜拉
+  name_en: Carmilla
+  keyword: Keywordless
+  tier: '2'
+- index: 36
+  name: gift_9037
+  gift_id: '9037'
+  name_zh: 瓶中婴孩
+  name_en: Child within a Flask
+  keyword: Keywordless
+  tier: '2'
+- index: 37
+  name: gift_9038
+  gift_id: '9038'
+  name_zh: 异想狩猎
+  name_en: Illusory Hunt
+  keyword: Keywordless
+  tier: '3'
+- index: 38
+  name: gift_9039
+  gift_id: '9039'
+  name_zh: 归途
+  name_en: Homeward
+  keyword: Keywordless
+  tier: '2'
+- index: 39
+  name: gift_9040
+  gift_id: '9040'
+  name_zh: 明日的运势
+  name_en: Tomorrow’s Fortune
+  keyword: Keywordless
+  tier: '1'
+- index: 40
+  name: gift_9041
+  gift_id: '9041'
+  name_zh: 赤色指令
+  name_en: Red Order
+  keyword: Sinking
+  tier: '2'
+- index: 41
+  name: gift_9042
+  gift_id: '9042'
+  name_zh: 烟霾与铁丝网
+  name_en: Smokes and Wires
+  keyword: Bleed
+  tier: '3'
+- index: 42
+  name: gift_9043
+  gift_id: '9043'
+  name_zh: 员工证
+  name_en: Employee Card
+  keyword: Charge
+  tier: '2'
+- index: 43
+  name: gift_9044
+  gift_id: '9044'
+  name_zh: 震荡手环
+  name_en: Oscillating Bracelet
+  keyword: Tremor
+  tier: '2'
+- index: 44
+  name: gift_9045
+  gift_id: '9045'
+  name_zh: 炎鳞
+  name_en: Glimpse of Flames
+  keyword: Burn
+  tier: '4'
+- index: 45
+  name: gift_9046
+  gift_id: '9046'
+  name_zh: 烟斗
+  name_en: Cigarette Holder
+  keyword: Poise
+  tier: '2'
+- index: 46
+  name: gift_9047
+  gift_id: '9047'
+  name_zh: 荆棘套索
+  name_en: Barbed Lasso
+  keyword: Rupture
+  tier: '2'
+- index: 47
+  name: gift_9048
+  gift_id: '9048'
+  name_zh: 锈蚀的美工刀
+  name_en: Rusted Cutting Knife
+  keyword: Bleed
+  tier: '3'
+- index: 48
+  name: gift_9049
+  gift_id: '9049'
+  name_zh: 荆棘之路
+  name_en: Thorny Path
+  keyword: Sinking
+  tier: '1'
+- index: 49
+  name: gift_9050
+  gift_id: '9050'
+  name_zh: 红染棉花
+  name_en: Red-stained Gossypium
+  keyword: Bleed
+  tier: '4'
+- index: 50
+  name: gift_9051
+  gift_id: '9051'
+  name_zh: 石冢
+  name_en: Stone Tomb
+  keyword: Poise
+  tier: '2'
+- index: 51
+  name: gift_9052
+  gift_id: '9052'
+  name_zh: 便携式电源插座
+  name_en: Portable Battery Socket
+  keyword: Charge
+  tier: '2'
+- index: 52
+  name: gift_9053
+  gift_id: '9053'
+  name_zh: 土归土
+  name_en: Dust to Dust
+  keyword: Burn
+  tier: '3'
+- index: 53
+  name: gift_9054
+  gift_id: '9054'
+  name_zh: 融化的时钟发条
+  name_en: Melted Spring
+  keyword: Sinking
+  tier: '2'
+- index: 54
+  name: gift_9055
+  gift_id: '9055'
+  name_zh: 暴雨
+  name_en: Downpour
+  keyword: Tremor
+  tier: '4'
+- index: 55
+  name: gift_9056
+  gift_id: '9056'
+  name_zh: 四叶草
+  name_en: Four-leaf Clover
+  keyword: Poise
+  tier: '3'
+- index: 56
+  name: gift_9057
+  gift_id: '9057'
+  name_zh: 夜视镜
+  name_en: Nightvision Goggles
+  keyword: Charge
+  tier: '2'
+- index: 57
+  name: gift_9058
+  gift_id: '9058'
+  name_zh: 星象盘碎片
+  name_en: Disk Fragment
+  keyword: Keywordless
+  tier: '3'
+- index: 58
+  name: gift_9059
+  gift_id: '9059'
+  name_zh: 仲冬夜之噩梦
+  name_en: Midwinter Nightmare
+  keyword: Sinking
+  tier: '3'
+- index: 59
+  name: gift_9060
+  gift_id: '9060'
+  name_zh: 快感
+  name_en: Thrill
+  keyword: Rupture
+  tier: '4'
+- index: 60
+  name: gift_9061
+  gift_id: '9061'
+  name_zh: 遗骸碎片
+  name_en: Skeletal Crumbs
+  keyword: Sinking
+  tier: '2'
+- index: 61
+  name: gift_9062
+  gift_id: '9062'
+  name_zh: 简历
+  name_en: Curriculum Vitae
+  keyword: Charge
+  tier: '1'
+- index: 62
+  name: gift_9063
+  gift_id: '9063'
+  name_zh: 追忆吊坠
+  name_en: Pendant of Nostalgia
+  keyword: Poise
+  tier: '1'
+- index: 63
+  name: gift_9064
+  gift_id: '9064'
+  name_zh: 损坏的左轮手枪
+  name_en: Broken Revolver
+  keyword: Rupture
+  tier: '1'
+- index: 64
+  name: gift_9065
+  gift_id: '9065'
+  name_zh: 美感
+  name_en: Artistic Sense
+  keyword: Sinking
+  tier: '4'
+- index: 65
+  name: gift_9066
+  gift_id: '9066'
+  name_zh: 雾化吸入器
+  name_en: Nebulizer
+  keyword: Poise
+  tier: '2'
+- index: 66
+  name: gift_9067
+  gift_id: '9067'
+  name_zh: 特别合约
+  name_en: Special Contract
+  keyword: Keywordless
+  tier: '3'
+- index: 67
+  name: gift_9068
+  gift_id: '9068'
+  name_zh: 盛情款待
+  name_en: Grand Welcome
+  keyword: Keywordless
+  tier: '3'
+- index: 68
+  name: gift_9069
+  gift_id: '9069'
+  name_zh: 护腕
+  name_en: Wrist Guards
+  keyword: Charge
+  tier: '1'
+- index: 69
+  name: gift_9070
+  gift_id: '9070'
+  name_zh: 明镜止水
+  name_en: Clear Mirror, Calm Water
+  keyword: Poise
+  tier: '4'
+- index: 70
+  name: gift_9071
+  gift_id: '9071'
+  name_zh: 烧焦的圆盘
+  name_en: Charred Disk
+  keyword: Burn
+  tier: '3'
+- index: 71
+  name: gift_9072
+  gift_id: '9072'
+  name_zh: 避雷针
+  name_en: Lightning Rod
+  keyword: Charge
+  tier: '3'
+- index: 72
+  name: gift_9073
+  gift_id: '9073'
+  name_zh: 内啡肽试剂组
+  name_en: Endorphin Kit
+  keyword: Poise
+  tier: '3'
+- index: 73
+  name: gift_9074
+  gift_id: '9074'
+  name_zh: 无头肖像
+  name_en: Headless Portrait
+  keyword: Sinking
+  tier: '1'
+- index: 74
+  name: gift_9075
+  gift_id: '9075'
+  name_zh: 充能式手套
+  name_en: Charge-type Gloves
+  keyword: Charge
+  tier: '4'
+- index: 75
+  name: gift_9076
+  gift_id: '9076'
+  name_zh: 便携式急救包
+  name_en: First-aid Kit
+  keyword: Keywordless
+  tier: '3'
+- index: 76
+  name: gift_9077
+  gift_id: '9077'
+  name_zh: 止痛药
+  name_en: Painkiller
+  keyword: Keywordless
+  tier: '2'
+- index: 77
+  name: gift_9078
+  gift_id: '9078'
+  name_zh: 贪婪之锤
+  name_en: Voracious Hammer
+  keyword: Keywordless
+  tier: '2'
+- index: 78
+  name: gift_9079
+  gift_id: '9079'
+  name_zh: 金瓮
+  name_en: Golden Urn
+  keyword: Keywordless
+  tier: '2'
+- index: 79
+  name: gift_9080
+  gift_id: '9080'
+  name_zh: 生存的里程标
+  name_en: Milepost of Survival
+  keyword: Keywordless
+  tier: '2'
+- index: 80
+  name: gift_9081
+  gift_id: '9081'
+  name_zh: 信念
+  name_en: Faith
+  keyword: Keywordless
+  tier: '4'
+- index: 81
+  name: gift_9082
+  gift_id: '9082'
+  name_zh: 缘分残片
+  name_en: Piece of Relationship
+  keyword: Keywordless
+  tier: '4'
+- index: 82
+  name: gift_9083
+  gift_id: '9083'
+  name_zh: 月之记忆
+  name_en: Lunar Memory
+  keyword: Keywordless
+  tier: '5'
+- index: 83
+  name: gift_9084
+  gift_id: '9084'
+  name_zh: 古代雕像
+  name_en: Ancient Effigy
+  keyword: Keywordless
+  tier: '4'
+- index: 84
+  name: gift_9085
+  gift_id: '9085'
+  name_zh: 保密协议
+  name_en: Non-disclosure Agreement
+  keyword: Keywordless
+  tier: '4'
+- index: 85
+  name: gift_9086
+  gift_id: '9086'
+  name_zh: 残响
+  name_en: Reverberation
+  keyword: Tremor
+  tier: '2'
+- index: 86
+  name: gift_9087
+  gift_id: '9087'
+  name_zh: 炽热的智慧
+  name_en: Burning Intellect
+  keyword: Burn
+  tier: '1'
+- index: 87
+  name: gift_9088
+  gift_id: '9088'
+  name_zh: 镇魂
+  name_en: Soothe the Dead
+  keyword: Burn
+  tier: '4'
+- index: 88
+  name: gift_9089
+  gift_id: '9089'
+  name_zh: 锈蚀的笼头
+  name_en: Rusted Muzzle
+  keyword: Bleed
+  tier: '1'
+- index: 89
+  name: gift_9090
+  gift_id: '9090'
+  name_zh: 血雾
+  name_en: Bloody Mist
+  keyword: Bleed
+  tier: '4'
+- index: 90
+  name: gift_9091
+  gift_id: '9091'
+  name_zh: 真理之钟
+  name_en: Bell of Truth
+  keyword: Tremor
+  tier: '3'
+- index: 91
+  name: gift_9092
+  gift_id: '9092'
+  name_zh: 震颤耦合
+  name_en: Coupled Oscillation
+  keyword: Tremor
+  tier: '4'
+- index: 92
+  name: gift_9093
+  gift_id: '9093'
+  name_zh: 荧光灯
+  name_en: Fluorescent Lamp
+  keyword: Rupture
+  tier: '2'
+- index: 93
+  name: gift_9094
+  gift_id: '9094'
+  name_zh: 恍惚镜
+  name_en: Enrapturing Trance
+  keyword: Rupture
+  tier: '4'
+- index: 94
+  name: gift_9095
+  gift_id: '9095'
+  name_zh: 破碎罗盘
+  name_en: Broken Compass
+  keyword: Sinking
+  tier: '3'
+- index: 95
+  name: gift_9096
+  gift_id: '9096'
+  name_zh: 黑色乐谱
+  name_en: Black Sheet Music
+  keyword: Sinking
+  tier: '4'
+- index: 96
+  name: gift_9097
+  gift_id: '9097'
+  name_zh: 马蹄铁饰物
+  name_en: Ornamental Horseshoe
+  keyword: Poise
+  tier: '1'
+- index: 97
+  name: gift_9098
+  gift_id: '9098'
+  name_zh: 福袋
+  name_en: Lucky Pouch
+  keyword: Poise
+  tier: '4'
+- index: 98
+  name: gift_9099
+  gift_id: '9099'
+  name_zh: 物理屏蔽力场
+  name_en: Material Interference Force Field
+  keyword: Charge
+  tier: '3'
+- index: 99
+  name: gift_9100
+  gift_id: '9100'
+  name_zh: 第一类永动机
+  name_en: T-1 Perpetual Motion Machine
+  keyword: Charge
+  tier: '4'
+- index: 100
+  name: gift_9101
+  gift_id: '9101'
+  name_zh: 熔化的石蜡
+  name_en: Melted Paraffin
+  keyword: Burn
+  tier: '1'
+- index: 101
+  name: gift_9102
+  gift_id: '9102'
+  name_zh: 偏振光
+  name_en: Polarization
+  keyword: Burn
+  tier: '1'
+- index: 102
+  name: gift_9103
+  gift_id: '9103'
+  name_zh: 郁火
+  name_en: Pain of Stifled Rage
+  keyword: Burn
+  tier: '2'
+- index: 103
+  name: gift_9104
+  gift_id: '9104'
+  name_zh: 火光花
+  name_en: Ardent Flower
+  keyword: Burn
+  tier: '3'
+- index: 104
+  name: gift_9105
+  gift_id: '9105'
+  name_zh: 业火残片
+  name_en: Fragment of Hellfire
+  keyword: Burn
+  tier: '4'
+- index: 105
+  name: gift_9106
+  gift_id: '9106'
+  name_zh: 被扣留的颂歌
+  name_en: Arrested Hymn
+  keyword: Bleed
+  tier: '1'
+- index: 106
+  name: gift_9107
+  gift_id: '9107'
+  name_zh: 纠缠捆束
+  name_en: Tangled Bundle
+  keyword: Bleed
+  tier: '1'
+- index: 107
+  name: gift_9108
+  gift_id: '9108'
+  name_zh: 敬畏
+  name_en: Awe
+  keyword: Bleed
+  tier: '2'
+- index: 108
+  name: gift_9109
+  gift_id: '9109'
+  name_zh: 安息之地
+  name_en: Respite
+  keyword: Bleed
+  tier: '3'
+- index: 109
+  name: gift_9110
+  gift_id: '9110'
+  name_zh: 魅惑残片
+  name_en: Fragment of Allurement
+  keyword: Bleed
+  tier: '4'
+- index: 110
+  name: gift_9111
+  gift_id: '9111'
+  name_zh: 生物剧毒药瓶
+  name_en: Bio-venom Vial
+  keyword: Tremor
+  tier: '3'
+- index: 111
+  name: gift_9112
+  gift_id: '9112'
+  name_zh: 剧毒外皮
+  name_en: Venomous Skin
+  keyword: Tremor
+  tier: '1'
+- index: 112
+  name: gift_9113
+  gift_id: '9113'
+  name_zh: 酸味的酒香
+  name_en: Sour Liquor Aroma
+  keyword: Tremor
+  tier: '2'
+- index: 113
+  name: gift_9114
+  gift_id: '9114'
+  name_zh: 镜触觉通感
+  name_en: Mirror Tactile Synaesthesia
+  keyword: Tremor
+  tier: '2'
+- index: 114
+  name: gift_9115
+  gift_id: '9115'
+  name_zh: 齿轮发条
+  name_en: Clockwork Spring
+  keyword: Tremor
+  tier: '3'
+- index: 115
+  name: gift_9116
+  gift_id: '9116'
+  name_zh: 惰性残片
+  name_en: Fragment of Inertia
+  keyword: Tremor
+  tier: '4'
+- index: 116
+  name: gift_9117
+  gift_id: '9117'
+  name_zh: 有烟火药
+  name_en: Smoking Gunpowder
+  keyword: Rupture
+  tier: '2'
+- index: 117
+  name: gift_9118
+  gift_id: '9118'
+  name_zh: 骨桩
+  name_en: Bone Stake
+  keyword: Rupture
+  tier: '1'
+- index: 118
+  name: gift_9119
+  gift_id: '9119'
+  name_zh: 破损的雨伞
+  name_en: Ragged Umbrella
+  keyword: Rupture
+  tier: '2'
+- index: 119
+  name: gift_9120
+  gift_id: '9120'
+  name_zh: 寻死者
+  name_en: Deathseeker
+  keyword: Rupture
+  tier: '3'
+- index: 120
+  name: gift_9121
+  gift_id: '9121'
+  name_zh: 欲望残片
+  name_en: Fragment of Desire
+  keyword: Rupture
+  tier: '4'
+- index: 121
+  name: gift_9122
+  gift_id: '9122'
+  name_zh: 古木陷阱
+  name_en: Eldtree Snare
+  keyword: Sinking
+  tier: '1'
+- index: 122
+  name: gift_9123
+  gift_id: '9123'
+  name_zh: 破布
+  name_en: Rags
+  keyword: Sinking
+  tier: '1'
+- index: 123
+  name: gift_9124
+  gift_id: '9124'
+  name_zh: 庄严
+  name_en: Grandeur
+  keyword: Sinking
+  tier: '2'
+- index: 124
+  name: gift_9125
+  gift_id: '9125'
+  name_zh: 彼方之星
+  name_en: Distant Star
+  keyword: Sinking
+  tier: '3'
+- index: 125
+  name: gift_9126
+  gift_id: '9126'
+  name_zh: 蚕食残片
+  name_en: Fragment of Decay
+  keyword: Sinking
+  tier: '4'
+- index: 126
+  name: gift_9127
+  gift_id: '9127'
+  name_zh: 魔鬼所享
+  name_en: Devil's Share
+  keyword: Poise
+  tier: '1'
+- index: 127
+  name: gift_9128
+  gift_id: '9128'
+  name_zh: 绿色鞘翅
+  name_en: Emerald Elytra
+  keyword: Poise
+  tier: '1'
+- index: 128
+  name: gift_9129
+  gift_id: '9129'
+  name_zh: 陈旧的木雕人偶
+  name_en: Old Wooden Doll
+  keyword: Poise
+  tier: '2'
+- index: 129
+  name: gift_9130
+  gift_id: '9130'
+  name_zh: 留恋
+  name_en: Finifugality
+  keyword: Poise
+  tier: '3'
+- index: 130
+  name: gift_9131
+  gift_id: '9131'
+  name_zh: 骄慢残片
+  name_en: Fragment of Conceit
+  keyword: Poise
+  tier: '4'
+- index: 131
+  name: gift_9132
+  gift_id: '9132'
+  name_zh: 不间断电源装置
+  name_en: UPS System
+  keyword: Charge
+  tier: '1'
+- index: 132
+  name: gift_9133
+  gift_id: '9133'
+  name_zh: 解除限制的除颤仪
+  name_en: Uncapped Defibrilator
+  keyword: Charge
+  tier: '1'
+- index: 133
+  name: gift_9134
+  gift_id: '9134'
+  name_zh: 巡逻用手电筒
+  name_en: Patrolling Flashlight
+  keyword: Charge
+  tier: '2'
+- index: 134
+  name: gift_9135
+  gift_id: '9135'
+  name_zh: 仿造发电机
+  name_en: Imitative Generator
+  keyword: Charge
+  tier: '3'
+- index: 135
+  name: gift_9136
+  gift_id: '9136'
+  name_zh: 摩擦残片
+  name_en: Fragment of Friction
+  keyword: Charge
+  tier: '4'
+- index: 136
+  name: gift_9137
+  gift_id: '9137'
+  name_zh: 手术用刀
+  name_en: Scalpel
+  keyword: Slash
+  tier: '1'
+- index: 137
+  name: gift_9138
+  gift_id: '9138'
+  name_zh: 虚饰的和平
+  name_en: Deceptive Accord
+  keyword: Slash
+  tier: '1'
+- index: 138
+  name: gift_9139
+  gift_id: '9139'
+  name_zh: 裁缝用剪刀
+  name_en: Tailor's Scissors
+  keyword: Slash
+  tier: '2'
+- index: 139
+  name: gift_9140
+  gift_id: '9140'
+  name_zh: 决意
+  name_en: Resolution
+  keyword: Slash
+  tier: '2'
+- index: 140
+  name: gift_9141
+  gift_id: '9141'
+  name_zh: 宣判之刻
+  name_en: Moment of Sentencing
+  keyword: Slash
+  tier: '3'
+- index: 141
+  name: gift_9142
+  gift_id: '9142'
+  name_zh: 切开的记忆
+  name_en: Sundered Memory
+  keyword: Slash
+  tier: '4'
+- index: 142
+  name: gift_9143
+  gift_id: '9143'
+  name_zh: 木工用长钉
+  name_en: Carpenter's Nail
+  keyword: Pierce
+  tier: '1'
+- index: 143
+  name: gift_9144
+  gift_id: '9144'
+  name_zh: 曾经的祝福
+  name_en: Once, A Blessing
+  keyword: Pierce
+  tier: '2'
+- index: 144
+  name: gift_9145
+  gift_id: '9145'
+  name_zh: 撕裂的弹带
+  name_en: Torn Bandolier
+  keyword: Pierce
+  tier: '2'
+- index: 145
+  name: gift_9146
+  gift_id: '9146'
+  name_zh: 磨尖的树枝
+  name_en: Keenbranch
+  keyword: Pierce
+  tier: '3'
+- index: 146
+  name: gift_9147
+  gift_id: '9147'
+  name_zh: 洞穿的记忆
+  name_en: Punctured Memory
+  keyword: Pierce
+  tier: '4'
+- index: 147
+  name: gift_9148
+  gift_id: '9148'
+  name_zh: 作祟
+  name_en: Burial Curse
+  keyword: Blunt
+  tier: '1'
+- index: 148
+  name: gift_9149
+  gift_id: '9149'
+  name_zh: 加压绷带
+  name_en: Compression Bandage
+  keyword: Blunt
+  tier: '2'
+- index: 149
+  name: gift_9150
+  gift_id: '9150'
+  name_zh: 时间的枷锁
+  name_en: Temporal Bridle
+  keyword: Blunt
+  tier: '2'
+- index: 150
+  name: gift_9151
+  gift_id: '9151'
+  name_zh: 紧握的雕像
+  name_en: Clasped Sculpture
+  keyword: Blunt
+  tier: '3'
+- index: 151
+  name: gift_9152
+  gift_id: '9152'
+  name_zh: 粉碎的记忆
+  name_en: Crushed Memory
+  keyword: Blunt
+  tier: '4'
+- index: 152
+  name: gift_9153
+  gift_id: '9153'
+  name_zh: 神谕
+  name_en: Oracle
+  keyword: Keywordless
+  tier: '2'
+- index: 153
+  name: gift_9154
+  gift_id: '9154'
+  name_zh: 强压的重担
+  name_en: Imposed Weight
+  keyword: Keywordless
+  tier: '3'
+- index: 154
+  name: gift_9155
+  gift_id: '9155'
+  name_zh: 万年炖锅
+  name_en: Decamillennial Stewpot
+  keyword: Burn
+  tier: '2'
+- index: 155
+  name: gift_9156
+  gift_id: '9156'
+  name_zh: 万年炉火
+  name_en: Decamillennial Hearthflame
+  keyword: Burn
+  tier: '2'
+- index: 156
+  name: gift_9157
+  gift_id: '9157'
+  name_zh: 烹饪秘诀书
+  name_en: Secret Cookbook
+  keyword: Burn
+  tier: '3'
+- index: 157
+  name: gift_9158
+  gift_id: '9158'
+  name_zh: 盗来的火焰
+  name_en: Purloined Flame
+  keyword: Burn
+  tier: '4'
+- index: 158
+  name: gift_9159
+  gift_id: '9159'
+  name_zh: 蜜拉卡
+  name_en: Millarca
+  keyword: Bleed
+  tier: '2'
+- index: 159
+  name: gift_9160
+  gift_id: '9160'
+  name_zh: 撕裂的血囊
+  name_en: Ruptured Blood Sac
+  keyword: Bleed
+  tier: '3'
+- index: 160
+  name: gift_9161
+  gift_id: '9161'
+  name_zh: 虔诚
+  name_en: Devotion
+  keyword: Bleed
+  tier: '3'
+- index: 161
+  name: gift_9162
+  gift_id: '9162'
+  name_zh: 失血性休克
+  name_en: Hemorrhagic Shock
+  keyword: Bleed
+  tier: '4'
+- index: 162
+  name: gift_9163
+  gift_id: '9163'
+  name_zh: 宝石振子
+  name_en: Gemstone Oscillator
+  keyword: Tremor
+  tier: '1'
+- index: 163
+  name: gift_9164
+  gift_id: '9164'
+  name_zh: 摇晃的酒桶
+  name_en: Wobbling Keg
+  keyword: Tremor
+  tier: '2'
+- index: 164
+  name: gift_9165
+  gift_id: '9165'
+  name_zh: 啮合的齿轮
+  name_en: Interlocked Cogs
+  keyword: Tremor
+  tier: '2'
+- index: 165
+  name: gift_9166
+  gift_id: '9166'
+  name_zh: 震源
+  name_en: Epicenter
+  keyword: Tremor
+  tier: '3'
+- index: 166
+  name: gift_9167
+  gift_id: '9167'
+  name_zh: 无振八方钟
+  name_en: Omnivibro-octovecti-bell
+  keyword: Tremor
+  tier: '4'
+- index: 167
+  name: gift_9168
+  gift_id: '9168'
+  name_zh: 终末的碎片
+  name_en: Shard of Apocalypse
+  keyword: Rupture
+  tier: '2'
+- index: 168
+  name: gift_9169
+  gift_id: '9169'
+  name_zh: 荆棘捕绳
+  name_en: Thorny Rope Cuffs
+  keyword: Rupture
+  tier: '2'
+- index: 169
+  name: gift_9170
+  gift_id: '9170'
+  name_zh: 奇怪的石像
+  name_en: Eerie Effigy
+  keyword: Rupture
+  tier: '3'
+- index: 170
+  name: gift_9171
+  gift_id: '9171'
+  name_zh: 破灭
+  name_en: Ruin
+  keyword: Rupture
+  tier: '4'
+- index: 171
+  name: gift_9172
+  gift_id: '9172'
+  name_zh: 如歌
+  name_en: Cantabile
+  keyword: Sinking
+  tier: '1'
+- index: 172
+  name: gift_9173
+  gift_id: '9173'
+  name_zh: 褪色的外套
+  name_en: Faded Overcoat
+  keyword: Sinking
+  tier: '2'
+- index: 173
+  name: gift_9174
+  gift_id: '9174'
+  name_zh: 碎裂的骨片
+  name_en: Tangled Bones
+  keyword: Sinking
+  tier: '2'
+- index: 174
+  name: gift_9175
+  gift_id: '9175'
+  name_zh: 浪景球
+  name_en: Surging Globe
+  keyword: Sinking
+  tier: '3'
+- index: 175
+  name: gift_9176
+  gift_id: '9176'
+  name_zh: 袭来的浪潮
+  name_en: Impending Wave
+  keyword: Sinking
+  tier: '4'
+- index: 176
+  name: gift_9177
+  gift_id: '9177'
+  name_zh: 某日的记忆
+  name_en: Recollection of a Certain Day
+  keyword: Poise
+  tier: '2'
+- index: 177
+  name: gift_9178
+  gift_id: '9178'
+  name_zh: 天使所私
+  name_en: Angel's Cut
+  keyword: Poise
+  tier: '2'
+- index: 178
+  name: gift_9179
+  gift_id: '9179'
+  name_zh: 追忆
+  name_en: Reminiscence
+  keyword: Poise
+  tier: '3'
+- index: 179
+  name: gift_9180
+  gift_id: '9180'
+  name_zh: 桶装烈酒
+  name_en: Cask Spirits
+  keyword: Poise
+  tier: '4'
+- index: 180
+  name: gift_9181
+  gift_id: '9181'
+  name_zh: 微型电线杆
+  name_en: Miniature Telepole
+  keyword: Charge
+  tier: '2'
+- index: 181
+  name: gift_9182
+  gift_id: '9182'
+  name_zh: 1B型八角螺栓
+  name_en: T-1B Octagonal Bolt
+  keyword: Charge
+  tier: '2'
+- index: 182
+  name: gift_9183
+  gift_id: '9183'
+  name_zh: 绝缘子
+  name_en: Insulator
+  keyword: Charge
+  tier: '3'
+- index: 183
+  name: gift_9184
+  gift_id: '9184'
+  name_zh: 第五类永动机
+  name_en: T-5 Perpetual Motion Machine
+  keyword: Charge
+  tier: '4'
+- index: 184
+  name: gift_9185
+  gift_id: '9185'
+  name_zh: 返利礼券
+  name_en: Rebate Token
+  keyword: Keywordless
+  tier: '2'
+- index: 185
+  name: gift_9186
+  gift_id: '9186'
+  name_zh: 新品小册
+  name_en: New Release Pamphlet
+  keyword: Keywordless
+  tier: '2'
+- index: 186
+  name: gift_9187
+  gift_id: '9187'
+  name_zh: 特别目录
+  name_en: Special Catalogue
+  keyword: Keywordless
+  tier: '2'
+- index: 187
+  name: gift_9188
+  gift_id: '9188'
+  name_zh: 预约优惠券
+  name_en: Pre-order Discount
+  keyword: Keywordless
+  tier: '3'
+- index: 188
+  name: gift_9189
+  gift_id: '9189'
+  name_zh: 翻新的商品
+  name_en: Renewed Merch
+  keyword: Keywordless
+  tier: '3'
+- index: 189
+  name: gift_9190
+  gift_id: '9190'
+  name_zh: 试用计划指南
+  name_en: Trial Plan Guide
+  keyword: Keywordless
+  tier: '3'
+- index: 190
+  name: gift_9191
+  gift_id: '9191'
+  name_zh: 贵宾卡
+  name_en: Prestige Card
+  keyword: Keywordless
+  tier: '3'
+- index: 191
+  name: gift_9192
+  gift_id: '9192'
+  name_zh: 重叠的创可贴
+  name_en: Layered Bandages
+  keyword: Bleed
+  tier: '1'
+- index: 192
+  name: gift_9193
+  gift_id: '9193'
+  name_zh: 磨损的砥石
+  name_en: Overused Whetstone
+  keyword: Slash
+  tier: '1'
+- index: 193
+  name: gift_9194
+  gift_id: '9194'
+  name_zh: 拐杖短剑
+  name_en: Short Cane Sword
+  keyword: Slash
+  tier: '2'
+- index: 194
+  name: gift_9195
+  gift_id: '9195'
+  name_zh: 云纹鹤颈瓶
+  name_en: Cloudpattern Gourd Bottle
+  keyword: Slash
+  tier: '3'
+- index: 195
+  name: gift_9196
+  gift_id: '9196'
+  name_zh: 破碎的巨剑
+  name_en: Broken Greatsword
+  keyword: Slash
+  tier: '4'
+- index: 196
+  name: gift_9197
+  gift_id: '9197'
+  name_zh: 高弹性钢鞋
+  name_en: High-tensility Shoes
+  keyword: Pierce
+  tier: '1'
+- index: 197
+  name: gift_9198
+  gift_id: '9198'
+  name_zh: 见证的羽饰
+  name_en: Plume of Proof
+  keyword: Pierce
+  tier: '2'
+- index: 198
+  name: gift_9199
+  gift_id: '9199'
+  name_zh: 磨破的衣袖
+  name_en: Torn Hems
+  keyword: Pierce
+  tier: '3'
+- index: 199
+  name: gift_9200
+  gift_id: '9200'
+  name_zh: 决斗教材第三卷
+  name_en: Dueling Manual Book 3
+  keyword: Pierce
+  tier: '4'
+- index: 200
+  name: gift_9201
+  gift_id: '9201'
+  name_zh: 次元分类回收箱
+  name_en: Dimensional Recycle Bin
+  keyword: Blunt
+  tier: '1'
+- index: 201
+  name: gift_9202
+  gift_id: '9202'
+  name_zh: 口袋助记卡
+  name_en: Pocket Flashcards
+  keyword: Blunt
+  tier: '2'
+- index: 202
+  name: gift_9203
+  gift_id: '9203'
+  name_zh: 次元知觉变体
+  name_en: Dimensional Perception Modifier
+  keyword: Blunt
+  tier: '3'
+- index: 203
+  name: gift_9204
+  gift_id: '9204'
+  name_zh: 复仇账簿
+  name_en: The Book of Vengeance
+  keyword: Blunt
+  tier: '4'
+- index: 204
+  name: gift_9205
+  gift_id: '9205'
+  name_zh: 全血烧瓶
+  name_en: WB Flask
+  keyword: Bleed
+  tier: '2'
+- index: 205
+  name: gift_9206
+  gift_id: '9206'
+  name_zh: 血香降临
+  name_en: Sanguine Fragrance Descends
+  keyword: Bleed
+  tier: '3'
+- index: 206
+  name: gift_9403
+  gift_id: '9403'
+  name_zh: 黑檀胸针
+  name_en: Ebony Brooch
+  keyword: Rupture
+  tier: '2'
+- index: 207
+  name: gift_9404
+  gift_id: '9404'
+  name_zh: 封装蛆虫
+  name_en: Contained Maggots
+  keyword: Bleed
+  tier: '3'
+- index: 208
+  name: gift_9407
+  gift_id: '9407'
+  name_zh: 定制
+  name_en: Made-to-Order
+  keyword: Tremor
+  tier: '2'
+- index: 209
+  name: gift_9408
+  gift_id: '9408'
+  name_zh: 鬼附鞋
+  name_en: Haunted Shoes
+  keyword: Sinking
+  tier: '2'
+- index: 210
+  name: gift_9409
+  gift_id: '9409'
+  name_zh: 冰封的哀嚎
+  name_en: Frozen Cries
+  keyword: Sinking
+  tier: '2'
+- index: 211
+  name: gift_9410
+  gift_id: '9410'
+  name_zh: 霜冻足迹
+  name_en: Hoarfrost Footprint
+  keyword: Sinking
+  tier: '4'
+- index: 212
+  name: gift_9413
+  gift_id: '9413'
+  name_zh: 钉与锤之书
+  name_en: Nagel und Hammer Scriptures
+  keyword: Bleed
+  tier: '2'
+- index: 213
+  name: gift_9414
+  gift_id: '9414'
+  name_zh: 血红鬃毛
+  name_en: Blood-red Mane
+  keyword: Keywordless
+  tier: '2'
+- index: 214
+  name: gift_9415
+  gift_id: '9415'
+  name_zh: 污秽
+  name_en: Squalidity
+  keyword: Bleed
+  tier: '2'
+- index: 215
+  name: gift_9416
+  gift_id: '9416'
+  name_zh: 完全性
+  name_en: Wholeness
+  keyword: Bleed
+  tier: '4'
+- index: 216
+  name: gift_9419
+  gift_id: '9419'
+  name_zh: 山茶花枝
+  name_en: Spicebush Branch
+  keyword: Keywordless
+  tier: '3'
+- index: 217
+  name: gift_9420
+  gift_id: '9420'
+  name_zh: 万花筒
+  name_en: Kaleidoscope
+  keyword: Keywordless
+  tier: '3'
+- index: 218
+  name: gift_9423
+  gift_id: '9423'
+  name_zh: 破碎的眼镜
+  name_en: Broken Glasses
+  keyword: Keywordless
+  tier: '2'
+- index: 219
+  name: gift_9424
+  gift_id: '9424'
+  name_zh: 未寄出的信
+  name_en: Unmailed Letter
+  keyword: Rupture
+  tier: '4'
+- index: 220
+  name: gift_9427
+  gift_id: '9427'
+  name_zh: 守镇鱼叉
+  name_en: Town-protecting Harpoon
+  keyword: Keywordless
+  tier: '2'
+- index: 221
+  name: gift_9428
+  gift_id: '9428'
+  name_zh: 鲸心
+  name_en: Cetacean Heart
+  keyword: Poise
+  tier: '4'
+- index: 222
+  name: gift_9429
+  gift_id: '9429'
+  name_zh: 捕鲸枪义腿
+  name_en: Harpoon Prosthetic Leg
+  keyword: Poise
+  tier: '2'
+- index: 223
+  name: gift_9430
+  gift_id: '9430'
+  name_zh: 照亮前方的汽灯
+  name_en: Guiding Gas Lamp
+  keyword: Poise
+  tier: '4'
+- index: 224
+  name: gift_9431
+  gift_id: '9431'
+  name_zh: 损坏的小提琴
+  name_en: Broken Violin
+  keyword: Keywordless
+  tier: '3'
+- index: 225
+  name: gift_9432
+  gift_id: '9432'
+  name_zh: 宅邸模型八音盒
+  name_en: Manor-shaped Music Box
+  keyword: Sinking
+  tier: '3'
+- index: 226
+  name: gift_9433
+  gift_id: '9433'
+  name_zh: 首席管家的秘籍
+  name_en: Chief Butler's Secret Arts
+  keyword: Keywordless
+  tier: '3'
+- index: 227
+  name: gift_9434
+  gift_id: '9434'
+  name_zh: 手镜
+  name_en: Handheld Mirror
+  keyword: Tremor
+  tier: '3'
+- index: 228
+  name: gift_9435
+  gift_id: '9435'
+  name_zh: 管家式束缚法
+  name_en: Butler Style Binding Arts
+  keyword: Keywordless
+  tier: '2'
+- index: 229
+  name: gift_9436
+  gift_id: '9436'
+  name_zh: 折射玻璃管
+  name_en: Refraction Glass Pod
+  keyword: Sinking
+  tier: '4'
+- index: 230
+  name: gift_9437
+  gift_id: '9437'
+  name_zh: 拉·曼却领自由通行券
+  name_en: La Manchaland All-day Pass
+  keyword: Bleed
+  tier: '3'
+- index: 231
+  name: gift_9438
+  gift_id: '9438'
+  name_zh: 胜利之证
+  name_en: Token of Victory
+  keyword: Bleed
+  tier: '3'
+- index: 232
+  name: gift_9439
+  gift_id: '9439'
+  name_zh: 吞噬一切的魔方
+  name_en: Devouring Cube
+  keyword: Keywordless
+  tier: '2'
+- index: 233
+  name: gift_9440
+  gift_id: '9440'
+  name_zh: 游行的面具
+  name_en: Mask of the Parade
+  keyword: Bleed
+  tier: '4'
+- index: 234
+  name: gift_9701
+  gift_id: '9701'
+  name_zh: 火热多汁琵琶腿
+  name_en: Hot ‘n Juicy Drumstick
+  keyword: Burn
+  tier: '3'
+- index: 235
+  name: gift_9702
+  gift_id: '9702'
+  name_zh: 干巴柴涩鸡胸肉
+  name_en: Dry-to-the-Bone Breast
+  keyword: Rupture
+  tier: '3'
+- index: 236
+  name: gift_9703
+  gift_id: '9703'
+  name_zh: 探戈鸡酱料
+  name_en: Tango Marinade
+  keyword: Keywordless
+  tier: '3'
+- index: 237
+  name: gift_9704
+  gift_id: '9704'
+  name_zh: 脏污的针与线
+  name_en: Contaminated Needle & Thread
+  keyword: Bleed
+  tier: '2'
+- index: 238
+  name: gift_9705
+  gift_id: '9705'
+  name_zh: 锐利的针与线
+  name_en: Sharp Needle & Thread
+  keyword: Keywordless
+  tier: '3'
+- index: 239
+  name: gift_9706
+  gift_id: '9706'
+  name_zh: 沾染油污的扳手
+  name_en: Oil-gunked Spanner
+  keyword: Tremor
+  tier: '1'
+- index: 240
+  name: gift_9707
+  gift_id: '9707'
+  name_zh: 闪光废料
+  name_en: Twinkling Scrap
+  keyword: Keywordless
+  tier: '2'
+- index: 241
+  name: gift_9708
+  gift_id: '9708'
+  name_zh: 废料蟹脑髓泡酒
+  name_en: Trash Crab Brain Wine
+  keyword: Rupture
+  tier: '3'
+- index: 242
+  name: gift_9709
+  gift_id: '9709'
+  name_zh: 毛球帽
+  name_en: Pom-pom Hat
+  keyword: Poise
+  tier: '1'
+- index: 243
+  name: gift_9710
+  gift_id: '9710'
+  name_zh: 巨大的礼物袋
+  name_en: Huge Gift Sack
+  keyword: Poise
+  tier: '2'
+- index: 244
+  name: gift_9711
+  gift_id: '9711'
+  name_zh: 悲伤的毛绒玩偶
+  name_en: Sad Plushie
+  keyword: Keywordless
+  tier: '3'
+- index: 245
+  name: gift_9712
+  gift_id: '9712'
+  name_zh: 黑色账簿
+  name_en: Black Ledger
+  keyword: Keywordless
+  tier: '2'
+- index: 246
+  name: gift_9713
+  gift_id: '9713'
+  name_zh: 锈蚀的刀柄
+  name_en: Rusted Hilt
+  keyword: Slash
+  tier: '3'
+- index: 247
+  name: gift_9714
+  gift_id: '9714'
+  name_zh: 破碎的刀刃
+  name_en: Fractured Blade
+  keyword: Bleed
+  tier: '3'
+- index: 248
+  name: gift_9715
+  gift_id: '9715'
+  name_zh: 损坏的刀刃
+  name_en: Broken Blade
+  keyword: Poise
+  tier: '3'
+- index: 249
+  name: gift_9716
+  gift_id: '9716'
+  name_zh: 红色流苏
+  name_en: Red Tassel
+  keyword: Slash
+  tier: '3'
+- index: 250
+  name: gift_9717
+  gift_id: '9717'
+  name_zh: 壮观
+  name_en: Sublimity
+  keyword: Slash
+  tier: '4'
+- index: 251
+  name: gift_9718
+  gift_id: '9718'
+  name_zh: 不动
+  name_en: Unbending
+  keyword: Slash
+  tier: '4'
+- index: 252
+  name: gift_9719
+  gift_id: '9719'
+  name_zh: 破损的斗笠
+  name_en: Ragged Bamboo Hat
+  keyword: Poise
+  tier: '4'
+- index: 253
+  name: gift_9720
+  gift_id: '9720'
+  name_zh: 陈旧的长袍
+  name_en: Old Dopo Robe
+  keyword: Slash
+  tier: '4'
+- index: 254
+  name: gift_9721
+  gift_id: '9721'
+  name_zh: 银色的表壳
+  name_en: Silver Watch Case
+  keyword: Tremor
+  tier: '2'
+- index: 255
+  name: gift_9722
+  gift_id: '9722'
+  name_zh: 褪色的表壳
+  name_en: Faded Watch Case
+  keyword: Tremor
+  tier: '2'
+- index: 256
+  name: gift_9723
+  gift_id: '9723'
+  name_zh: 警告函
+  name_en: Warning Notice
+  keyword: Keywordless
+  tier: '2'
+- index: 257
+  name: gift_9724
+  gift_id: '9724'
+  name_zh: 蚀刻的指针
+  name_en: Etched Clock Hands
+  keyword: Tremor
+  tier: '2'
+- index: 258
+  name: gift_9725
+  gift_id: '9725'
+  name_zh: 锈蚀的指针
+  name_en: Rusted Clock Hands
+  keyword: Tremor
+  tier: '2'
+- index: 259
+  name: gift_9726
+  gift_id: '9726'
+  name_zh: 涓滴之杯
+  name_en: Chalice of Trickle-down
+  keyword: Tremor
+  tier: '3'
+- index: 260
+  name: gift_9727
+  gift_id: '9727'
+  name_zh: 预支时间收据
+  name_en: Prepaid Time Receipt
+  keyword: Keywordless
+  tier: '3'
+- index: 261
+  name: gift_9728
+  gift_id: '9728'
+  name_zh: 怀表：Type L
+  name_en: 'Pocket Watch : Type L'
+  keyword: Tremor
+  tier: '4'
+- index: 262
+  name: gift_9729
+  gift_id: '9729'
+  name_zh: 怀表：Type E
+  name_en: 'Pocket Watch : Type E'
+  keyword: Tremor
+  tier: '4'
+- index: 263
+  name: gift_9730
+  gift_id: '9730'
+  name_zh: 怀表：Type Y
+  name_en: 'Pocket Watch : Type Y'
+  keyword: Tremor
+  tier: '4'
+- index: 264
+  name: gift_9731
+  gift_id: '9731'
+  name_zh: 怀表：Type P
+  name_en: 'Pocket Watch : Type P'
+  keyword: Tremor
+  tier: '4'
+- index: 265
+  name: gift_9732
+  gift_id: '9732'
+  name_zh: 经济舱折扣券
+  name_en: Economy Class Discount Voucher
+  keyword: Keywordless
+  tier: '1'
+- index: 266
+  name: gift_9733
+  gift_id: '9733'
+  name_zh: 罐装冰淇淋
+  name_en: Canned Ice Cream
+  keyword: Keywordless
+  tier: '2'
+- index: 267
+  name: gift_9734
+  gift_id: '9734'
+  name_zh: E型次元短剑
+  name_en: E-Type Dimensional Dagger
+  keyword: Charge
+  tier: '3'
+- index: 268
+  name: gift_9735
+  gift_id: '9735'
+  name_zh: 便携式力场电池
+  name_en: Portable Barrier Battery
+  keyword: Charge
+  tier: '3'
+- index: 269
+  name: gift_9736
+  gift_id: '9736'
+  name_zh: 生物发电电池
+  name_en: Biogenerative Battery
+  keyword: Charge
+  tier: '2'
+- index: 270
+  name: gift_9737
+  gift_id: '9737'
+  name_zh: 心脏反应模块
+  name_en: Cardiovascular Reactive Module
+  keyword: Charge
+  tier: '2'
+- index: 271
+  name: gift_9738
+  gift_id: '9738'
+  name_zh: 义体关节伺服电机
+  name_en: Prosthetic Joint Servos
+  keyword: Charge
+  tier: '2'
+- index: 272
+  name: gift_9739
+  gift_id: '9739'
+  name_zh: 血液结晶
+  name_en: Crystallized Blood
+  keyword: Bleed
+  tier: '2'
+- index: 273
+  name: gift_9740
+  gift_id: '9740'
+  name_zh: 自动式关节
+  name_en: Automated Joints
+  keyword: Charge
+  tier: '4'
+- index: 274
+  name: gift_9741
+  gift_id: '9741'
+  name_zh: 过度充能电池
+  name_en: Overcharged Battery
+  keyword: Charge
+  tier: '4'
+- index: 275
+  name: gift_9742
+  gift_id: '9742'
+  name_zh: 永动伺服电机
+  name_en: Perpetual Generator Servos
+  keyword: Charge
+  tier: '4'
+- index: 276
+  name: gift_9743
+  gift_id: '9743'
+  name_zh: 心动力宝石
+  name_en: Hearts-powered Jewel
+  keyword: Charge
+  tier: '4'
+- index: 277
+  name: gift_9744
+  gift_id: '9744'
+  name_zh: 孝心
+  name_en: Filial Love
+  keyword: Bleed
+  tier: '2'
+- index: 278
+  name: gift_9745
+  gift_id: '9745'
+  name_zh: 错位的晶体管
+  name_en: Misaligned Transistor
+  keyword: Charge
+  tier: '2'
+- index: 279
+  name: gift_9746
+  gift_id: '9746'
+  name_zh: 精神污染加速气体
+  name_en: Mental Corruption Boosting Gas
+  keyword: Sinking
+  tier: '2'
+- index: 280
+  name: gift_9747
+  gift_id: '9747'
+  name_zh: 泄露的脑啡肽
+  name_en: Leaked Enkephalin
+  keyword: Sinking
+  tier: '2'
+- index: 281
+  name: gift_9748
+  gift_id: '9748'
+  name_zh: 苦难
+  name_en: Hardship
+  keyword: Keywordless
+  tier: '3'
+- index: 282
+  name: gift_9749
+  gift_id: '9749'
+  name_zh: 荆棘头冠
+  name_en: Crown of Thorns
+  keyword: Keywordless
+  tier: '3'
+- index: 283
+  name: gift_9750
+  gift_id: '9750'
+  name_zh: 安息
+  name_en: Rest
+  keyword: Sinking
+  tier: '3'
+- index: 284
+  name: gift_9751
+  gift_id: '9751'
+  name_zh: 蛇蜕
+  name_en: Snake Slough
+  keyword: Keywordless
+  tier: '2'
+- index: 285
+  name: gift_9752
+  gift_id: '9752'
+  name_zh: 虚假的光相
+  name_en: False Halo
+  keyword: Keywordless
+  tier: '4'
+- index: 286
+  name: gift_9753
+  gift_id: '9753'
+  name_zh: 节拍器
+  name_en: Metronome
+  keyword: Keywordless
+  tier: '2'
+- index: 287
+  name: gift_9754
+  gift_id: '9754'
+  name_zh: 枷锁
+  name_en: Bridle
+  keyword: Keywordless
+  tier: '4'
+- index: 288
+  name: gift_9755
+  gift_id: '9755'
+  name_zh: 轻蔑的视线的轻蔑
+  name_en: Contempt of the Gaze of Contempt
+  keyword: Keywordless
+  tier: '2'
+- index: 289
+  name: gift_9756
+  gift_id: '9756'
+  name_zh: 未孵化的火种
+  name_en: Unhatched Embers
+  keyword: Burn
+  tier: '4'
+- index: 290
+  name: gift_9757
+  gift_id: '9757'
+  name_zh: 对羊接地插头
+  name_en: Anti-Ovine Grounding Plug
+  keyword: Keywordless
+  tier: '2'
+- index: 291
+  name: gift_9758
+  gift_id: '9758'
+  name_zh: 王的残渣
+  name_en: Vestiges of the King
+  keyword: Keywordless
+  tier: '4'
+- index: 292
+  name: gift_9759
+  gift_id: '9759'
+  name_zh: 熄灭的提灯
+  name_en: Snuffed Lantern
+  keyword: Tremor
+  tier: '1'
+- index: 293
+  name: gift_9760
+  gift_id: '9760'
+  name_zh: 熄灭的烛台
+  name_en: Snuffed Candlestick
+  keyword: Keywordless
+  tier: '2'
+- index: 294
+  name: gift_9761
+  gift_id: '9761'
+  name_zh: 影子怪物
+  name_en: Shadow Monster
+  keyword: Tremor
+  tier: '3'
+- index: 295
+  name: gift_9762
+  gift_id: '9762'
+  name_zh: 包装盒
+  name_en: Packaging Box
+  keyword: Keywordless
+  tier: '1'
+- index: 296
+  name: gift_9763
+  gift_id: '9763'
+  name_zh: 包装缎带
+  name_en: Packaging Ribbon
+  keyword: Keywordless
+  tier: '3'
+- index: 297
+  name: gift_9764
+  gift_id: '9764'
+  name_zh: 礼物
+  name_en: Gift
+  keyword: Keywordless
+  tier: '4'
+- index: 298
+  name: gift_9765
+  gift_id: '9765'
+  name_zh: 快乐的毛绒玩偶
+  name_en: Jolly Plushie
+  keyword: Poise
+  tier: '4'
+- index: 299
+  name: gift_9766
+  gift_id: '9766'
+  name_zh: 默示契约更新
+  name_en: Implicit Contract Renewal
+  keyword: Keywordless
+  tier: '3'
+- index: 300
+  name: gift_9767
+  gift_id: '9767'
+  name_zh: 黑焰烟斗
+  name_en: Darkflame Smoking Pipe
+  keyword: Pierce
+  tier: '3'
+- index: 301
+  name: gift_9768
+  gift_id: '9768'
+  name_zh: 平等
+  name_en: Equalizer
+  keyword: Pierce
+  tier: '3'
+- index: 302
+  name: gift_9769
+  gift_id: '9769'
+  name_zh: 迅捷指挥
+  name_en: Swift Command
+  keyword: Keywordless
+  tier: '2'
+- index: 303
+  name: gift_9770
+  gift_id: '9770'
+  name_zh: 齿轮碎片
+  name_en: Gear Shrapnel
+  keyword: Poise
+  tier: '2'
+- index: 304
+  name: gift_9771
+  gift_id: '9771'
+  name_zh: 近身格斗术教材
+  name_en: CQC Manual
+  keyword: Poise
+  tier: '3'
+- index: 305
+  name: gift_9772
+  gift_id: '9772'
+  name_zh: 点火手套
+  name_en: Combustion Gloves
+  keyword: Burn
+  tier: '3'
+- index: 306
+  name: gift_9773
+  gift_id: '9773'
+  name_zh: 荆棘战斗靴
+  name_en: Spiked Combat Boots
+  keyword: Rupture
+  tier: '3'
+- index: 307
+  name: gift_9774
+  gift_id: '9774'
+  name_zh: 重燃火花塞
+  name_en: Re-ignition Plug
+  keyword: Burn
+  tier: '3'
+- index: 308
+  name: gift_9775
+  gift_id: '9775'
+  name_zh: 强化剂Mk.4
+  name_en: Enhancer Mk.4
+  keyword: Rupture
+  tier: '3'
+- index: 309
+  name: gift_9776
+  gift_id: '9776'
+  name_zh: 余火
+  name_en: Embers
+  keyword: Burn
+  tier: '3'
+- index: 310
+  name: gift_9777
+  gift_id: '9777'
+  name_zh: 细枝
+  name_en: Twigs
+  keyword: Rupture
+  tier: '3'
+- index: 311
+  name: gift_9778
+  gift_id: '9778'
+  name_zh: 常规作战用装备
+  name_en: Regular Operational Gear
+  keyword: Keywordless
+  tier: '3'
+- index: 312
+  name: gift_9779
+  gift_id: '9779'
+  name_zh: 作战批准卡
+  name_en: Operation Authorization Card
+  keyword: Keywordless
+  tier: '3'
+- index: 313
+  name: gift_9780
+  gift_id: '9780'
+  name_zh: 高危作战用装备
+  name_en: High-risk Operational Gear
+  keyword: Keywordless
+  tier: '4'
+- index: 314
+  name: gift_9781
+  gift_id: '9781'
+  name_zh: 木质酒杯
+  name_en: Hardwood Liquor Cup
+  keyword: Keywordless
+  tier: '3'
+- index: 315
+  name: gift_9782
+  gift_id: '9782'
+  name_zh: 陈旧的刀柄
+  name_en: Worn Hilt
+  keyword: Slash
+  tier: '3'
+- index: 316
+  name: gift_9783
+  gift_id: '9783'
+  name_zh: 绝景
+  name_en: Resplendence
+  keyword: Bleed
+  tier: '4'
+- index: 317
+  name: gift_9784
+  gift_id: '9784'
+  name_zh: 琢磨
+  name_en: Cultivation
+  keyword: Slash
+  tier: '4'
+- index: 318
+  name: gift_9785
+  gift_id: '9785'
+  name_zh: 丛云
+  name_en: Swarmcloud
+  keyword: Slash
+  tier: '4'
+- index: 319
+  name: gift_9786
+  gift_id: '9786'
+  name_zh: 强化纹身-中指
+  name_en: Enh. Tattoos - The Middle
+  keyword: Blunt
+  tier: '2'
+- index: 320
+  name: gift_9787
+  gift_id: '9787'
+  name_zh: 异文符咒
+  name_en: Strange Glyph Talisman
+  keyword: Rupture
+  tier: '2'
+- index: 321
+  name: gift_9788
+  gift_id: '9788'
+  name_zh: 卯足
+  name_en: Harestride
+  keyword: Rupture
+  tier: '2'
+- index: 322
+  name: gift_9789
+  gift_id: '9789'
+  name_zh: 忠义锁链
+  name_en: Chains of Loyalty
+  keyword: Blunt
+  tier: '3'
+- index: 323
+  name: gift_9790
+  gift_id: '9790'
+  name_zh: 镌刻的异文
+  name_en: Strange Glyph Inscriptions
+  keyword: Rupture
+  tier: '3'
+- index: 324
+  name: gift_9791
+  gift_id: '9791'
+  name_zh: 影织斗笠
+  name_en: Shadow Bamboo Hat
+  keyword: Slash
+  tier: '3'
+- index: 325
+  name: gift_9792
+  gift_id: '9792'
+  name_zh: 永恒的缘分锁链
+  name_en: Everlasting Chains of Bond
+  keyword: Blunt
+  tier: '4'
+- index: 326
+  name: gift_9793
+  gift_id: '9793'
+  name_zh: 漆字琉璃钿
+  name_en: Glyph of Glass Shards
+  keyword: Rupture
+  tier: '4'
+- index: 327
+  name: gift_9794
+  gift_id: '9794'
+  name_zh: 满满当当的燃料罐
+  name_en: Swishing Fuel Tank
+  keyword: Keywordless
+  tier: '3'
+- index: 328
+  name: gift_9795
+  gift_id: '9795'
+  name_zh: 落坠的一滴
+  name_en: A Drop
+  keyword: Bleed
+  tier: '4'
+- index: 329
+  name: gift_9796
+  gift_id: '9796'
+  name_zh: 悲闷的吐息
+  name_en: Sorrowful Exhale
+  keyword: Poise
+  tier: '4'
+- index: 330
+  name: gift_9797
+  gift_id: '9797'
+  name_zh: 注定破碎的火炮
+  name_en: Shatterbound Cannon
+  keyword: Keywordless
+  tier: '4'
+- index: 331
+  name: gift_9798
+  gift_id: '9798'
+  name_zh: 贪欲之棘
+  name_en: Coveting Thorn
+  keyword: Bleed
+  tier: '4'
+- index: 332
+  name: gift_9799
+  gift_id: '9799'
+  name_zh: 某种哲学
+  name_en: A Certain Philosophy
+  keyword: Keywordless
+  tier: EX
+- index: 333
+  name: gift_9800
+  gift_id: '9800'
+  name_zh: 富
+  name_en: Wealth
+  keyword: Keywordless
+  tier: EX
+- index: 334
+  name: gift_9801
+  gift_id: '9801'
+  name_zh: 强韧丸
+  name_en: Tenacity Bolus
+  keyword: Keywordless
+  tier: '2'
+- index: 335
+  name: gift_9802
+  gift_id: '9802'
+  name_zh: 电击斧
+  name_en: Lightning Axe
+  keyword: Charge
+  tier: '2'
+- index: 336
+  name: gift_9803
+  gift_id: '9803'
+  name_zh: 镜中花
+  name_en: Flower in the Mirror
+  keyword: Rupture
+  tier: '3'
+- index: 337
+  name: gift_9804
+  gift_id: '9804'
+  name_zh: 水中月
+  name_en: Moon in the Water
+  keyword: Poise
+  tier: '3'
+- index: 338
+  name: gift_9805
+  gift_id: '9805'
+  name_zh: 灰色星座的加护
+  name_en: Ashen Constellation's Blessing
+  keyword: Keywordless
+  tier: '3'
+- index: 339
+  name: gift_9806
+  gift_id: '9806'
+  name_zh: 未被选中之人
+  name_en: The Unchosen
+  keyword: Sinking
+  tier: '2'
+- index: 340
+  name: gift_9807
+  gift_id: '9807'
+  name_zh: 泪锋之剑
+  name_en: Sword Sharpened with Tears
+  keyword: Sinking
+  tier: '3'
+- index: 341
+  name: gift_9808
+  gift_id: '9808'
+  name_zh: 魔法少女的爱之礼物
+  name_en: Magical Girl's Lovely Gift
+  keyword: Charge
+  tier: '2'
+- index: 342
+  name: gift_9809
+  gift_id: '9809'
+  name_zh: 可用之处已尽，郁积的憎恶
+  name_en: Spent Use, Forming Hate
+  keyword: Charge
+  tier: '3'
+- index: 343
+  name: gift_9810
+  gift_id: '9810'
+  name_zh: 精神屏蔽力场
+  name_en: Trauma Shield
+  keyword: Keywordless
+  tier: '2'
+- index: 344
+  name: gift_9811
+  gift_id: '9811'
+  name_zh: 价值处置
+  name_en: Value Disposal
+  keyword: Keywordless
+  tier: '2'
+- index: 345
+  name: gift_9812
+  gift_id: '9812'
+  name_zh: 交织的时间
+  name_en: Interlinked Time
+  keyword: Tremor
+  tier: '2'
+- index: 346
+  name: gift_9813
+  gift_id: '9813'
+  name_zh: 紧急授予型搜查官徽章
+  name_en: Emergency Investigator Badge
+  keyword: Keywordless
+  tier: '2'
+- index: 347
+  name: gift_9814
+  gift_id: '9814'
+  name_zh: 强制纠缠定序器
+  name_en: Entanglement Override Sequencer
+  keyword: Tremor
+  tier: '3'
+- index: 348
+  name: gift_9816
+  gift_id: '9816'
+  name_zh: 超精密时间加速装置
+  name_en: Microprecision Time Accelerator
+  keyword: Tremor
+  tier: '4'
+- index: 349
+  name: gift_9817
+  gift_id: '9817'
+  name_zh: 蓝星碎片
+  name_en: Blue Starshard
+  keyword: Sinking
+  tier: '3'
+- index: 350
+  name: gift_9818
+  gift_id: '9818'
+  name_zh: 被遗落的次元护手
+  name_en: Discarded Dimensional Gauntlet
+  keyword: Charge
+  tier: '3'
+- index: 351
+  name: gift_9819
+  gift_id: '9819'
+  name_zh: 血炎刀
+  name_en: Bloodflame Sword
+  keyword: Burn
+  tier: '2'
+- index: 352
+  name: gift_9820
+  gift_id: '9820'
+  name_zh: 黑铁马胄
+  name_en: Blackiron Barding
+  keyword: Tremor
+  tier: '2'
+- index: 353
+  name: gift_9821
+  gift_id: '9821'
+  name_zh: 蒙蔽心扉的红布
+  name_en: Red Cloth that Closes the Heart
+  keyword: Slash
+  tier: '3'
+- index: 354
+  name: gift_9822
+  gift_id: '9822'
+  name_zh: 品德 - 智
+  name_en: Virtue - Zhi (智)
+  keyword: Rupture
+  tier: '2'
+- index: 355
+  name: gift_9823
+  gift_id: '9823'
+  name_zh: 品德 - 勇
+  name_en: Virtue - Yong (勇)
+  keyword: Rupture
+  tier: '2'
+- index: 356
+  name: gift_9824
+  gift_id: '9824'
+  name_zh: 品德 - 仁
+  name_en: Virtue - Ren (仁)
+  keyword: Rupture
+  tier: '2'
+- index: 357
+  name: gift_9825
+  gift_id: '9825'
+  name_zh: 切磋琢磨
+  name_en: 'Cultivation: Cut, File, Carve, Polish'
+  keyword: Rupture
+  tier: '4'
+- index: 358
+  name: gift_9826
+  gift_id: '9826'
+  name_zh: 绍兴酒
+  name_en: Shaoxing Wine
+  keyword: Keywordless
+  tier: '2'
+- index: 359
+  name: gift_9827
+  gift_id: '9827'
+  name_zh: 家人的怨恨
+  name_en: The Family's Resentment
+  keyword: Bleed
+  tier: '4'
+- index: 360
+  name: gift_9828
+  gift_id: '9828'
+  name_zh: 为了指挥官
+  name_en: For the Capo
+  keyword: Tremor
+  tier: '4'
+- index: 361
+  name: gift_9829
+  gift_id: '9829'
+  name_zh: 中指规矩
+  name_en: Rules of the Middle
+  keyword: Blunt
+  tier: '4'
+- index: 362
+  name: gift_9830
+  gift_id: '9830'
+  name_zh: 可米的小小礼物
+  name_en: Kkomi's Mini-Gift
+  keyword: Keywordless
+  tier: '4'
+- index: 363
+  name: gift_9831
+  gift_id: '9831'
+  name_zh: 恐鱼研究记录
+  name_en: Sea Terror Notes
+  keyword: Keywordless
+  tier: '3'
+- index: 364
+  name: gift_9832
+  gift_id: '9832'
+  name_zh: 黄金罗盘
+  name_en: Goldforged Compass
+  keyword: Keywordless
+  tier: '3'
+- index: 365
+  name: gift_9833
+  gift_id: '9833'
+  name_zh: 银色的钥匙串
+  name_en: Silver Key Bundle
+  keyword: Keywordless
+  tier: '4'
+- index: 366
+  name: gift_9834
+  gift_id: '9834'
+  name_zh: 恐鱼干
+  name_en: Sea Terror Jerky
+  keyword: Keywordless
+  tier: '4'
+- index: 367
+  name: gift_9835
+  gift_id: '9835'
+  name_zh: 闪耀的提灯
+  name_en: Brilliant Lamplight
+  keyword: Keywordless
+  tier: '4'
+- index: 368
+  name: gift_9836
+  gift_id: '9836'
+  name_zh: 古旧乐谱残章
+  name_en: Aged Sheet Music
+  keyword: Sinking
+  tier: '4'
+- index: 369
+  name: gift_9837
+  gift_id: '9837'
+  name_zh: 金属构造体
+  name_en: Metal Construct
+  keyword: Rupture
+  tier: '4'
+- index: 370
+  name: gift_9838
+  gift_id: '9838'
+  name_zh: 宿月酒盏
+  name_en: Moonmirror Wine Cup
+  keyword: Poise
+  tier: '4'
+- index: 371
+  name: gift_9839
+  gift_id: '9839'
+  name_zh: 造型古典的拆信刀
+  name_en: Classical-design Letter Opener
+  keyword: Tremor
+  tier: '4'
+- index: 372
+  name: gift_9840
+  gift_id: '9840'
+  name_zh: W公司制式帽子
+  name_en: W Corp. Standard Issue Cap
+  keyword: Charge
+  tier: '2'
+- index: 373
+  name: gift_9841
+  gift_id: '9841'
+  name_zh: C型清扫人员装备套组
+  name_en: Cleanup Agent Gear Set C
+  keyword: Charge
+  tier: '4'
+- index: 374
+  name: gift_9842
+  gift_id: '9842'
+  name_zh: 由血而成之肉，由肉而成之血
+  name_en: Bloody Flesh, Fleshy Blood
+  keyword: Bleed
+  tier: '3'
+- index: 375
+  name: gift_9843
+  gift_id: '9843'
+  name_zh: 硬血长柄刀
+  name_en: Hardblood Glaive
+  keyword: Bleed
+  tier: '3'
+- index: 376
+  name: gift_9991
+  gift_id: '9991'
+  name_zh: 黯淡的残影
+  name_en: Dark Vestige
+  keyword: Keywordless
+  tier: '1'
+- index: 377
+  name: gift_9992
+  gift_id: '9992'
+  name_zh: 微茫的残影
+  name_en: Faint Vestige
+  keyword: Keywordless
+  tier: '2'
+- index: 378
+  name: gift_9993
+  gift_id: '9993'
+  name_zh: 闪耀的残影
+  name_en: Twinkling Vestige
+  keyword: Keywordless
+  tier: '3'
+- index: 379
+  name: gift_9994
+  gift_id: '9994'
+  name_zh: 辉煌的残影
+  name_en: Brilliant Vestige
+  keyword: Keywordless
+  tier: '4'
+- index: 380
+  name: gift_9995
+  gift_id: '9995'
+  name_zh: 月之残影
+  name_en: Lunar Vestige
+  keyword: Keywordless
+  tier: '5'
+- index: 381
+  name: enhance_1
+- index: 382
+  name: enhance_2
