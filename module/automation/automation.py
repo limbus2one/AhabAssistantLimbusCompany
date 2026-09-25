@@ -547,12 +547,12 @@ class Automation(metaclass=SingletonMeta):
                 detections = [item for item in detections if item.is_inside(my_crop)]
 
             if not detections:
-                log.debug("YOLO 未检测到目标", stacklevel=additional_stack + 3)
+                log.debug("YOLO 未检测到目标", stacklevel=additional_stack + 2)
                 return []
             log.debug(
                 f"YOLO 检测到{len(detections)}个目标："
                 f"{[(item.class_name, round(item.confidence, 2), item.center) for item in detections]}",
-                stacklevel=additional_stack + 3,
+                stacklevel=additional_stack + 2,
             )
             return detections
         except Exception as e:
