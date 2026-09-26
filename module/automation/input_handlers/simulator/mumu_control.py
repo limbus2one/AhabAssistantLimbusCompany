@@ -969,7 +969,10 @@ class MumuControl(AbstractInput):
             raise NemuIpcError("nemu_capture_display failed during screenshot()")
 
         image = np.ctypeslib.as_array(pixels_pointer.contents).reshape((height, width, 4))
-        image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGB)
+        # nemu_capture_display 写回的是 RGBA 排布（不是 Windows DIB 惯用的 BGRA）。
+        # 若按 BGRA2RGB 转换会得到红蓝互换的图：灰度模板匹配/OCR 看不出问题，
+        # 但 YOLO 这类依赖颜色的模型会直接失效，务必保持 RGBA2RGB。
+        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
         cv2.flip(image, 0, dst=image)
         return image
 
