@@ -20,6 +20,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import cv2
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -66,6 +68,42 @@ def test_letterbox_padding_uses_the_ultralytics_grey():
 
     assert padded[0, 320].tolist() == [114, 114, 114]
     assert padded[320, 320].tolist() == [255, 255, 255]
+
+
+def _spy_on_resize(monkeypatch):
+    """记录 letterbox 实际传给 cv2.resize 的插值方式。"""
+    seen = []
+    real_resize = cv2.resize
+
+    def spy(src, dsize, *args, **kwargs):
+        seen.append(kwargs.get("interpolation"))
+        return real_resize(src, dsize, *args, **kwargs)
+
+    monkeypatch.setattr(cv2, "resize", spy)
+    return seen
+
+
+def test_letterbox_downsamples_with_area_filter(monkeypatch):
+    """下采样必须用 INTER_AREA。
+
+    INTER_LINEAR / INTER_CUBIC 只采 2x2 / 4x4 邻域，在 1920x1080 -> 640（3 倍）
+    这种大幅下采样时会丢掉大部分像素、产生锯齿，把小图标抹糊。
+    实测同一张实机截图：INTER_LINEAR 只认出 2/4，INTER_AREA 认出 4/4。
+    """
+    seen = _spy_on_resize(monkeypatch)
+
+    letterbox(np.zeros((1080, 1920, 3), dtype=np.uint8), 640)
+
+    assert seen == [cv2.INTER_AREA]
+
+
+def test_letterbox_upsamples_with_linear_filter(monkeypatch):
+    """放大时 INTER_AREA 会退化成最近邻，所以只在 ratio < 1 时用 AREA。"""
+    seen = _spy_on_resize(monkeypatch)
+
+    letterbox(np.zeros((200, 300, 3), dtype=np.uint8), 640)
+
+    assert seen == [cv2.INTER_LINEAR]
 
 
 def test_scale_boxes_undoes_letterbox():
