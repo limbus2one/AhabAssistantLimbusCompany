@@ -28,10 +28,6 @@ class DefenseForSoloState:
 
     remaining_turns: int = DEFENSE_FOR_SOLO_TURN_LIMIT
 
-    @property
-    def completed_turns(self) -> int:
-        return DEFENSE_FOR_SOLO_TURN_LIMIT - self.remaining_turns
-
     def consume_turn(self) -> None:
         if self.remaining_turns > 0:
             self.remaining_turns -= 1
@@ -116,6 +112,7 @@ class Battle:
         first_turn: bool,
         defense_first_round: bool,
         avoid_skill_3: bool,
+        prioritize_skill_3: bool = False,
         defense_for_solo_state: DefenseForSoloState | None = None,
         defense_for_solo_used_this_turn: bool = False,
     ) -> bool:
@@ -133,8 +130,7 @@ class Battle:
             "battle/gear_left.png", threshold=0.9
         ):
             if use_limited_defense:
-                next_count = defense_for_solo_state.completed_turns + 1
-                msg = f"小指良单通连续防御（{next_count}/{DEFENSE_FOR_SOLO_TURN_LIMIT}），开始战斗"
+                msg = f"小指良单通连续防御（剩余{defense_for_solo_state.remaining_turns}回合），开始战斗"
             else:
                 msg = "第一回合全员防御，开始战斗"
             if self._defense_this_round() is False:
@@ -148,12 +144,9 @@ class Battle:
             elif use_limited_defense:
                 defense_for_solo_state.consume_turn()
                 limited_defense_succeeded = True
-                log.info(
-                    f"小指良单通连续防御已执行 "
-                    f"{defense_for_solo_state.completed_turns}/{DEFENSE_FOR_SOLO_TURN_LIMIT} 回合"
-                )
+                log.info(f"小指良单通连续防御已执行，剩余 {defense_for_solo_state.remaining_turns} 回合")
                 if defense_for_solo_state.remaining_turns == 0:
-                    log.info("本次镜牢的连续5回合防御已完成，后续回合恢复普通战斗操作")
+                    log.info("本次镜牢的连续防御已完成，后续回合恢复普通战斗操作")
             sleep(2)
             if not auto.find_element("battle/pause_assets.png", take_screenshot=True):
                 auto.key_press("p")
@@ -163,11 +156,14 @@ class Battle:
             if auto.find_element("battle/gear_left.png", threshold=0.9):
                 msg = "使用全员防御模式开始战斗"
                 self._defense_this_round()
-        elif avoid_skill_3 and auto.find_element("battle/gear_left.png", threshold=0.9):
-            msg = "使用避免3技能模式开始战斗"
-            if self._chain_battle() is False:
-                avoid_skill_3 = False
-                msg = "使用避免三技能的链接战失败，本场战斗改为P+Enter"
+        elif (avoid_skill_3 or prioritize_skill_3) and auto.find_element(
+            "battle/gear_left.png", threshold=0.9
+        ):
+            use_prioritize_skill_3 = prioritize_skill_3 and not avoid_skill_3
+            mode_name = "优先" if use_prioritize_skill_3 else "避免"
+            msg = f"使用{mode_name}3技能模式开始战斗"
+            if self._chain_battle(prioritize_skill_3=use_prioritize_skill_3) is False:
+                msg = f"使用{mode_name}三技能的链接战失败，本场战斗改为P+Enter"
                 auto.key_press("p")
                 sleep(0.5)
                 auto.key_press("enter")
@@ -207,6 +203,7 @@ class Battle:
         choice_event_handling=True,
         combat_count=1,
         defense_for_solo_state: DefenseForSoloState | None = None,
+        prioritize_skill_3=False,
     ):
         chance = self.INIT_CHANCE
         waiting = self._update_wait_time()
@@ -228,11 +225,12 @@ class Battle:
         def perform_battle_operation() -> None:
             nonlocal defense_for_solo_used_this_turn
             limited_defense_succeeded = self._battle_operation(
-                first_turn,
-                defense_first_round,
-                avoid_skill_3,
-                defense_for_solo_state,
-                defense_for_solo_used_this_turn,
+                first_turn=first_turn,
+                defense_first_round=defense_first_round,
+                avoid_skill_3=avoid_skill_3,
+                prioritize_skill_3=prioritize_skill_3,
+                defense_for_solo_state=defense_for_solo_state,
+                defense_for_solo_used_this_turn=defense_for_solo_used_this_turn,
             )
             defense_for_solo_used_this_turn = (
                 defense_for_solo_used_this_turn or limited_defense_succeeded
@@ -308,7 +306,7 @@ class Battle:
                     return False
                 continue
 
-            if in_mirror and not cfg.fight_to_last_man:
+            if in_mirror and not cfg.fight_to_last_man and not infinite_battle:
                 if dead_position := auto.find_element("battle/dead.png"):
                     my_scale = cfg.set_win_size / 1440
                     dead_bbox = (
@@ -583,29 +581,57 @@ class Battle:
             skill_positions.append(pos)
 
     @staticmethod
-    def _chain_battle() -> bool:
+    def _get_lower_row_skill_indexes(
+        skill_3_indexes: set[int],
+        skill_nums: int,
+        prioritize_skill_3: bool,
+    ) -> set[int]:
+        """Return slots that should use the lower skill row.
+
+        ``find_skill3`` identifies slots whose upper option is skill 3. Avoid mode
+        switches those slots to the lower row; prioritize mode switches the rest.
+        """
+        valid_indexes = set(range(1, skill_nums + 1))
+        skill_3_indexes = skill_3_indexes & valid_indexes
+        if prioritize_skill_3:
+            return valid_indexes - skill_3_indexes
+        return skill_3_indexes
+
+    @staticmethod
+    def _chain_battle(prioritize_skill_3: bool = False) -> bool:
         try:
             scale = cfg.set_win_size / 1440
 
             gear_left = auto.find_element("battle/gear_left.png")
+            gear_right = auto.find_element("battle/gear_right.png")
+            if gear_left is None or gear_right is None:
+                return False
 
             gear_1 = [gear_left[0] + 94 * scale, gear_left[1] - 37 * scale]
-            gear_right = auto.find_element("battle/gear_right.png")
             gear_2 = [gear_right[0] - 100 * scale, gear_right[1]]
 
             bbox = (gear_1[0], gear_1[1] - 15 * scale, gear_2[0], gear_1[1])
 
             skill_nums = int((bbox[2] - bbox[0]) / (145 * scale))
+            if skill_nums <= 0:
+                return False
 
             if skill_nums >= 10:
                 bbox = (bbox[0] + 50 * scale, bbox[1], bbox[2], bbox[3])
 
             sc = auto.get_screenshot_crop(bbox)
 
-            skill3 = []
-            for sin in sins.keys():
-                skill3 += find_skill3(sc, sins[sin])
-            skill3 = [round(x[0] / (145 * scale)) for x in skill3]
+            skill_3_matches = []
+            for sin_color in sins.values():
+                skill_3_matches.extend(find_skill3(sc, sin_color))
+            skill_3_indexes = {
+                round(match[0] / (145 * scale)) for match in skill_3_matches
+            }
+            lower_row_indexes = Battle._get_lower_row_skill_indexes(
+                skill_3_indexes,
+                skill_nums,
+                prioritize_skill_3,
+            )
 
             skill_list = [gear_left]
 
@@ -632,7 +658,7 @@ class Battle:
                 skill_nums,
                 custom_tune=custom_tune,
             )
-            for index in skill3:
+            for index in sorted(lower_row_indexes):
                 skill_list[index][1] += 125 * scale
                 skill_list[index] = custom_tune(skill_list[index], index, skill_nums, scale, reverse=-1)
 
@@ -641,6 +667,8 @@ class Battle:
             auto.mouse_drag_link(skill_list)
 
             auto.mouse_to_blank()
+
+            sleep(0.5)
 
             auto.key_press("enter")
 
