@@ -275,6 +275,65 @@ class ImageUtils:
         return []
 
     @staticmethod
+    def match_color_regions(
+        image,
+        mask_fn,
+        roi=None,
+        min_area=300,
+        min_dist=80,
+        close_size=3,
+        close_iter=2,
+    ):
+        """
+        颜色区域计数：mask_fn 在 ROI 内生成前景掩码，闭运算合并后按连通域计数。
+        参考 MAA MatchTemplate 的 HSVCount（inRange + colorWithClose）与 ALAS color_mask 思路。
+
+        Args:
+            image: 彩色 BGR ndarray（如彩色截图），高度决定缩放比例（scale = 高度 / 1440）
+            mask_fn: callable(ROI的BGR ndarray) -> uint8 掩码(0/255)
+            roi: (x1, y1, x2, y2) **1440 高度基准坐标**，函数内部按实际图像高度自动缩放，
+                 None 为全图；返回坐标为实际图像坐标系
+            min_area: 连通域面积下限（1440 高度基准像素数，按 scale^2 换算）
+            min_dist: 质心合并最小距离（1440 基准，按 scale 换算）
+            close_size/close_iter: 闭运算核边长与迭代次数（合并徽章内的字母笔画，0/负值关闭）
+
+        Returns:
+            list[(cx, cy, area)]: 各颜色区域质心与面积；失败或无匹配返回 []
+        """
+        try:
+            scale = image.shape[0] / 1440
+            if roi:
+                scaled = [int(round(v * scale)) for v in roi]
+                offset = (scaled[0], scaled[1])
+                work = ImageUtils.crop(image, scaled)
+            else:
+                offset = (0, 0)
+                work = image
+            mask = np.asarray(mask_fn(work), dtype=np.uint8)
+            if mask.shape != work.shape[:2]:
+                raise ValueError(f"掩码尺寸 {mask.shape} 与 ROI {work.shape[:2]} 不一致")
+            if close_size > 0 and close_iter > 0:
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (close_size, close_size))
+                mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=close_iter)
+            min_a = max(1, int(min_area * scale * scale))
+            count, _, stats, centroids = cv2.connectedComponentsWithStats(mask)
+            regions = []
+            # label 0 是背景组件，必须跳过
+            for i in range(1, count):
+                area = stats[i, cv2.CC_STAT_AREA]
+                if area >= min_a:
+                    regions.append((centroids[i][0] + offset[0], centroids[i][1] + offset[1], area))
+            # 按面积从大到小做质心去重（与 match_template_with_multiple_targets 的 NMS 约定一致）
+            merged = []
+            for cx, cy, area in sorted(regions, key=lambda r: -r[2]):
+                if all(np.hypot(cx - mx, cy - my) > min_dist * scale for mx, my, _ in merged):
+                    merged.append((int(cx), int(cy), area))
+            return merged
+        except Exception as e:
+            log.error(f"颜色区域匹配出错：{e}")
+            return []
+
+    @staticmethod
     def get_image_info(image_array):
         """
         获取图片的信息，如尺寸。
