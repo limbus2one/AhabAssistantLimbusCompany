@@ -82,3 +82,50 @@ find_element 返回的坐标是当前游戏窗口客户区坐标，而硬编码�
 ### 脚本
 - `scripts/match_steam_image.py`：运行游戏，在终端中运行。截图保存在项目根目录下 `screenshot.png`
 - `scripts/image_similarity.py`: 检查图片相似度
+
+## E.G.O 饰品识别
+
+已连接游戏时，调用专用接口识别当前截图：
+
+```python
+from module.automation import auto
+
+gifts = auto.find_ego_gifts(take_screenshot=True, conf=0.35)
+for gift in gifts:
+    print(gift.gift_id, gift.name_zh, gift.system, gift.confidence, gift.xyxy, gift.center)
+```
+
+已有图片时可直接调用底层接口：
+
+```python
+from module.yolo import yolo
+
+gifts = yolo.find_gifts(image, conf=0.35)
+```
+
+输入为 PIL 图片或 RGB HWC 数组；OpenCV 的 BGR 图片需要先转 RGB。
+返回按置信度降序排列的 `Detection` 列表，
+自动排除 `enhance_1` / `enhance_2` 强化标记。`gift_id` 是稳定饰品 ID 字符串，
+`name_zh` / `name_en` 是中英文名，`system` 是体系（通用饰品为 `None`），`tier` 是等级。
+
+`xyxy` 和 `center` 均为**输入截图的像素坐标**，不是 2560×1440 基准坐标。
+`auto.find_ego_gifts(my_crop=(x1, y1, x2, y2))` 只按中心点过滤结果，不裁剪输入。
+无结果或模型/截图不可用时返回 `[]`，失败原因记录在日志中。该接口只识别，不点击；
+检测完成后自动化层会把缓存帧恢复为灰度，供后续模板匹配使用。
+
+模型与元数据使用 `assets/models/ego_gift_yolo26n.onnx` 和 `ego_gift_classes.yaml`，
+来源为 `yoloego`：381 类饰品与 2 类强化标记，640×640 输入。
+运行时复用 ONNX Runtime，无需安装训练工程、PyTorch 或 Ultralytics。
+
+### MuMu 截图验证
+
+在仓库根目录、`aalc` 环境下运行（MuMu 已连接 ADB，设备序列号以实际连接为准）：
+
+```powershell
+python scripts/check_ego_gifts.py --serial emulator-5554
+```
+
+也可用 `--image screenshot.png` 验证已有截图，用 `--conf 0.5` 调整阈值。
+原图、英文标注图和包含 ID、中英文名、体系、置信度、坐标、模型哈希的 JSON
+默认保存到 `logs/ego_gifts/`；可用 `--output` 指定目录，重复运行会覆盖该目录下的同名文件。
+耗时字段包含首次模型加载。脚本仅截取当前画面，不启动游戏或操作饰品选择。

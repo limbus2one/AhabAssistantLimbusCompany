@@ -504,34 +504,18 @@ class Automation(metaclass=SingletonMeta):
             except Exception:
                 pass
 
-    def find_yolo_elements(
+    def find_ego_gifts(
         self,
         my_crop=None,
         conf=None,
-        iou=None,
-        only_gifts=False,
         take_screenshot=False,
-        additional_stack=0,
-    ) -> list["Detection"]:
-        """用 YOLO 模型在当前截图中检测目标。
+    ) -> list[Detection]:
+        """识别当前画面的 E.G.O 饰品，自动排除强化标记。
 
-        与模板匹配 / 颜色检测不同，YOLO 直接输出「这是哪个饰品」，
-        因此不需要为每个饰品单独存模板。
-
-        Args:
-            my_crop: 限定结果范围 ``(x1, y1, x2, y2)``，绝对像素坐标；只保留
-                检测框中心落在该区域内的结果。**图像本身不裁剪** —— 模型是在
-                整屏 16:9 场景上训练的，裁小图再放大到推理尺寸会偏离训练分布，
-                反而掉精度。
-            conf: 置信度阈值，``None`` 时用模型默认值
-            iou: NMS 的 IoU 阈值，``None`` 时用模型默认值
-            only_gifts: 是否只返回 E.G.O 饰品（过滤掉 ``enhance_1`` / ``enhance_2`` 强化标记）
-            take_screenshot: 是否强制重新截图（默认复用当前帧）
-            additional_stack: 日志堆栈层级调整
-
-        Returns:
-            :class:`~module.yolo.yolo.Detection` 列表，坐标为整图绝对坐标；
-            模型不可用或未检测到目标时返回 ``[]``
+        返回含饰品 ID、中英文名、体系、置信度和原图坐标的 Detection 列表。
+        my_crop 仅按中心点过滤结果（原图像素坐标），不会裁剪模型输入。
+        默认复用彩色帧；无截图或缓存为灰度时自动截图，也可显式强制截图。
+        未检出或模型/截图不可用时返回 []；本方法不执行点击。
         """
         try:
             # YOLO 依赖颜色信息，灰度帧必须重新取一张彩色截图
@@ -539,20 +523,15 @@ class Automation(metaclass=SingletonMeta):
                 if self.take_screenshot(gray=False) is None:
                     return []
 
-            image = np.array(self.screenshot)
-            detections = yolo.predict(image, conf=conf, iou=iou)
-            if only_gifts:
-                detections = [item for item in detections if item.gift_id]
-            if my_crop is not None:
-                detections = [item for item in detections if item.is_inside(my_crop)]
+            detections = yolo.find_gifts(self.screenshot, crop=my_crop, conf=conf)
 
             if not detections:
-                log.debug("YOLO 未检测到目标", stacklevel=additional_stack + 2)
+                log.debug("YOLO 未检测到饰品", stacklevel=2)
                 return []
             log.debug(
-                f"YOLO 检测到{len(detections)}个目标："
+                f"YOLO 检测到{len(detections)}个饰品："
                 f"{[(item.class_name, round(item.confidence, 2), item.center) for item in detections]}",
-                stacklevel=additional_stack + 2,
+                stacklevel=2,
             )
             return detections
         except Exception as e:

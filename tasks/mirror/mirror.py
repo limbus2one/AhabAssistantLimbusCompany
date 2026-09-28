@@ -1369,11 +1369,11 @@ class Mirror:
             return
         while True:
             # 取一帧彩色截图：YOLO 需要颜色信息，模板匹配需要灰度帧。
-            # find_yolo_elements 复用这一帧识别，用完会把缓存帧还原成灰度，
+            # find_ego_gifts 复用这一帧识别，用完会把缓存帧还原成灰度，
             # 所以一次循环只截一次图。
             if auto.take_screenshot(gray=False) is None:
                 continue
-            gift_detections = auto.find_yolo_elements(only_gifts=True)
+            gift_detections = auto.find_ego_gifts()
 
             if auto.click_element("mirror/road_in_mir/ego_gift_get_confirm_assets.png"):
                 break

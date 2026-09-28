@@ -1,11 +1,11 @@
-"""``auto.find_yolo_elements`` 的接线测试。
+"""``auto.find_ego_gifts`` 的接线测试。
 
 模型本身的解码与推理在 ``tests/unit/module/yolo/`` 覆盖；这里只验证 automation 层
 的逻辑，把 ``yolo.predict`` 顶成假的，所以不需要真实截图：
 
 - 灰度帧必须重新取彩色图（YOLO 依赖颜色），彩色帧则要复用、不重复截图
   —— 这是「acquire_ego_gift 一次循环只截一帧」这条优化能不能成立的关键；
-- ``only_gifts`` 过滤掉 ``enhance_1`` / ``enhance_2`` 强化标记；
+- 自动过滤掉 ``enhance_1`` / ``enhance_2`` 强化标记；
 - ``my_crop`` 按检测框中心过滤，而不是裁剪输入图；
 - 用完必须把缓存帧还原成灰度，否则后续 ``cv2.matchTemplate`` 会因为
   截图是 3 通道、模板是灰度而直接报错；
@@ -69,6 +69,7 @@ class _Recorder:
 
     def __call__(self, gray: bool = True):
         self.calls.append(gray)
+        auto.screenshot = self.frame
         return self.frame
 
 
@@ -77,7 +78,12 @@ def fake_predict(monkeypatch):
     """把 yolo.predict 换成返回固定结果的假实现。"""
 
     def _install(detections):
-        monkeypatch.setattr(yolo, "predict", lambda image, conf=None, iou=None: list(detections))
+        def predict(image, conf=None):
+            assert image.mode == "RGB"
+            assert image.size == FRAME_SIZE
+            return list(detections)
+
+        monkeypatch.setattr(yolo, "predict", predict)
         return detections
 
     return _install
@@ -95,7 +101,7 @@ def test_gray_frame_triggers_color_recapture(monkeypatch, fake_predict):
     monkeypatch.setattr(auto, "screenshot", _gray_frame())
     fake_predict([_gift()])
 
-    detections = auto.find_yolo_elements(only_gifts=True)
+    detections = auto.find_ego_gifts()
 
     assert recorder.calls == [False], "灰度帧应触发一次 gray=False 的截图"
     assert len(detections) == 1
@@ -113,7 +119,7 @@ def test_color_frame_is_reused_without_extra_screenshot(monkeypatch, fake_predic
     monkeypatch.setattr(auto, "screenshot", _color_frame())
     fake_predict([_gift()])
 
-    auto.find_yolo_elements(only_gifts=True)
+    auto.find_ego_gifts()
 
     assert recorder.calls == [], "彩色帧应被复用，不该再截图"
 
@@ -125,7 +131,7 @@ def test_take_screenshot_flag_forces_recapture(monkeypatch, fake_predict):
     monkeypatch.setattr(auto, "screenshot", _color_frame())
     fake_predict([_gift()])
 
-    auto.find_yolo_elements(take_screenshot=True)
+    auto.find_ego_gifts(take_screenshot=True)
 
     assert recorder.calls == [False]
 
@@ -136,7 +142,7 @@ def test_returns_empty_list_when_screenshot_fails(monkeypatch, fake_predict):
     monkeypatch.setattr(auto, "screenshot", None)
     fake_predict([_gift()])
 
-    assert auto.find_yolo_elements() == []
+    assert auto.find_ego_gifts() == []
 
 
 # ---------------------------------------------------------------------------
@@ -144,25 +150,35 @@ def test_returns_empty_list_when_screenshot_fails(monkeypatch, fake_predict):
 # ---------------------------------------------------------------------------
 
 
-def test_only_gifts_drops_enhance_markers(monkeypatch, fake_predict):
+def test_drops_enhance_markers(monkeypatch, fake_predict):
     """强化标记（enhance_1 / enhance_2）不是饰品，不能当成可点击的卡片。"""
     monkeypatch.setattr(auto, "take_screenshot", _Recorder(_color_frame()))
     monkeypatch.setattr(auto, "screenshot", _color_frame())
     fake_predict([_gift(), _enhance_marker()])
 
-    detections = auto.find_yolo_elements(only_gifts=True)
+    detections = auto.find_ego_gifts()
 
     assert [item.class_name for item in detections] == ["gift_9001"]
 
 
-def test_keeps_enhance_markers_when_not_filtering(monkeypatch, fake_predict):
-    monkeypatch.setattr(auto, "take_screenshot", _Recorder(_color_frame()))
-    monkeypatch.setattr(auto, "screenshot", _color_frame())
-    fake_predict([_gift(), _enhance_marker()])
+def test_find_ego_gifts_captures_rgb_and_filters_markers_and_region(monkeypatch, fake_predict):
+    frame = _color_frame()
+    calls = []
 
-    detections = auto.find_yolo_elements(only_gifts=False)
+    def capture(gray=True):
+        calls.append(gray)
+        auto.screenshot = frame
+        return frame
 
-    assert len(detections) == 2
+    monkeypatch.setattr(auto, "take_screenshot", capture)
+    monkeypatch.setattr(auto, "screenshot", None)
+    fake_predict([_gift(), _enhance_marker(100, 100), _gift(400, 400)])
+
+    detections = auto.find_ego_gifts(my_crop=(0, 0, 200, 200), take_screenshot=True)
+
+    assert calls == [False]
+    assert detections == [_gift()]
+    assert auto.screenshot.mode == "L"
 
 
 def test_my_crop_filters_by_center(monkeypatch, fake_predict):
@@ -172,7 +188,7 @@ def test_my_crop_filters_by_center(monkeypatch, fake_predict):
     # 中心 (125, 125) 在框内；中心 (425, 425) 在框外
     fake_predict([_gift(100, 100), _gift(400, 400)])
 
-    detections = auto.find_yolo_elements(my_crop=(0, 0, 200, 200))
+    detections = auto.find_ego_gifts(my_crop=(0, 0, 200, 200))
 
     assert len(detections) == 1
     assert detections[0].center == (125, 125)
@@ -184,7 +200,7 @@ def test_my_crop_does_not_shift_coordinates(monkeypatch, fake_predict):
     monkeypatch.setattr(auto, "screenshot", _color_frame())
     fake_predict([_gift(1000, 600)])
 
-    detections = auto.find_yolo_elements(my_crop=(900, 500, 1200, 800))
+    detections = auto.find_ego_gifts(my_crop=(900, 500, 1200, 800))
 
     assert detections[0].xyxy == (1000.0, 600.0, 1050.0, 650.0)
 
@@ -200,7 +216,7 @@ def test_gray_frame_is_restored_after_detection(monkeypatch, fake_predict):
     monkeypatch.setattr(auto, "screenshot", _gray_frame())
     fake_predict([_gift()])
 
-    auto.find_yolo_elements(only_gifts=True)
+    auto.find_ego_gifts()
 
     assert auto.screenshot.mode == "L"
 
@@ -215,5 +231,5 @@ def test_gray_frame_is_restored_even_when_predict_raises(monkeypatch):
 
     monkeypatch.setattr(yolo, "predict", _boom)
 
-    assert auto.find_yolo_elements(only_gifts=True) == []
+    assert auto.find_ego_gifts() == []
     assert auto.screenshot.mode == "L"
