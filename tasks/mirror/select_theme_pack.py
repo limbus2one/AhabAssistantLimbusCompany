@@ -4,6 +4,7 @@ from module.automation import TextMatchResult, auto
 from module.config import cfg, theme_list
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
+from tasks.base import get_retry_count
 from tasks.base.back_init_menu import back_init_menu
 from utils.path_manager import path_manager
 
@@ -34,7 +35,7 @@ def switch_theme_pack_difficulty(hard_mode=False):
 @begin_and_finish_time_log(task_name="选择镜牢主题包")
 # 选择镜牢主题包
 def select_theme_pack(hard_mode=False, floor=None, team_num=None, use_custom_theme_pack_weight=False):
-    loop_count = 30
+    loop_count = get_retry_count(30)
     auto.model = "clam"
     scale = cfg.set_win_size / 1080
     if path_manager.current_language == "zh_cn":

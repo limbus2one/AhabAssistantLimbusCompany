@@ -2453,6 +2453,22 @@ These fields will be populated with default values. Do you wish to continue?</tr
 <context>
     <name>PushSettingCardChance</name>
     <message>
+        <source>识别重试次数</source>
+        <translation>Recognition retry count</translation>
+    </message>
+    <message>
+        <source>0 使用各流程默认次数；正数统一覆盖通用识别重试次数</source>
+        <translation>0 keeps the default for each process; a positive value overrides general recognition retry counts</translation>
+    </message>
+    <message>
+        <source>卡死超时时间（秒）</source>
+        <translation>Stall timeout (seconds)</translation>
+    </message>
+    <message>
+        <source>默认 90 秒；用于卡死检测及返回主界面时的加载等待</source>
+        <translation>Default: 90 seconds. Used for stall detection and loading while returning to the main menu</translation>
+    </message>
+    <message>
         <location filename="../app/setting_interface.py" line="149"/>
         <source>第一次运行请手动设定，之后将自动修改</source>
         <translation>Please set it manually for the first run, it will be automatically modified afterwards</translation>

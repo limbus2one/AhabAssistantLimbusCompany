@@ -167,6 +167,25 @@ class SettingInterface(QWidget):
             "memory_protection",
             parent=self.game_setting_group,
         )
+        self.retry_count_card = PushSettingCardChance(
+            QT_TRANSLATE_NOOP("PushSettingCardChance", "修改"),
+            FIF.SYNC,
+            QT_TRANSLATE_NOOP("PushSettingCardChance", "识别重试次数"),
+            config_name="retry_count",
+            max_value=10000,
+            content=QT_TRANSLATE_NOOP("PushSettingCardChance", "0 使用各流程默认次数；正数统一覆盖通用识别重试次数"),
+            parent=self.game_setting_group,
+        )
+        self.retry_timeout_card = PushSettingCardChance(
+            QT_TRANSLATE_NOOP("PushSettingCardChance", "修改"),
+            FIF.DATE_TIME,
+            QT_TRANSLATE_NOOP("PushSettingCardChance", "卡死超时时间（秒）"),
+            config_name="retry_timeout",
+            min_value=1,
+            max_value=86400,
+            content=QT_TRANSLATE_NOOP("PushSettingCardChance", "默认 90 秒；用于卡死检测及返回主界面时的加载等待"),
+            parent=self.game_setting_group,
+        )
         self.screenshot_benchmark_card = BasePrimaryPushSettingCard(
             QT_TRANSLATE_NOOP("BasePrimaryPushSettingCard", "截图测试"),
             FIF.CAMERA,
@@ -501,6 +520,8 @@ class SettingInterface(QWidget):
         self.game_setting_group.addSettingCard(self.hard_mirror_chance_card)
         self.game_setting_group.addSettingCard(self.win_input_type_card)
         self.game_setting_group.addSettingCard(self.memory_protection)
+        self.game_setting_group.addSettingCard(self.retry_count_card)
+        self.game_setting_group.addSettingCard(self.retry_timeout_card)
         self.game_setting_group.addSettingCard(self.screenshot_benchmark_card)
 
         self.theme_pack_group.addSettingCard(self.theme_pack_card)
@@ -743,6 +764,8 @@ class SettingInterface(QWidget):
         self.win_input_type_card.retranslateUi()
         self.minimize_to_tray_card.retranslateUi()
         self.memory_protection.retranslateUi()
+        self.retry_count_card.retranslateUi()
+        self.retry_timeout_card.retranslateUi()
         self.screenshot_benchmark_card.retranslateUi()
         self.theme_pack_group.retranslateUi()
         self.theme_pack_card.retranslateUi()

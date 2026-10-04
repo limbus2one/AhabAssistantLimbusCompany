@@ -909,10 +909,12 @@ class PushSettingCardChance(BasePushSettingCard):
         content=None,
         on_confirm: Callable[[int], None] | None = None,
         parent=None,
+        min_value=0,
     ):
         super().__init__(text, icon, title, content, parent)
         self.config_name = config_name
         self.max_value = max_value
+        self.min_value = min_value
         self.on_confirm = on_confirm
         self.line_text = LineEdit()
         self.line_text.setAlignment(Qt.AlignCenter)
@@ -929,6 +931,7 @@ class PushSettingCardChance(BasePushSettingCard):
             config_name=self.config_name,
             parent=self.window(),
             max_value=self.max_value,
+            min_value=self.min_value,
         )
         if message_box.exec():
             new_value = int(message_box.getValue())

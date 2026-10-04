@@ -1,18 +1,18 @@
 from time import monotonic, sleep
 
 from module.automation import auto
+from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
-from tasks.base import update_model_for_retry
+from tasks.base import get_retry_count, update_model_for_retry
 from tasks.base.retry import click_title_screen_safely, ensure_simulator_game_started, retry
 from tasks.mirror.reward_card import get_reward_card
 
-LOOP_COUNT=30
-LOADING_TIMEOUT = 90
 
 @begin_and_finish_time_log(task_name="返回主界面")
 def back_init_menu(*, allow_restart: bool = True):
-    loop_count = LOOP_COUNT
+    max_loop_count = get_retry_count(30)
+    loop_count = max_loop_count
     loading_started_at = None
     auto.model = "clam"
     while True:
@@ -27,7 +27,7 @@ def back_init_menu(*, allow_restart: bool = True):
             log.error("无法返回主界面，尝试重启游戏")
             kill_game()
             restart_game()
-            loop_count = 30
+            loop_count = max_loop_count
             auto.model = "clam"
             sleep(1)
             continue
@@ -88,7 +88,7 @@ def back_init_menu(*, allow_restart: bool = True):
         if auto.find_element("base/waiting_assets.png") or auto.find_element("base/waiting_2_assets.png"):
             if loading_started_at is None:
                 loading_started_at = monotonic()
-            loop_count = LOOP_COUNT if monotonic() - loading_started_at < LOADING_TIMEOUT else 0
+            loop_count = max_loop_count if monotonic() - loading_started_at < cfg.retry_timeout else 0
             continue
         loading_started_at = None
 
@@ -112,7 +112,7 @@ def back_init_menu(*, allow_restart: bool = True):
             if auto.click_element("base/update_confirm_assets.png"):
                 continue
             click_title_screen_safely()
-            loop_count = LOOP_COUNT
+            loop_count = max_loop_count
             continue
 
         if auto.click_element("base/only_option_assets.png", model="clam"):

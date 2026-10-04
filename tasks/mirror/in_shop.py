@@ -7,6 +7,7 @@ from module.config import TeamSetting, cfg
 from module.logger import log
 from module.ocr import ocr
 from tasks import all_sinners_name, all_sinners_name_zh, all_systems, system_cn_zh
+from tasks.base import get_retry_count
 from tasks.base.back_init_menu import back_init_menu
 from tasks.base.retry import retry
 from tasks.mirror import fusion_result, must_be_abandoned, must_purchase
@@ -71,7 +72,7 @@ class Shop:
         pass
 
     def ego_gift_to_power_up(self):
-        loop_count = 30
+        loop_count = get_retry_count(30)
         auto.model = "clam"
         while True:
             # 自动截图
@@ -873,7 +874,7 @@ class Shop:
             break
 
     def enter_fuse(self):
-        loop_count = 15
+        loop_count = get_retry_count(15)
         auto.model = "clam"
         auto.mouse_to_blank()
         log.debug("开始执行饰品合成前置模块")
@@ -961,7 +962,7 @@ class Shop:
 
     def heal_sinner(self):
         # 全体治疗
-        loop_count = 10
+        loop_count = get_retry_count(10)
         auto.model = "clam"
         log.debug("开始执行罪人治疗模块")
         sinner_be_heal = False
@@ -1065,7 +1066,7 @@ class Shop:
                 log.error("不应该发生这样的问题，请提交issue")
                 return False
 
-        loop_count = 30
+        loop_count = get_retry_count(30)
         auto.model = "clam"
         system_level_IV = False
         second_system_level_IV = False
@@ -1411,7 +1412,7 @@ class Shop:
 
             auto.mouse_click_blank(times=3)
 
-            loop_count = 30
+            loop_count = get_retry_count(30)
             auto.model = "clam"
             while True:
                 # 自动截图

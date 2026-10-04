@@ -14,6 +14,7 @@ from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
 from module.ocr import ocr
 from tasks import sins
+from tasks.base import get_retry_count
 from tasks.base.retry import retry
 from tasks.event import event_handling
 from utils.image_utils import ImageUtils
@@ -48,7 +49,7 @@ class Battle:
 
     @staticmethod
     def to_battle():
-        loop_count = 15
+        loop_count = get_retry_count(15)
         auto.model = "clam"
         click = False
         while True:

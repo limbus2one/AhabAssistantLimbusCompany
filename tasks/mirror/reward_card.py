@@ -3,6 +3,7 @@ from time import monotonic
 from module.automation import auto
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
+from tasks.base import get_retry_count
 from tasks.base.retry import retry
 
 reward_card_model = {
@@ -42,7 +43,7 @@ _CLAIM_RETRY_DELAY = 5.0
 @begin_and_finish_time_log(task_name="镜牢获取奖励卡", calculate_time=False)
 # 获取奖励卡
 def get_reward_card(model=0):
-    loop_count = 30
+    loop_count = get_retry_count(30)
     claim_retry_at = 0.0
     state = "select_reward"
     auto.model = "clam"

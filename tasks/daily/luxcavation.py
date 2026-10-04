@@ -3,6 +3,7 @@ from time import sleep
 from module.automation import auto
 from module.config import cfg
 from module.logger import log
+from tasks.base import get_retry_count
 
 
 def _prepare_continuous_combat_count(
@@ -46,7 +47,7 @@ def _prepare_continuous_combat_count(
 
 
 def EXP_luxcavation(combat_count: int = 1):
-    loop_count = 30
+    loop_count = get_retry_count(30)
     auto.model = "clam"
     while True:
         # 自动截图
@@ -139,7 +140,7 @@ def thread_luxcavation(combat_count: int = 1):
                         return True
             log.debug(f"{log_prefix}第 {lv_idx + 1} 关 3 次尝试均未进入编队，降级尝试下一关")
         return False
-    loop_count = 30
+    loop_count = get_retry_count(30)
     continuous_combat_set = False
     auto.model = "clam"
     while True:

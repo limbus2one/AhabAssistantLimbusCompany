@@ -16,6 +16,9 @@ announcement: 1715990400 # 公告板时间戳
 
 memory_protection: False # 内存占用保护
 
+retry_count: 0 # 通用识别重试次数；0 沿用各流程默认次数，正数统一覆盖
+retry_timeout: 90 # 卡死及返回主界面加载超时时间（秒）
+
 background_click: True # 是否使用后台点击
 win_input_type: "background" # 键鼠操控方式
 

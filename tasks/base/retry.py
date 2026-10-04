@@ -120,8 +120,10 @@ def kill_game():
         sleep(1)
 
 
-def check_times(start_time, timeout=90, logs=True):
-    """检查是否卡死超时，若是则尝试关闭重启游戏"""
+def check_times(start_time, timeout=None, logs=True):
+    """检查卡死超时；显式传入的战斗等专用超时优先于用户配置。"""
+    if timeout is None:
+        timeout = cfg.retry_timeout
     now_time = time.time()
     if logs and int(now_time - start_time) > 9 and int(now_time - start_time) % 10 == 0:
         log.info(f"初始时间为{time.strftime('%H:%M:%S', time.localtime(start_time))}，此刻时间为{time.strftime('%H:%M:%S', time.localtime(now_time))}，已卡死{int(now_time - start_time)}秒")

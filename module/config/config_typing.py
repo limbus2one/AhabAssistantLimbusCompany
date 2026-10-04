@@ -243,6 +243,12 @@ class ConfigModel(BaseModel):
     announcement: float
     """公告板时间戳"""
 
+    retry_count: int
+    """通用识别重试次数；0 沿用各流程默认次数"""
+
+    retry_timeout: int
+    """卡死及返回主界面加载超时时间（秒）"""
+
     memory_protection: bool
     """内存占用保护"""
 
@@ -542,6 +548,14 @@ class ConfigModel(BaseModel):
 
     teams: dict[str, TeamSetting]
     """队伍设置"""
+
+    @field_validator("retry_count", "retry_timeout")
+    @classmethod
+    def _validate_retry_limits(cls, value: int, info) -> int:
+        minimum = 1 if info.field_name == "retry_timeout" else 0
+        if value < minimum:
+            raise ValueError(f"{info.field_name} must be at least {minimum}")
+        return value
 
     @field_validator("use_continuous_combat_select")
     @classmethod

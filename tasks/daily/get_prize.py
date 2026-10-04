@@ -3,14 +3,14 @@ from time import sleep
 from module.automation import auto
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
-from tasks.base import update_model_for_retry
+from tasks.base import get_retry_count, update_model_for_retry
 from tasks.base.retry import retry
 from utils.image_utils import ImageUtils
 
 
 @begin_and_finish_time_log(task_name="收取日常/周常", calculate_time=False)
 def get_pass_prize():
-    loop_count = 15
+    loop_count = get_retry_count(15)
     auto.model = "clam"
     last_try = False
     while True:
@@ -50,7 +50,7 @@ def get_pass_prize():
             log.error("无法收取日常/周常")
             return
     auto.click_element("pass/weekly_assets.png")
-    loop_count = 15
+    loop_count = get_retry_count(15)
     auto.model = "clam"
     while True:
         if coordinates := auto.find_element(
@@ -71,7 +71,7 @@ def get_pass_prize():
 
 @begin_and_finish_time_log(task_name="收取邮箱", calculate_time=False)
 def get_mail_prize():
-    loop_count = 15
+    loop_count = get_retry_count(15)
     auto.model = "clam"
     while True:
         # 自动截图

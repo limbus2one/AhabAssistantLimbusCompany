@@ -16,6 +16,7 @@ from module.my_error.my_error import (
 )
 from module.ocr import ocr
 from tasks import all_systems, observe_system, start_gift
+from tasks.base import get_retry_count
 from tasks.base.back_init_menu import back_init_menu
 from tasks.base.make_enkephalin_module import make_enkephalin_module
 from tasks.base.retry import retry
@@ -95,7 +96,7 @@ class Mirror:
 
         self.floor = 0
         self.floor_times = [-9999.0 for i in range(5)]  # 负值代表缺失值
-        self.LOOP_COUNT = 250
+        self.LOOP_COUNT = get_retry_count(250)
 
         self.mirror_map = MirrorMap(hard_mode=self.hard_mode)
 
@@ -127,7 +128,7 @@ class Mirror:
                 self.hard_reward_eligible = True
 
     def road_to_mir(self):
-        loop_count = 30
+        loop_count = get_retry_count(30)
         auto.model = "clam"
         self.first_battle = True
         while True:
@@ -488,7 +489,7 @@ class Mirror:
                 log.error("镜牢道中识别失败次数达到最大值,正在返回主界面")
                 back_init_menu()
                 back_menu_count += 1
-                main_loop_count = 250
+                main_loop_count = self.LOOP_COUNT
 
         msg = "开始进行镜牢奖励领取"
         log.info(msg)
@@ -497,7 +498,7 @@ class Mirror:
             self.get_reward_in_road()
             return True
 
-        main_loop_count = 20
+        main_loop_count = get_retry_count(20)
         auto.model = "clam"
         failed = None
         while True:
@@ -759,7 +760,7 @@ class Mirror:
         double_plus_offset = 80 * scale * 2
         star_card_size = (400 * scale, 480 * scale)
 
-        loop_count = 30
+        loop_count = get_retry_count(30)
         auto.model = "clam"
         while True:
             # 自动截图
@@ -831,7 +832,7 @@ class Mirror:
     def select_init_ego_gift(self):
         scroll = False
         select_system = False
-        loop_count = 30
+        loop_count = get_retry_count(30)
         auto.model = "clam"
 
         team_system = self.system
@@ -1035,7 +1036,7 @@ class Mirror:
         if team_setting and team_setting.use_team_code and team_setting.team_code:
             if not load_team_code_in_game(team_setting.team_code):
                 log.warning("编队码加载失败，继续使用当前队伍配置")
-        loop_count = 30
+        loop_count = get_retry_count(30)
         auto.model = "clam"
         while auto.find_element("mirror/road_to_mir/dreaming_star/coins_assets.png") is None:
             if auto.take_screenshot() is None:
@@ -1170,7 +1171,7 @@ class Mirror:
     def event_handling(self):
         # 遇到有SKIP的情况
         event_start_time = time.time()
-        loop_count = 30
+        loop_count = get_retry_count(30)
         auto.model = "clam"
         event_chance = 15
         while True:
@@ -1484,7 +1485,7 @@ class Mirror:
                 continue
 
     def get_reward_in_road(self):
-        main_loop_count = 20
+        main_loop_count = get_retry_count(20)
         auto.model = "clam"
         while True:
             if auto.take_screenshot() is None:
