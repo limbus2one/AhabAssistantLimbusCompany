@@ -99,6 +99,15 @@ class TeamSetting(BaseModel):
     aggressive_save_systems: bool = False
     """激进合成保留体系饰品"""
 
+    use_ego: bool = False
+    """黑兽浮士德 Hollow，每场战斗资源足够时排入一次。"""
+
+    ego_corrosion: bool = False
+    """长按选择指定 E.G.O. 的侵蚀版本。"""
+
+    ego_speedup: bool = False
+    """仅在镜牢 Hollow 全屏动画期间长按加速。"""
+
     defense_first_round: bool = False
     """第一回合全员防御"""
 

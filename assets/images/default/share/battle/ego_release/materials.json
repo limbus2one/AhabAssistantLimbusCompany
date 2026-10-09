@@ -1,0 +1,326 @@
+{
+  "game_version": "1.116.2",
+  "date": "2026-10-09",
+  "language": "en",
+  "source_resolution": [
+    1920,
+    1080
+  ],
+  "source_identity": "Heishou Pack - Mao Branch Agent Faust",
+  "source_ego": "Hollow IV",
+  "awakening": "Le Trou",
+  "corrosion": "Hollow",
+  "threshold": 0.9,
+  "templates": [
+    {
+      "template": "assets/images/default/share/battle/ego_release/faust_avatar.png",
+      "template_sha256": "9f97af82b1dcbaf1b656eb47fce516a0f363450a50a8d4cce191fb5f1e467628",
+      "source": "logs/ego_experiment/prepare_20261009_173106/battle_ready.png",
+      "source_sha256": "79aaa73c035a9b0e24ab0e9ab5fb455c159825ec33adee91d8da329d0302b5f2",
+      "source_crop_1920x1080": [
+        766,
+        976,
+        806,
+        1010
+      ],
+      "template_size": [
+        53,
+        45
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    },
+    {
+      "template": "assets/images/default/share/battle/ego_release/ego_skill.png",
+      "template_sha256": "80d5307d3794a24850233fd11f5f516500c01051143594b4ee19451742a199ed",
+      "source": "logs/ego_experiment/le_trou_target_dragged.png",
+      "source_sha256": "6485208c718ff4899d8ab5f6c802d6e7dd4c8c3180f9774e414ec1a9978f28e8",
+      "source_crop_1920x1080": [
+        549,
+        841,
+        583,
+        884
+      ],
+      "template_size": [
+        45,
+        57
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    },
+    {
+      "template": "assets/images/default/share/battle/ego_release/ego_skill_center.png",
+      "template_sha256": "1c764ffc47e8b2e9229991b40b6ccda5677d5bf8dd6508104abc3487af283c91",
+      "source": "logs/ego_experiment/release_20261009_190101/rgb_01.png",
+      "source_sha256": "d61010919eb058df367fc1e6002547de40266aded593ce432c4b4fa32043e334",
+      "source_crop_1920x1080": [
+        664,
+        841,
+        698,
+        884
+      ],
+      "template_size": [
+        45,
+        57
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    },
+    {
+      "template": "assets/images/default/share/battle/ego_release/overclock_slot.png",
+      "template_sha256": "a3db232be61b12bfb3d7cdd08a43582120251cf686cc779d116d2a5ea4a5907d",
+      "source": "logs/ego_experiment/corrosion_queue_only.png",
+      "source_sha256": "98214c9b06df38cb2ab2c7d67ca2e222d502e6f0449be571da5f8169fb986d51",
+      "source_crop_1920x1080": [
+        1107,
+        834,
+        1171,
+        886
+      ],
+      "template_size": [
+        85,
+        69
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS",
+      "source_identity": "The House of Spiders: The Ring Apprentice Faust",
+      "source_ego": "Everlasting",
+      "scope": "Common UI marker; independently verified with Black Faust Hollow"
+    },
+    {
+      "template": "assets/images/default/share/battle/ego_release/overclock_animation.png",
+      "template_sha256": "7a6ee5dd039df156ee56ad0e55baa9e529024344c7319980b3062018fb71fc10",
+      "source": "logs/ego_experiment/release_20261009_193836/drag_03.png",
+      "source_sha256": "cb392d539924c5250724368eec51e026ad8634b0231fa69d60495d4a6f0f8e1f",
+      "source_crop_1920x1080": [
+        806,
+        88,
+        900,
+        127
+      ],
+      "template_size": [
+        125,
+        52
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    },
+    {
+      "template": "assets/images/default/en/battle/ego_release/details.png",
+      "template_sha256": "26e8eee802013c0f284b30f835f0e4af878a6e6e0c238c765ec9c9a4bc6fc0f8",
+      "source": "logs/ego_experiment/current_waw_corrosion_banner_preview.png",
+      "source_sha256": "bb0b1fad1fe884119e054dbaea4260d03e5b44d7a1256e46ae3ae5fcc6e11978",
+      "source_crop_1920x1080": [
+        1567,
+        200,
+        1657,
+        223
+      ],
+      "template_size": [
+        120,
+        31
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS",
+      "source_identity": "The House of Spiders: The Ring Apprentice Faust",
+      "source_ego": "Everlasting",
+      "scope": "Common UI marker; independently verified with Black Faust Hollow"
+    },
+    {
+      "template": "assets/images/default/en/battle/ego_release/ego_name.png",
+      "template_sha256": "56ff2ace8052dbe3beaf84e064b0cb7813a02394c7b03d84a485eeecb424472d",
+      "source": "logs/ego_experiment/hollow_panel.png",
+      "source_sha256": "e5da1b9c19968adf6bb6ccad5607f29bb9dbf88864b890c0ffcc945771891955",
+      "source_crop_1920x1080": [
+        1445,
+        511,
+        1555,
+        531
+      ],
+      "template_size": [
+        147,
+        27
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    },
+    {
+      "template": "assets/images/default/en/battle/ego_release/ego_corrosion_name.png",
+      "template_sha256": "d87afd2642f00a1ce58803dc5b2eb8b4a09aa2aac637056b735296d01bd30b0b",
+      "source": "logs/ego_experiment/hollow_overclock_preview.png",
+      "source_sha256": "badf62eaa5f56ce135250fb89a8ac8ac2dedfe17af15a64ef5bf245582524c0f",
+      "source_crop_1920x1080": [
+        1423,
+        510,
+        1528,
+        531
+      ],
+      "template_size": [
+        140,
+        28
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    },
+    {
+      "template": "assets/images/default/en/battle/ego_release/ego_animation.png",
+      "template_sha256": "3520c112449a96dd826323adb2997a6ad75c681e2892e1cb5529d77460d808bd",
+      "source": "logs/ego_experiment/release_20261009_190622/frame_0008.png",
+      "source_sha256": "3d90477a790c404f4cd78e903be81a623ad8cbd4dc0de33e83a9fa0c9f17fd15",
+      "source_crop_1920x1080": [
+        28,
+        30,
+        412,
+        116
+      ],
+      "template_size": [
+        512,
+        115
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    },
+    {
+      "template": "assets/images/default/en/battle/ego_release/ego_corrosion_animation.png",
+      "template_sha256": "29f47e62e1ac00c0f7a0aeb2e4651f5002a33679c856aef260525b4066cbadfd",
+      "source": "logs/ego_experiment/release_20261009_192917/frame_0012.png",
+      "source_sha256": "0f1dd6e5982e6ec2f3d9cea2ca57b60a2b89d84c3fa3387136c4d08e2db8e720",
+      "source_crop_1920x1080": [
+        28,
+        30,
+        412,
+        116
+      ],
+      "template_size": [
+        512,
+        115
+      ],
+      "resize": "4/3 to 2560x1440 baseline; LANCZOS"
+    }
+  ],
+  "fixtures": [
+    {
+      "fixture": "tests/fixtures/ego_release/le_trou.png",
+      "source": "logs/ego_experiment/release_20261009_190622/queue_result.png",
+      "source_sha256": "d271906d9c08bc32f3ac92b8b7fbf49338d225a37b1e2e00920f9b28ac210314",
+      "source_crop_1920x1080": [
+        450,
+        755,
+        1350,
+        940
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/hollow_overclock.png",
+      "source": "logs/ego_experiment/release_20261009_192917/queue_result.png",
+      "source_sha256": "0c61e78274525248387a0c09b8ca839929eb156269a3c5af4a39e3aca6441d20",
+      "source_crop_1920x1080": [
+        450,
+        755,
+        1350,
+        940
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/target_wide.png",
+      "source": "logs/ego_experiment/release_20261009_190622/rgb_00.png",
+      "source_sha256": "9fc460788621713e49708e3bd75614a73041a40dd1a1617f17e632e2bb5611e1",
+      "source_crop_1920x1080": [
+        150,
+        105,
+        1762,
+        742
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/target_focused.png",
+      "source": "logs/ego_experiment/release_20261009_185639/rgb_00.png",
+      "source_sha256": "cd5fa4ff5f05e52c2ceef24a317ef5c2b4420e3ceeeb46e5ffba37d56bf95804",
+      "source_crop_1920x1080": [
+        150,
+        105,
+        1762,
+        742
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/target_unassigned.png",
+      "source": "logs/ego_experiment/release_20261009_192517/rgb_00.png",
+      "source_sha256": "9b0e3901a9f81e8665d2500cada2886bed8a09d373e1c7d3eea2de4cb9cc58c3",
+      "source_crop_1920x1080": [
+        150,
+        105,
+        1762,
+        742
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/normal_animation.png",
+      "source": "logs/ego_experiment/release_20261009_190622/frame_0008.png",
+      "source_sha256": "3d90477a790c404f4cd78e903be81a623ad8cbd4dc0de33e83a9fa0c9f17fd15",
+      "source_crop_1920x1080": [
+        0,
+        0,
+        1920,
+        160
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/corrosion_animation.png",
+      "source": "logs/ego_experiment/release_20261009_193836/drag_03.png",
+      "source_sha256": "cb392d539924c5250724368eec51e026ad8634b0231fa69d60495d4a6f0f8e1f",
+      "source_crop_1920x1080": [
+        0,
+        0,
+        1920,
+        160
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/corrosion_title.png",
+      "source": "logs/ego_experiment/release_20261009_192917/frame_0012.png",
+      "source_sha256": "0f1dd6e5982e6ec2f3d9cea2ca57b60a2b89d84c3fa3387136c4d08e2db8e720",
+      "source_crop_1920x1080": [
+        0,
+        0,
+        1920,
+        160
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/planning_header.png",
+      "source": "logs/ego_experiment/release_20261009_195547/stopped.png",
+      "source_sha256": "2c157b71435484247645f08a52022e702c24ce6e37608aaa0c041aafc6a2a31d",
+      "source_crop_1920x1080": [
+        0,
+        0,
+        1920,
+        160
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/card_preview.png",
+      "source": "logs/ego_experiment/hollow_overclock_preview.png",
+      "source_sha256": "badf62eaa5f56ce135250fb89a8ac8ac2dedfe17af15a64ef5bf245582524c0f",
+      "source_crop_1920x1080": [
+        1300,
+        170,
+        1730,
+        550
+      ],
+      "resize": "none"
+    },
+    {
+      "fixture": "tests/fixtures/ego_release/heishou_ordinary_skills.png",
+      "source": "logs/ego_experiment/le_trou_after_p.png",
+      "source_sha256": "bc97de5e783d1ceb01f1934292c6d1c9fd4f602f0dbe1da3d2d88063f2f2a00b",
+      "source_crop_1920x1080": [
+        450,
+        755,
+        1350,
+        940
+      ],
+      "resize": "none"
+    }
+  ]
+}

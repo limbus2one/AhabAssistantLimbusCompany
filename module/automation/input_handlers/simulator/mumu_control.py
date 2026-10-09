@@ -1178,6 +1178,15 @@ class MumuControl(AbstractInput):
             dy (int): y方向拖动距离
             move_back (bool): 是否在拖动后将鼠标移动回原位置
         """
+        # 原地拖动用于长按；必须保留完整时长，并在中断时释放触点。
+        if dx == 0 and dy == 0:
+            self.down(x, y)
+            try:
+                time.sleep(drag_time)
+            finally:
+                self.up()
+            return
+
         self.down(x, y)
         x2 = x + dx
         y2 = y + dy

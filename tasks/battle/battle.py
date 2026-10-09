@@ -15,6 +15,7 @@ from module.logger import log
 from module.ocr import ocr
 from tasks import sins
 from tasks.base.retry import retry
+from tasks.battle.ego_release import prepare_faust_ego
 from tasks.event import event_handling
 from utils.image_utils import ImageUtils
 from utils.utils import find_skill3
@@ -43,6 +44,7 @@ class Battle:
         self.defense_all_time = False
         self.fail_times = 0
         self.cur_turn = 1
+        self.ego_used = False
         self.is_tool = is_tool
         """是否由小工具初始化"""
 
@@ -115,6 +117,8 @@ class Battle:
         prioritize_skill_3: bool = False,
         defense_for_solo_state: DefenseForSoloState | None = None,
         defense_for_solo_used_this_turn: bool = False,
+        use_ego: bool = False,
+        ego_corrosion: bool = False,
     ) -> bool:
         auto.mouse_click_blank()
         use_limited_defense = (
@@ -156,6 +160,17 @@ class Battle:
             if auto.find_element("battle/gear_left.png", threshold=0.9):
                 msg = "使用全员防御模式开始战斗"
                 self._defense_this_round()
+        elif use_ego and not self.ego_used:
+            # P 会切换分配状态，一次尝试只分配一次；排入 E.G.O. 后不再按 P。
+            auto.key_press("p")
+            sleep(0.5)
+            if prepare_faust_ego(ego_corrosion):
+                self.ego_used = True
+                msg = "指定浮士德 E.G.O. 行动槽复核通过，开始战斗"
+            else:
+                msg = "指定 E.G.O. 未就绪，使用胜率分配开始战斗"
+            auto.key_press("enter")
+            sleep(1)
         elif (avoid_skill_3 or prioritize_skill_3) and auto.find_element(
             "battle/gear_left.png", threshold=0.9
         ):
@@ -204,7 +219,11 @@ class Battle:
         combat_count=1,
         defense_for_solo_state: DefenseForSoloState | None = None,
         prioritize_skill_3=False,
+        use_ego=False,
+        ego_corrosion=False,
+        ego_speedup=False,
     ):
+        self.ego_used = False
         chance = self.INIT_CHANCE
         waiting = self._update_wait_time()
         total_count = 0
@@ -231,6 +250,8 @@ class Battle:
                 prioritize_skill_3=prioritize_skill_3,
                 defense_for_solo_state=defense_for_solo_state,
                 defense_for_solo_used_this_turn=defense_for_solo_used_this_turn,
+                use_ego=use_ego,
+                ego_corrosion=ego_corrosion,
             )
             defense_for_solo_used_this_turn = (
                 defense_for_solo_used_this_turn or limited_defense_succeeded
@@ -272,9 +293,22 @@ class Battle:
                 auto.mouse_click(view_status[0] + 100 * my_scale, view_status[1] - 500 * my_scale)
                 continue
 
-            # 如果正在交战过程
+            # E.G.O. 全屏动画没有暂停图标，必须单独识别后长按。
+            if ego_speedup and (
+                auto.find_element("battle/ego_release/ego_animation.png", threshold=0.9, model="aggressive")
+                or auto.find_element("battle/ego_release/ego_corrosion_animation.png", threshold=0.9, model="aggressive")
+                or auto.find_element("battle/ego_release/overclock_animation.png", threshold=0.9, model="aggressive")
+            ):
+                scale = cfg.set_win_size / 1440
+                auto.mouse_drag(1280 * scale, 720 * scale, drag_time=2)
+                chance = self.INIT_CHANCE
+                first_turn = False
+                defense_for_solo_used_this_turn = False
+                continue
+
+            # 如果正在交战过程；启用动画加速时缩短采样间隔，避免漏过短动画。
             if auto.find_element("battle/pause_assets.png"):
-                sleep(2 * waiting)  # 战斗播片中增大间隔
+                sleep(0.3 if ego_speedup else 2 * waiting)
                 chance = self.INIT_CHANCE
                 first_turn = False
                 defense_for_solo_used_this_turn = False

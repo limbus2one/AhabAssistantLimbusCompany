@@ -80,6 +80,9 @@ class Mirror:
         self.observe_theme_pack_selected = team_setting.observe_theme_pack_selected
         self.current_observed_pack = None
 
+        self.use_ego = team_setting.use_ego
+        self.ego_corrosion = team_setting.ego_corrosion
+        self.ego_speedup = team_setting.ego_speedup
         self.defense_first_round = team_setting.defense_first_round  # 是否第一回合全员防御
         self.defense_for_solo = team_setting.defense_for_solo  # 是否小指良单通连续防御
         self.defense_for_solo_state = (
@@ -132,6 +135,9 @@ class Mirror:
             avoid_skill_3=self.avoid_skill_3,
             prioritize_skill_3=self.prioritize_skill_3,
             defense_first_round=self.defense_first_round,
+            use_ego=self.use_ego,
+            ego_corrosion=self.ego_corrosion,
+            ego_speedup=self.ego_speedup,
             defense_for_solo_state=self.defense_for_solo_state,
         )
         self.battle_total_time += elapsed

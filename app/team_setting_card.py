@@ -646,6 +646,8 @@ class CustomizeSettingsModule(QFrame):
         self.third_line_widget = QWidget()
         self.third_line = QHBoxLayout(self.third_line_widget)
 
+        self.ego_line_widget = QWidget()
+        self.ego_line = QHBoxLayout(self.ego_line_widget)
         self.features_patch_widget_1 = QWidget()
         self.features_patch_line_1 = QHBoxLayout(self.features_patch_widget_1)
 
@@ -736,6 +738,28 @@ class CustomizeSettingsModule(QFrame):
             "aggressive_save_systems",
             None,
             QT_TRANSLATE_NOOP("BaseCheckBox", "激进合成保留体系饰品"),
+        )
+        self.use_ego = BaseCheckBox(
+            "use_ego",
+            None,
+            QT_TRANSLATE_NOOP("BaseCheckBox", "黑兽浮士德 Hollow（英文）"),
+            tips=QT_TRANSLATE_NOOP(
+                "BaseCheckBox",
+                "每场战斗资源足够时安排一次；防御设置优先，成功释放前使用胜率分配其他技能",
+            ),
+        )
+        self.ego_corrosion = BaseCheckBox(
+            "ego_corrosion",
+            None,
+            QT_TRANSLATE_NOOP("BaseCheckBox", "使用侵蚀E.G.O."),
+        )
+        self.ego_speedup = BaseCheckBox(
+            "ego_speedup",
+            None,
+            QT_TRANSLATE_NOOP("BaseCheckBox", "长按加速E.G.O.动画"),
+            tips=QT_TRANSLATE_NOOP(
+                "BaseCheckBox", "仅在镜牢Hollow动画期间原地长按，每次两秒后释放触点并重新检查画面"
+            ),
         )
         self.defense_first_round = BaseCheckBox(
             "defense_first_round",
@@ -974,6 +998,11 @@ class CustomizeSettingsModule(QFrame):
         self.third_line.addWidget(self.re_formation_each_floor)
         self.third_line.addWidget(self.use_starlight)
 
+        self.ego_line.addWidget(self.use_ego)
+        self.ego_line.addWidget(self.ego_corrosion)
+        self.ego_line.addWidget(self.ego_speedup)
+        self.ego_line.addStretch()
+
         self.features_patch_line_1.addWidget(self.aggressive_also_enhance)
         self.features_patch_line_1.addWidget(self.aggressive_save_systems)
         self.features_patch_line_1.addWidget(self.defense_first_round)
@@ -1044,6 +1073,7 @@ class CustomizeSettingsModule(QFrame):
         self.main_layout.addWidget(self.second_line_widget)
         self.main_layout.addWidget(self.third_line_widget)
         self.main_layout.addWidget(self.features_patch_widget_1)
+        self.main_layout.addWidget(self.ego_line_widget)
         self.main_layout.addWidget(self.star_layout)
         self.main_layout.addWidget(self.features_patch_widget_2, Qt.AlignLeft)
         self.main_layout.addWidget(self.fourth_line_widget)
@@ -1087,6 +1117,9 @@ class CustomizeSettingsModule(QFrame):
         self.use_starlight.retranslateUi()
         self.aggressive_also_enhance.retranslateUi()
         self.aggressive_save_systems.retranslateUi()
+        self.use_ego.retranslateUi()
+        self.ego_corrosion.retranslateUi()
+        self.ego_speedup.retranslateUi()
         self.defense_first_round.retranslateUi()
         self.defense_for_solo.retranslateUi()
         self.fixed_team_use.retranslateUi()
