@@ -228,6 +228,7 @@ all_checkbox_config_name = [
     "use_custom_theme_pack_weight",
     "use_team_code",
     "observe_ego_gift",
+    "observe_theme_pack",
 ]
 
 win_input_type_options = {

@@ -51,6 +51,7 @@ from app.observe_ego_gift_selection import (
     parse_observe_ego_gift_values,
     serialize_observe_ego_gift_values,
 )
+from app.observe_theme_pack import ObserveThemePackModule
 from app.starlight_bonus import StarlightCard, StarlightLevelSelector
 from app.theme_pack_setting_interface import ThemePackSettingDialog
 from module.config import TeamSetting, cfg, theme_list
@@ -116,6 +117,8 @@ class TeamSettingCard(QFrame):
             icon=FIF.SEARCH,
             title=self.tr("观测EGO饰品"),
         )
+
+        self.observe_theme_pack_layout = ExpandSettingCard(icon=FIF.SEARCH, title=self.tr("观测卡包（英文）"))
 
         self.custom_layout2 = ExpandSettingCard(icon=FIF.INFO, title=self.tr("编队统计数据"))
 
@@ -259,6 +262,7 @@ class TeamSettingCard(QFrame):
 
         self.customize_settings_module = CustomizeSettingsModule(self.team_num)
         self.observe_ego_gift_module = ObserveEgoGiftModule(self.team_num)
+        self.observe_theme_pack_module = ObserveThemePackModule(self)
         self.customize_info_module = CustomizeInfoModule(self.team_num)
         self.customize_settings_module.select_theme_pack_weight_button.clicked.connect(
             self.open_theme_pack_weight_dialog
@@ -319,6 +323,7 @@ class TeamSettingCard(QFrame):
         self.layout_.addWidget(self.gift_system_layout)
         self.layout_.addWidget(self.custom_layout)
         self.layout_.addWidget(self.observe_ego_gift_layout)
+        self.layout_.addWidget(self.observe_theme_pack_layout)
         self.layout_.addWidget(self.custom_layout2)
 
         self.main_layout.addLayout(self.setting_layout)
@@ -327,6 +332,7 @@ class TeamSettingCard(QFrame):
 
         self.custom_layout.viewLayout.addWidget(self.customize_settings_module)
         self.observe_ego_gift_layout.viewLayout.addWidget(self.observe_ego_gift_module)
+        self.observe_theme_pack_layout.viewLayout.addWidget(self.observe_theme_pack_module)
         self.custom_layout2.viewLayout.addWidget(self.customize_info_module)
 
     def connect_mediator(self):
@@ -484,6 +490,7 @@ class TeamSettingCard(QFrame):
         observe_module = self.findChild(ObserveEgoGiftModule, "ObserveEgoGiftModule")
         if observe_module:
             observe_module.load_selected(self.team_setting.observe_ego_gift_selected)
+        self.observe_theme_pack_module.load_selected(self.team_setting.observe_theme_pack_selected)
 
     def foolproof(self, team_system):
         for checkbox in all_checkbox_config_name:

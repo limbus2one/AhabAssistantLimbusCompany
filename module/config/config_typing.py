@@ -162,6 +162,19 @@ class TeamSetting(BaseModel):
     observe_ego_gift_selected: List[str] = []
     """用户选择的观测EGO饰品列表"""
 
+    observe_theme_pack: bool = False
+    """启用英文卡包观测"""
+
+    observe_theme_pack_selected: List[str] = [""] * 5
+    """第1至5层指定的卡包编号；空字符串表示不观测"""
+
+    @field_validator("observe_theme_pack_selected")
+    @classmethod
+    def _validate_observe_theme_packs(cls, value):
+        if len(value) != 5 or any(pack and not pack.isdecimal() for pack in value):
+            raise ValueError("卡包观测必须按1至5层设置五个卡包编号或空值")
+        return value
+
     skill_replacement: bool = False
     """自定义技能替换"""
 

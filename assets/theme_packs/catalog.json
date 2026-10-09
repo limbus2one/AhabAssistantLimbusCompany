@@ -1,0 +1,2611 @@
+{
+  "source_resolution": [
+    2560,
+    1440
+  ],
+  "card_size": [
+    192,
+    356
+  ],
+  "translation_source": "https://github.com/LocalizeLimbusCompany/LocalizeLimbusCompany/tree/231a8bcfc347273e7769b70ebc4f9f3e2fecaa5a",
+  "translation_license": "CC BY-NC-SA 4.0",
+  "maps": {
+    "normal": {
+      "1": [
+        "1001",
+        "1002",
+        "1003",
+        "1004",
+        "1005",
+        "1006",
+        "1007",
+        "1009"
+      ],
+      "2": [
+        "1003",
+        "1004",
+        "1005",
+        "1007",
+        "1009",
+        "1013",
+        "1101",
+        "1102",
+        "1202",
+        "1204",
+        "1206"
+      ],
+      "3": [
+        "1008",
+        "1010",
+        "1016",
+        "1119",
+        "1202",
+        "1204",
+        "1206",
+        "1303",
+        "1306",
+        "1309",
+        "1312",
+        "1315",
+        "1318",
+        "1321"
+      ],
+      "4": [
+        "1011",
+        "1014",
+        "1017",
+        "1024",
+        "1103",
+        "1104",
+        "1105",
+        "1106",
+        "1107",
+        "1114",
+        "1119",
+        "1124",
+        "1301",
+        "1304",
+        "1307",
+        "1310",
+        "1313",
+        "1316",
+        "1319"
+      ],
+      "5": [
+        "1011",
+        "1014",
+        "1017",
+        "1024",
+        "1104",
+        "1105",
+        "1106",
+        "1115",
+        "1117",
+        "1121",
+        "1124",
+        "1126",
+        "1128",
+        "1201",
+        "1203",
+        "1205",
+        "1301",
+        "1304",
+        "1307",
+        "1310",
+        "1313",
+        "1316",
+        "1319"
+      ]
+    },
+    "hard": {
+      "1": [
+        "1001",
+        "1002",
+        "1003",
+        "1004",
+        "1005",
+        "1006",
+        "1007",
+        "1009",
+        "1013",
+        "1016",
+        "1202",
+        "1204",
+        "1206"
+      ],
+      "2": [
+        "1004",
+        "1005",
+        "1008",
+        "1010",
+        "1101",
+        "1102",
+        "1202",
+        "1204",
+        "1206",
+        "1303",
+        "1306",
+        "1309",
+        "1312",
+        "1315",
+        "1318",
+        "1321"
+      ],
+      "3": [
+        "1008",
+        "1010",
+        "1011",
+        "1014",
+        "1017",
+        "1024",
+        "1102",
+        "1103",
+        "1104",
+        "1107",
+        "1114",
+        "1119",
+        "1301",
+        "1304",
+        "1307",
+        "1310",
+        "1313",
+        "1316",
+        "1319",
+        "1401",
+        "1403",
+        "1405",
+        "1407",
+        "1409",
+        "1411",
+        "1413"
+      ],
+      "4": [
+        "1011",
+        "1012",
+        "1014",
+        "1015",
+        "1017",
+        "1024",
+        "1103",
+        "1104",
+        "1105",
+        "1106",
+        "1107",
+        "1109",
+        "1113",
+        "1114",
+        "1115",
+        "1116",
+        "1117",
+        "1119",
+        "1120",
+        "1123",
+        "1124",
+        "1125",
+        "1127",
+        "1201",
+        "1203",
+        "1205",
+        "1301",
+        "1304",
+        "1307",
+        "1310",
+        "1313",
+        "1316",
+        "1319",
+        "1402",
+        "1404",
+        "1406",
+        "1408",
+        "1410",
+        "1412",
+        "1414"
+      ],
+      "5": [
+        "1012",
+        "1015",
+        "1018",
+        "1019",
+        "1020",
+        "1021",
+        "1022",
+        "1023",
+        "1025",
+        "1026",
+        "1027",
+        "1105",
+        "1106",
+        "1108",
+        "1109",
+        "1110",
+        "1111",
+        "1112",
+        "1113",
+        "1115",
+        "1116",
+        "1117",
+        "1118",
+        "1120",
+        "1121",
+        "1123",
+        "1124",
+        "1125",
+        "1126",
+        "1127",
+        "1128",
+        "1302",
+        "1305",
+        "1308",
+        "1311",
+        "1314",
+        "1317",
+        "1320",
+        "1402",
+        "1404",
+        "1406",
+        "1408",
+        "1410",
+        "1412",
+        "1414"
+      ]
+    }
+  },
+  "packs": {
+    "1001": {
+      "en": "The Forgotten",
+      "zh": "被遗忘者们",
+      "weight_key": "forgot",
+      "floors": {
+        "normal": [
+          1
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_0.png",
+        "sha256": "c14e8adc62a712ccdcbd687ce7eb9c8cac9b1fc6f84f501c4f2bda2634b25699",
+        "box": [
+          1195,
+          443,
+          1387,
+          799
+        ]
+      }
+    },
+    "1002": {
+      "en": "The Outcast",
+      "zh": "无归属者",
+      "weight_key": "outcast",
+      "floors": {
+        "normal": [
+          1
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_0.png",
+        "sha256": "c14e8adc62a712ccdcbd687ce7eb9c8cac9b1fc6f84f501c4f2bda2634b25699",
+        "box": [
+          1430,
+          443,
+          1622,
+          799
+        ]
+      }
+    },
+    "1003": {
+      "en": "Flat-broke Gamblers",
+      "zh": "身无分文的赌徒",
+      "weight_key": "gambl",
+      "floors": {
+        "normal": [
+          1,
+          2
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_0.png",
+        "sha256": "c14e8adc62a712ccdcbd687ce7eb9c8cac9b1fc6f84f501c4f2bda2634b25699",
+        "box": [
+          1664,
+          443,
+          1856,
+          799
+        ]
+      }
+    },
+    "1004": {
+      "en": "Automated Factory",
+      "zh": "自动工厂",
+      "weight_key": "automated",
+      "floors": {
+        "normal": [
+          1,
+          2
+        ],
+        "hard": [
+          1,
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_0.png",
+        "sha256": "c14e8adc62a712ccdcbd687ce7eb9c8cac9b1fc6f84f501c4f2bda2634b25699",
+        "box": [
+          1898,
+          443,
+          2090,
+          799
+        ]
+      }
+    },
+    "1005": {
+      "en": "The Unloving",
+      "zh": "无法去爱",
+      "weight_key": "unloving",
+      "floors": {
+        "normal": [
+          1,
+          2
+        ],
+        "hard": [
+          1,
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_0.png",
+        "sha256": "c14e8adc62a712ccdcbd687ce7eb9c8cac9b1fc6f84f501c4f2bda2634b25699",
+        "box": [
+          2133,
+          443,
+          2325,
+          799
+        ]
+      }
+    },
+    "1006": {
+      "en": "Nagel und Hammer",
+      "zh": "钉与锤",
+      "weight_key": "nagel",
+      "floors": {
+        "normal": [
+          1
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_1.png",
+        "sha256": "90f06f7a6c7291866016dbceaad1a8ff45d6264ebc73b9f300546cee352af5a4",
+        "box": [
+          1195,
+          623,
+          1387,
+          979
+        ]
+      }
+    },
+    "1007": {
+      "en": "Faith & Erosion",
+      "zh": "信仰与侵蚀",
+      "weight_key": "faith",
+      "floors": {
+        "normal": [
+          1,
+          2
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_1.png",
+        "sha256": "90f06f7a6c7291866016dbceaad1a8ff45d6264ebc73b9f300546cee352af5a4",
+        "box": [
+          1430,
+          623,
+          1622,
+          979
+        ]
+      }
+    },
+    "1008": {
+      "en": "The Unconfronting",
+      "zh": "未曾面对",
+      "weight_key": "unconf",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2,
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_0.png",
+        "sha256": "ac1facd2e528f35d89f8f411625b9924ed16500d4ba156e9fa612a09f4047146",
+        "box": [
+          1664,
+          443,
+          1856,
+          799
+        ]
+      }
+    },
+    "1009": {
+      "en": "Nest, Workshop, and Technology",
+      "zh": "巢、工坊、技术",
+      "weight_key": "workshop",
+      "floors": {
+        "normal": [
+          1,
+          2
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_1.png",
+        "sha256": "90f06f7a6c7291866016dbceaad1a8ff45d6264ebc73b9f300546cee352af5a4",
+        "box": [
+          1664,
+          623,
+          1856,
+          979
+        ]
+      }
+    },
+    "1010": {
+      "en": "Falling Flowers",
+      "zh": "落花",
+      "weight_key": "flowers",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2,
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_0.png",
+        "sha256": "ac1facd2e528f35d89f8f411625b9924ed16500d4ba156e9fa612a09f4047146",
+        "box": [
+          1898,
+          443,
+          2090,
+          799
+        ]
+      }
+    },
+    "1011": {
+      "en": "Tearful Things",
+      "zh": "落泪者们",
+      "weight_key": "tearful",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_0.png",
+        "sha256": "97108e90a9846174fd0371a5a8ed5f9d2ab8f18178ee2fa631a701ddd377d34b",
+        "box": [
+          1664,
+          443,
+          1856,
+          799
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_023738\\floor_3_before_select.png",
+        "sha256": "d52cbaa18b024e96cb9db8e827f6ce77ce1644caf81860912fa1f67e223bfc77",
+        "box": [
+          1527,
+          376,
+          1883,
+          1036
+        ]
+      }
+    },
+    "1012": {
+      "en": "The Unchanging",
+      "zh": "无改变者",
+      "weight_key": "unchanging",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_0.png",
+        "sha256": "082c72cb951458911f317a32b187bb9807a378dc582a6179334735e9a65cfc0b",
+        "box": [
+          1430,
+          443,
+          1622,
+          799
+        ]
+      }
+    },
+    "1013": {
+      "en": "Lake World",
+      "zh": "湖的世界",
+      "weight_key": "lake",
+      "floors": {
+        "normal": [
+          2
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_1.png",
+        "sha256": "90f06f7a6c7291866016dbceaad1a8ff45d6264ebc73b9f300546cee352af5a4",
+        "box": [
+          1898,
+          623,
+          2090,
+          979
+        ]
+      }
+    },
+    "1014": {
+      "en": "Crawling Abyss",
+      "zh": "伏行深渊",
+      "weight_key": "abyss",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_0.png",
+        "sha256": "97108e90a9846174fd0371a5a8ed5f9d2ab8f18178ee2fa631a701ddd377d34b",
+        "box": [
+          1898,
+          443,
+          2090,
+          799
+        ]
+      },
+      "choice_source": {
+        "screenshot": "live_hard3_refreshed.png",
+        "sha256": "6cf2cacedc51ed746b074191435657f59a3223fa6ccc04d7e339223feef2d22e",
+        "box": [
+          1527,
+          376,
+          1883,
+          1036
+        ]
+      }
+    },
+    "1015": {
+      "en": "The Evil Defining",
+      "zh": "定义为恶",
+      "weight_key": "evil",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_0.png",
+        "sha256": "082c72cb951458911f317a32b187bb9807a378dc582a6179334735e9a65cfc0b",
+        "box": [
+          1898,
+          443,
+          2090,
+          799
+        ]
+      }
+    },
+    "1016": {
+      "en": "Dregs of the Manor",
+      "zh": "宅邸的副产物",
+      "weight_key": "dregs",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          1
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_1.png",
+        "sha256": "90f06f7a6c7291866016dbceaad1a8ff45d6264ebc73b9f300546cee352af5a4",
+        "box": [
+          2133,
+          623,
+          2325,
+          979
+        ]
+      }
+    },
+    "1017": {
+      "en": "A Certain World",
+      "zh": "某个世界",
+      "weight_key": "certain",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_0.png",
+        "sha256": "97108e90a9846174fd0371a5a8ed5f9d2ab8f18178ee2fa631a701ddd377d34b",
+        "box": [
+          2133,
+          443,
+          2325,
+          799
+        ]
+      }
+    },
+    "1018": {
+      "en": "The Heartbreaking",
+      "zh": "心意相悖",
+      "weight_key": "heartb",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_0.png",
+        "sha256": "69dc9fbd01321c4f44fca1e248293c7fe7017d0e16dfac40a07550d1eb776740",
+        "box": [
+          1664,
+          443,
+          1856,
+          799
+        ]
+      }
+    },
+    "1019": {
+      "en": "La Manchaland Re-opening",
+      "zh": "重新开园的拉·曼却领",
+      "weight_key": "opening",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_0.png",
+        "sha256": "69dc9fbd01321c4f44fca1e248293c7fe7017d0e16dfac40a07550d1eb776740",
+        "box": [
+          1898,
+          443,
+          2090,
+          799
+        ]
+      }
+    },
+    "1020": {
+      "en": "The Infinite Procession",
+      "zh": "无尽的游行",
+      "weight_key": "procession",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_0.png",
+        "sha256": "69dc9fbd01321c4f44fca1e248293c7fe7017d0e16dfac40a07550d1eb776740",
+        "box": [
+          2133,
+          443,
+          2325,
+          799
+        ]
+      }
+    },
+    "1021": {
+      "en": "The Dream Ending",
+      "zh": "梦之终焉",
+      "weight_key": "ending",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_1.png",
+        "sha256": "9b53fb221d7dd499db10c33db03223da2e5dba4e633c31c9397747904ac50e29",
+        "box": [
+          1195,
+          623,
+          1387,
+          979
+        ]
+      }
+    },
+    "1022": {
+      "en": "Four Houses and Greed",
+      "zh": "四大家族与欲念",
+      "weight_key": "four",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_1.png",
+        "sha256": "9b53fb221d7dd499db10c33db03223da2e5dba4e633c31c9397747904ac50e29",
+        "box": [
+          1430,
+          623,
+          1622,
+          979
+        ]
+      }
+    },
+    "1023": {
+      "en": "The Surrendered Witnessing",
+      "zh": "不思观望",
+      "weight_key": "witnessing",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_1.png",
+        "sha256": "9b53fb221d7dd499db10c33db03223da2e5dba4e633c31c9397747904ac50e29",
+        "box": [
+          1664,
+          623,
+          1856,
+          979
+        ]
+      }
+    },
+    "1024": {
+      "en": "Charm, Wander, Doubt",
+      "zh": "魅惑、彷徨、猜疑",
+      "weight_key": "Wander",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_1.png",
+        "sha256": "1213a1e60817067d322f8816a18331a643390c9fdec381782bc25b2eb94a4c41",
+        "box": [
+          1195,
+          621,
+          1387,
+          977
+        ]
+      }
+    },
+    "1025": {
+      "en": "Textbook",
+      "zh": "教材",
+      "weight_key": "Text",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_1.png",
+        "sha256": "9b53fb221d7dd499db10c33db03223da2e5dba4e633c31c9397747904ac50e29",
+        "box": [
+          1898,
+          623,
+          2090,
+          979
+        ]
+      }
+    },
+    "1026": {
+      "en": "Blade and Artwork",
+      "zh": "刀与作品",
+      "weight_key": "Blade",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_1.png",
+        "sha256": "9b53fb221d7dd499db10c33db03223da2e5dba4e633c31c9397747904ac50e29",
+        "box": [
+          2133,
+          623,
+          2325,
+          979
+        ]
+      }
+    },
+    "1027": {
+      "en": "The Unsevering",
+      "zh": "无割舍者",
+      "weight_key": "Unsever",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_3.png",
+        "sha256": "47f9e6ee2b1d031161739c14967765777867b42f8f5604837e5b26b741188e27",
+        "box": [
+          1195,
+          529,
+          1387,
+          885
+        ]
+      }
+    },
+    "1101": {
+      "en": "Hell's Chicken",
+      "zh": "地狱鸡",
+      "weight_key": "chick",
+      "floors": {
+        "normal": [
+          2
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_0.png",
+        "sha256": "ac1facd2e528f35d89f8f411625b9924ed16500d4ba156e9fa612a09f4047146",
+        "box": [
+          2133,
+          443,
+          2325,
+          799
+        ]
+      }
+    },
+    "1102": {
+      "en": "S.E.A.",
+      "zh": "去·海·边",
+      "weight_key": "s.e.a",
+      "floors": {
+        "normal": [
+          2
+        ],
+        "hard": [
+          2,
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_1.png",
+        "sha256": "3adc6e319dbf312f17a6d4c5549d4e7776a03efa3629be6378bda7c9ddbc1f9d",
+        "box": [
+          1195,
+          626,
+          1387,
+          982
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_022612\\floor_2_before_select.png",
+        "sha256": "28c4e43632b343a4cf7c7e20a92b15489933814820aba68a6873ae190b72d5c0",
+        "box": [
+          1105,
+          376,
+          1461,
+          1036
+        ]
+      }
+    },
+    "1103": {
+      "en": "Miracle in District 20",
+      "zh": "20区的奇迹",
+      "weight_key": "miracle",
+      "floors": {
+        "normal": [
+          4
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_1.png",
+        "sha256": "1213a1e60817067d322f8816a18331a643390c9fdec381782bc25b2eb94a4c41",
+        "box": [
+          1664,
+          621,
+          1856,
+          977
+        ]
+      }
+    },
+    "1104": {
+      "en": "Yield My Flesh to Claim Their Bones",
+      "zh": "肉斩骨断",
+      "weight_key": "bones",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_1.png",
+        "sha256": "1213a1e60817067d322f8816a18331a643390c9fdec381782bc25b2eb94a4c41",
+        "box": [
+          1898,
+          621,
+          2090,
+          977
+        ]
+      }
+    },
+    "1105": {
+      "en": "Timekilling Time",
+      "zh": "时间杀人时间",
+      "weight_key": "time",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_1.png",
+        "sha256": "4495eb5da887c97745a898c8b211670184b58791609d0a686d40e0298e94343f",
+        "box": [
+          1898,
+          623,
+          2090,
+          979
+        ]
+      }
+    },
+    "1106": {
+      "en": "Murder on the WARP Express",
+      "zh": "WARP快车谋杀案",
+      "weight_key": "warp",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_1.png",
+        "sha256": "4495eb5da887c97745a898c8b211670184b58791609d0a686d40e0298e94343f",
+        "box": [
+          2133,
+          623,
+          2325,
+          979
+        ]
+      }
+    },
+    "1107": {
+      "en": "The Noon of Violet",
+      "zh": "紫罗兰的正午",
+      "weight_key": "violet",
+      "floors": {
+        "normal": [
+          4
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_1.png",
+        "sha256": "1213a1e60817067d322f8816a18331a643390c9fdec381782bc25b2eb94a4c41",
+        "box": [
+          2133,
+          621,
+          2325,
+          977
+        ]
+      }
+    },
+    "1108": {
+      "en": "Line 1",
+      "zh": "1号线",
+      "weight_key": "line",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_3.png",
+        "sha256": "47f9e6ee2b1d031161739c14967765777867b42f8f5604837e5b26b741188e27",
+        "box": [
+          1898,
+          529,
+          2090,
+          885
+        ]
+      }
+    },
+    "1109": {
+      "en": "Line 2",
+      "zh": "2号线",
+      "weight_key": "line",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_3.png",
+        "sha256": "f1cea5851a8449114f2259677da58fab3670c0d70b52202a3bdd73ee98cf6831",
+        "box": [
+          1430,
+          521,
+          1622,
+          877
+        ]
+      }
+    },
+    "1110": {
+      "en": "Line 3",
+      "zh": "3号线",
+      "weight_key": "line",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_4.png",
+        "sha256": "0c4c3fb1d31a1f29ee40c5ffffbc218506b1cf9b5b33ea9f6c67c9270fb6bb68",
+        "box": [
+          1195,
+          692,
+          1387,
+          1048
+        ]
+      }
+    },
+    "1111": {
+      "en": "Line 4 - Section #3",
+      "zh": "4号线 - 第3区段",
+      "weight_key": "line",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_4.png",
+        "sha256": "0c4c3fb1d31a1f29ee40c5ffffbc218506b1cf9b5b33ea9f6c67c9270fb6bb68",
+        "box": [
+          1430,
+          692,
+          1622,
+          1048
+        ]
+      }
+    },
+    "1112": {
+      "en": "Line 4 - Section #4",
+      "zh": "4号线 - 第4区段",
+      "weight_key": "line",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_4.png",
+        "sha256": "0c4c3fb1d31a1f29ee40c5ffffbc218506b1cf9b5b33ea9f6c67c9270fb6bb68",
+        "box": [
+          1664,
+          692,
+          1856,
+          1048
+        ]
+      }
+    },
+    "1113": {
+      "en": "Miracle in District 20 BokGak",
+      "zh": "20区的奇迹 复刻",
+      "weight_key": "miracle",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_3.png",
+        "sha256": "f1cea5851a8449114f2259677da58fab3670c0d70b52202a3bdd73ee98cf6831",
+        "box": [
+          1664,
+          521,
+          1856,
+          877
+        ]
+      }
+    },
+    "1114": {
+      "en": "Full-Stopped by a Bullet",
+      "zh": "由子弹画下的句点",
+      "weight_key": "bullet",
+      "floors": {
+        "normal": [
+          4
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_3.png",
+        "sha256": "b29da4dfa1bd86676b8d330b134b7be21a1f312ade2def81cc1138311a7bf540",
+        "box": [
+          1195,
+          520,
+          1387,
+          876
+        ]
+      }
+    },
+    "1115": {
+      "en": "LCB Regular Check-up",
+      "zh": "LCB定期体检",
+      "weight_key": "check",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_3.png",
+        "sha256": "f1cea5851a8449114f2259677da58fab3670c0d70b52202a3bdd73ee98cf6831",
+        "box": [
+          2133,
+          521,
+          2325,
+          877
+        ]
+      }
+    },
+    "1116": {
+      "en": "Yield My Flesh to Claim Their Bones BokGak",
+      "zh": "肉斩骨断 复刻",
+      "weight_key": "bones",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_4.png",
+        "sha256": "a72de35aa4f1a95e50a14ca8aef7bcf8a71a7952d7924db9e873a02521b462a4",
+        "box": [
+          1195,
+          682,
+          1387,
+          1038
+        ]
+      }
+    },
+    "1117": {
+      "en": "Nocturnal Sweeping",
+      "zh": "深夜清扫",
+      "weight_key": "sweep",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_4.png",
+        "sha256": "a72de35aa4f1a95e50a14ca8aef7bcf8a71a7952d7924db9e873a02521b462a4",
+        "box": [
+          1430,
+          682,
+          1622,
+          1038
+        ]
+      }
+    },
+    "1118": {
+      "en": "Line 5",
+      "zh": "5号线",
+      "weight_key": "line",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_6.png",
+        "sha256": "327a059dfde0d6a5e9f71c485d1cac1b23f1300e85f25bfd5e2b3a6f90d86c04",
+        "box": [
+          1664,
+          592,
+          1856,
+          948
+        ]
+      }
+    },
+    "1119": {
+      "en": "Hatred and Despair",
+      "zh": "憎恶与绝望",
+      "weight_key": "Hatred",
+      "floors": {
+        "normal": [
+          3,
+          4
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_3.png",
+        "sha256": "b29da4dfa1bd86676b8d330b134b7be21a1f312ade2def81cc1138311a7bf540",
+        "box": [
+          1430,
+          520,
+          1622,
+          876
+        ]
+      }
+    },
+    "1120": {
+      "en": "Timekilling Time BokGak",
+      "zh": "时间杀人时间 复刻",
+      "weight_key": "time",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_4.png",
+        "sha256": "a72de35aa4f1a95e50a14ca8aef7bcf8a71a7952d7924db9e873a02521b462a4",
+        "box": [
+          1898,
+          682,
+          2090,
+          1038
+        ]
+      }
+    },
+    "1121": {
+      "en": "Spring Cultivation",
+      "zh": "切磋琢春",
+      "weight_key": "spring",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_6.png",
+        "sha256": "327a059dfde0d6a5e9f71c485d1cac1b23f1300e85f25bfd5e2b3a6f90d86c04",
+        "box": [
+          2133,
+          592,
+          2325,
+          948
+        ]
+      }
+    },
+    "1123": {
+      "en": "Murder on the WARP Express BokGak",
+      "zh": "WARP快车谋杀案 复刻",
+      "weight_key": "warp",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_4.png",
+        "sha256": "a72de35aa4f1a95e50a14ca8aef7bcf8a71a7952d7924db9e873a02521b462a4",
+        "box": [
+          2133,
+          682,
+          2325,
+          1038
+        ]
+      }
+    },
+    "1124": {
+      "en": "The Dusk of Amber",
+      "zh": "琥珀色的黄昏",
+      "weight_key": "dusk",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_6.png",
+        "sha256": "79de70a56034b904b81fea10c608c0027812c98a7942270eba92103579b2d9a5",
+        "box": [
+          1195,
+          581,
+          1387,
+          937
+        ]
+      }
+    },
+    "1125": {
+      "en": "LCB Regular Check-up BokGak",
+      "zh": "LCB定期体检 复刻",
+      "weight_key": "check",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_6.png",
+        "sha256": "79de70a56034b904b81fea10c608c0027812c98a7942270eba92103579b2d9a5",
+        "box": [
+          1430,
+          581,
+          1622,
+          937
+        ]
+      }
+    },
+    "1126": {
+      "en": "Twining Threads",
+      "zh": "绞丝结线",
+      "weight_key": "thread",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_8.png",
+        "sha256": "21a3c6fcda935a3b9a648a43ddb7408fc2e3d7cfd772b6f4e4cf931d938dcad4",
+        "box": [
+          1898,
+          492,
+          2090,
+          848
+        ]
+      }
+    },
+    "1127": {
+      "en": "Nocturnal Sweeping BokGak",
+      "zh": "深夜清扫 复刻",
+      "weight_key": "sweep",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_6.png",
+        "sha256": "79de70a56034b904b81fea10c608c0027812c98a7942270eba92103579b2d9a5",
+        "box": [
+          1664,
+          581,
+          1856,
+          937
+        ]
+      }
+    },
+    "1128": {
+      "en": "Mnestic Experience",
+      "zh": "经验记忆",
+      "weight_key": "mnestic",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_9.png",
+        "sha256": "71fe3e89afc2cfacc898c83dcacf17dfd4ade15d28ba0ca7b05fed3c8e3a69a3",
+        "box": [
+          1195,
+          656,
+          1387,
+          1012
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_130454\\floor_5_before_select.png",
+        "sha256": "7489c26d967532d9c29c7cde56c66b2c8807be899facc75ea912dee350acb9e5",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1201": {
+      "en": "Slicers & Dicers",
+      "zh": "斩切者们",
+      "weight_key": "dicers",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_6.png",
+        "sha256": "79de70a56034b904b81fea10c608c0027812c98a7942270eba92103579b2d9a5",
+        "box": [
+          1898,
+          581,
+          2090,
+          937
+        ]
+      }
+    },
+    "1202": {
+      "en": "To be Cleaved",
+      "zh": "当斩之物",
+      "weight_key": "cleaved",
+      "floors": {
+        "normal": [
+          2,
+          3
+        ],
+        "hard": [
+          1,
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_3.png",
+        "sha256": "b704df8e66a221c31ff44e4c8f923225530c9f3c14ef79de99ef5da05fcfb5af",
+        "box": [
+          1195,
+          682,
+          1387,
+          1038
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261008_034316\\floor_2_before_select.png",
+        "sha256": "eb35f0cf2777a4ca793dc3e604fbcc640cd38986fd927d91904017b74653d451",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1203": {
+      "en": "Piercers & Penetrators",
+      "zh": "穿刺者们",
+      "weight_key": "penetra",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_6.png",
+        "sha256": "79de70a56034b904b81fea10c608c0027812c98a7942270eba92103579b2d9a5",
+        "box": [
+          2133,
+          581,
+          2325,
+          937
+        ]
+      }
+    },
+    "1204": {
+      "en": "To be Pierced",
+      "zh": "当贯之物",
+      "weight_key": "pierced",
+      "floors": {
+        "normal": [
+          2,
+          3
+        ],
+        "hard": [
+          1,
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_3.png",
+        "sha256": "b704df8e66a221c31ff44e4c8f923225530c9f3c14ef79de99ef5da05fcfb5af",
+        "box": [
+          1430,
+          682,
+          1622,
+          1038
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261008_034316\\floor_2_before_select.png",
+        "sha256": "eb35f0cf2777a4ca793dc3e604fbcc640cd38986fd927d91904017b74653d451",
+        "box": [
+          1105,
+          376,
+          1461,
+          1036
+        ]
+      }
+    },
+    "1205": {
+      "en": "Crushers & Breakers",
+      "zh": "粉碎者们",
+      "weight_key": "crushers",
+      "floors": {
+        "normal": [
+          5
+        ],
+        "hard": [
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_8.png",
+        "sha256": "26bdce124644b10fc7146637e61de43868275db44be9c9f19a7ad307648270d7",
+        "box": [
+          1195,
+          480,
+          1387,
+          836
+        ]
+      }
+    },
+    "1206": {
+      "en": "To be Crushed",
+      "zh": "当碎之物",
+      "weight_key": "crushed",
+      "floors": {
+        "normal": [
+          2,
+          3
+        ],
+        "hard": [
+          1,
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_1_3.png",
+        "sha256": "b704df8e66a221c31ff44e4c8f923225530c9f3c14ef79de99ef5da05fcfb5af",
+        "box": [
+          1664,
+          682,
+          1856,
+          1038
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261008_035403\\floor_2_before_select.png",
+        "sha256": "6fed9daa305a4751ab945c14050f39e1ec1e781643a42099872456c1f311c196",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1301": {
+      "en": "Repressed Wrath",
+      "zh": "压抑的暴怒",
+      "weight_key": "repressed",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_3.png",
+        "sha256": "b29da4dfa1bd86676b8d330b134b7be21a1f312ade2def81cc1138311a7bf540",
+        "box": [
+          1664,
+          520,
+          1856,
+          876
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_025659\\floor_4_before_select.png",
+        "sha256": "7ba02dd579560ee591d522c0663b1e7369070bb185eae2fd48b5f7ce7483f1a1",
+        "box": [
+          1527,
+          376,
+          1883,
+          1036
+        ]
+      }
+    },
+    "1302": {
+      "en": "Unbound Wrath",
+      "zh": "解放的暴怒",
+      "weight_key": "unbound",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_9.png",
+        "sha256": "71fe3e89afc2cfacc898c83dcacf17dfd4ade15d28ba0ca7b05fed3c8e3a69a3",
+        "box": [
+          1430,
+          656,
+          1622,
+          1012
+        ]
+      }
+    },
+    "1303": {
+      "en": "Emotional Repression",
+      "zh": "受情感压迫者",
+      "weight_key": "repression",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_1.png",
+        "sha256": "3adc6e319dbf312f17a6d4c5549d4e7776a03efa3629be6378bda7c9ddbc1f9d",
+        "box": [
+          2133,
+          626,
+          2325,
+          982
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_022612\\floor_2_before_select.png",
+        "sha256": "28c4e43632b343a4cf7c7e20a92b15489933814820aba68a6873ae190b72d5c0",
+        "box": [
+          1527,
+          376,
+          1883,
+          1036
+        ]
+      }
+    },
+    "1304": {
+      "en": "Addicting Lust",
+      "zh": "沉迷的色欲",
+      "weight_key": "addict",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_3.png",
+        "sha256": "b29da4dfa1bd86676b8d330b134b7be21a1f312ade2def81cc1138311a7bf540",
+        "box": [
+          1898,
+          520,
+          2090,
+          876
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_031653\\floor_4_before_select.png",
+        "sha256": "6209f1414e3df61a37b643ae5e3b7f269dbfb467d93f49f3708342303c76deb0",
+        "box": [
+          1105,
+          376,
+          1461,
+          1036
+        ]
+      }
+    },
+    "1305": {
+      "en": "Tangling Lust",
+      "zh": "束缚的色欲",
+      "weight_key": "tangling",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_9.png",
+        "sha256": "71fe3e89afc2cfacc898c83dcacf17dfd4ade15d28ba0ca7b05fed3c8e3a69a3",
+        "box": [
+          1664,
+          656,
+          1856,
+          1012
+        ]
+      }
+    },
+    "1306": {
+      "en": "Emotional Seduction",
+      "zh": "因情感困惑者",
+      "weight_key": "seduct",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_3.png",
+        "sha256": "5850d5c910730fccbbd239224ce4558a65e03769a6178a4118b72f855f7b2c91",
+        "box": [
+          1195,
+          526,
+          1387,
+          882
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261008_035833\\floor_2_before_select.png",
+        "sha256": "5d1294870bf259efd749f8d54cb991916797b346296977781616abd0dc2363e8",
+        "box": [
+          1105,
+          376,
+          1461,
+          1036
+        ]
+      }
+    },
+    "1307": {
+      "en": "Treadwheel Sloth",
+      "zh": "空转的怠惰",
+      "weight_key": "treadwheel",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_3.png",
+        "sha256": "b29da4dfa1bd86676b8d330b134b7be21a1f312ade2def81cc1138311a7bf540",
+        "box": [
+          2133,
+          520,
+          2325,
+          876
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_125250\\floor_5_before_select.png",
+        "sha256": "03c32dc8780e73d064413a40fcd2183e0ee0a8b2e274e289505d84f82730c94d",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1308": {
+      "en": "Inert Sloth",
+      "zh": "停滞的怠惰",
+      "weight_key": "inert",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_9.png",
+        "sha256": "71fe3e89afc2cfacc898c83dcacf17dfd4ade15d28ba0ca7b05fed3c8e3a69a3",
+        "box": [
+          1898,
+          656,
+          2090,
+          1012
+        ]
+      }
+    },
+    "1309": {
+      "en": "Emotional Indolence",
+      "zh": "待情感懒惰者",
+      "weight_key": "dolen",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_3.png",
+        "sha256": "5850d5c910730fccbbd239224ce4558a65e03769a6178a4118b72f855f7b2c91",
+        "box": [
+          1430,
+          526,
+          1622,
+          882
+        ]
+      }
+    },
+    "1310": {
+      "en": "Devoured Gluttony",
+      "zh": "吞噬的暴食",
+      "weight_key": "devoured",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_4.png",
+        "sha256": "dadf39d152ecfdf880f9e4195bb5d98b55eaa6aec68a30608426ac6af55f8c05",
+        "box": [
+          1195,
+          683,
+          1387,
+          1039
+        ]
+      },
+      "choice_source": {
+        "screenshot": "live_hard3_refreshed.png",
+        "sha256": "6cf2cacedc51ed746b074191435657f59a3223fa6ccc04d7e339223feef2d22e",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1311": {
+      "en": "Excessive Gluttony",
+      "zh": "漫溢的暴食",
+      "weight_key": "excessive",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_9.png",
+        "sha256": "71fe3e89afc2cfacc898c83dcacf17dfd4ade15d28ba0ca7b05fed3c8e3a69a3",
+        "box": [
+          2133,
+          656,
+          2325,
+          1012
+        ]
+      }
+    },
+    "1312": {
+      "en": "Emotional Craving",
+      "zh": "对情感饥渴者",
+      "weight_key": "cravi",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_3.png",
+        "sha256": "5850d5c910730fccbbd239224ce4558a65e03769a6178a4118b72f855f7b2c91",
+        "box": [
+          1664,
+          526,
+          1856,
+          882
+        ]
+      }
+    },
+    "1313": {
+      "en": "Degraded Gloom",
+      "zh": "堕落的忧郁",
+      "weight_key": "degraded",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_4.png",
+        "sha256": "dadf39d152ecfdf880f9e4195bb5d98b55eaa6aec68a30608426ac6af55f8c05",
+        "box": [
+          1430,
+          683,
+          1622,
+          1039
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_130454\\floor_5_before_select.png",
+        "sha256": "7489c26d967532d9c29c7cde56c66b2c8807be899facc75ea912dee350acb9e5",
+        "box": [
+          1105,
+          376,
+          1461,
+          1036
+        ]
+      }
+    },
+    "1314": {
+      "en": "Sunk Gloom",
+      "zh": "沉溺的忧郁",
+      "weight_key": "sunk",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_11.png",
+        "sha256": "3745853621dd5f83d2459c4ae2fee055af41298c76c7ecc2ae3e5db2d67264c2",
+        "box": [
+          1195,
+          556,
+          1387,
+          912
+        ]
+      }
+    },
+    "1315": {
+      "en": "Emotional Flood",
+      "zh": "于情感沉溺者",
+      "weight_key": "flood",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_3.png",
+        "sha256": "5850d5c910730fccbbd239224ce4558a65e03769a6178a4118b72f855f7b2c91",
+        "box": [
+          1898,
+          526,
+          2090,
+          882
+        ]
+      }
+    },
+    "1316": {
+      "en": "Vain Pride",
+      "zh": "虚张声势的傲慢",
+      "weight_key": "vain",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_4.png",
+        "sha256": "dadf39d152ecfdf880f9e4195bb5d98b55eaa6aec68a30608426ac6af55f8c05",
+        "box": [
+          1664,
+          683,
+          1856,
+          1039
+        ]
+      }
+    },
+    "1317": {
+      "en": "Tyrannical Pride",
+      "zh": "自以为是的傲慢",
+      "weight_key": "pride",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_11.png",
+        "sha256": "3745853621dd5f83d2459c4ae2fee055af41298c76c7ecc2ae3e5db2d67264c2",
+        "box": [
+          1430,
+          556,
+          1622,
+          912
+        ]
+      }
+    },
+    "1318": {
+      "en": "Emotional Subservience",
+      "zh": "向情感屈从者",
+      "weight_key": "subserv",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_3.png",
+        "sha256": "5850d5c910730fccbbd239224ce4558a65e03769a6178a4118b72f855f7b2c91",
+        "box": [
+          2133,
+          526,
+          2325,
+          882
+        ]
+      }
+    },
+    "1319": {
+      "en": "Insignificant Envy",
+      "zh": "寒微的嫉妒",
+      "weight_key": "nsignif",
+      "floors": {
+        "normal": [
+          4,
+          5
+        ],
+        "hard": [
+          3,
+          4
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_4.png",
+        "sha256": "dadf39d152ecfdf880f9e4195bb5d98b55eaa6aec68a30608426ac6af55f8c05",
+        "box": [
+          1898,
+          683,
+          2090,
+          1039
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_031653\\floor_4_before_select.png",
+        "sha256": "6209f1414e3df61a37b643ae5e3b7f269dbfb467d93f49f3708342303c76deb0",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1320": {
+      "en": "Pitiful Envy",
+      "zh": "凄惨的嫉妒",
+      "weight_key": "pitiful",
+      "floors": {
+        "normal": [],
+        "hard": [
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_5_11.png",
+        "sha256": "3745853621dd5f83d2459c4ae2fee055af41298c76c7ecc2ae3e5db2d67264c2",
+        "box": [
+          1664,
+          556,
+          1856,
+          912
+        ]
+      }
+    },
+    "1321": {
+      "en": "Emotional Judgment",
+      "zh": "被情感评判者",
+      "weight_key": "judgment",
+      "floors": {
+        "normal": [
+          3
+        ],
+        "hard": [
+          2
+        ]
+      },
+      "source": {
+        "screenshot": "hard_2_4.png",
+        "sha256": "770e4521b5a81da2261a7d1a8b6b12c9e05faa615ff4a46b64b565a8382a5904",
+        "box": [
+          1195,
+          689,
+          1387,
+          1045
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261008_035833\\floor_2_before_select.png",
+        "sha256": "5d1294870bf259efd749f8d54cb991916797b346296977781616abd0dc2363e8",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1401": {
+      "en": "Burning Haze",
+      "zh": "燃烧的摇曳",
+      "weight_key": "haze",
+      "floors": {
+        "normal": [],
+        "hard": [
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_4.png",
+        "sha256": "dadf39d152ecfdf880f9e4195bb5d98b55eaa6aec68a30608426ac6af55f8c05",
+        "box": [
+          2133,
+          683,
+          2325,
+          1039
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_023738\\floor_3_before_select.png",
+        "sha256": "d52cbaa18b024e96cb9db8e827f6ce77ce1644caf81860912fa1f67e223bfc77",
+        "box": [
+          1105,
+          376,
+          1461,
+          1036
+        ]
+      }
+    },
+    "1402": {
+      "en": "Season of the Flame",
+      "zh": "盛火时节",
+      "weight_key": "season",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_9.png",
+        "sha256": "7d9a07e3f29291a7c3b938548f5f05a5ea38ab116251cc99cf737c499ae2148b",
+        "box": [
+          1898,
+          645,
+          2090,
+          1001
+        ]
+      }
+    },
+    "1403": {
+      "en": "Trickled Sanguine Blood",
+      "zh": "渗出的赤血",
+      "weight_key": "sanguine",
+      "floors": {
+        "normal": [],
+        "hard": [
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_6.png",
+        "sha256": "5025df190b0117a2d68a3fc662a2f1c0dc3eeacf84b8e2ad43379b120aed3eef",
+        "box": [
+          1195,
+          579,
+          1387,
+          935
+        ]
+      }
+    },
+    "1404": {
+      "en": "Mountain of Corpses, Sea of Blood",
+      "zh": "尸山血海",
+      "weight_key": "corpses",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_9.png",
+        "sha256": "7d9a07e3f29291a7c3b938548f5f05a5ea38ab116251cc99cf737c499ae2148b",
+        "box": [
+          2133,
+          645,
+          2325,
+          1001
+        ]
+      }
+    },
+    "1405": {
+      "en": "Dizzying Waves",
+      "zh": "缭乱的波动",
+      "weight_key": "dizzying",
+      "floors": {
+        "normal": [],
+        "hard": [
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_6.png",
+        "sha256": "5025df190b0117a2d68a3fc662a2f1c0dc3eeacf84b8e2ad43379b120aed3eef",
+        "box": [
+          1430,
+          579,
+          1622,
+          935
+        ]
+      }
+    },
+    "1406": {
+      "en": "Abnormal Seismic Zone",
+      "zh": "异常地震带",
+      "weight_key": "seismic",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_11.png",
+        "sha256": "5eacf7b6e5256d302c8cceb9f067c131fdd83025cf143239371579b55b658366",
+        "box": [
+          1195,
+          682,
+          1387,
+          1038
+        ]
+      }
+    },
+    "1407": {
+      "en": "Crushing External Force",
+      "zh": "破坏性外力",
+      "weight_key": "external",
+      "floors": {
+        "normal": [],
+        "hard": [
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_6.png",
+        "sha256": "5025df190b0117a2d68a3fc662a2f1c0dc3eeacf84b8e2ad43379b120aed3eef",
+        "box": [
+          1664,
+          579,
+          1856,
+          935
+        ]
+      }
+    },
+    "1408": {
+      "en": "Unrelenting Might",
+      "zh": "破竹之势",
+      "weight_key": "might",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_11.png",
+        "sha256": "5eacf7b6e5256d302c8cceb9f067c131fdd83025cf143239371579b55b658366",
+        "box": [
+          1430,
+          682,
+          1622,
+          1038
+        ]
+      }
+    },
+    "1409": {
+      "en": "Sinking Pang",
+      "zh": "沉于苦痛",
+      "weight_key": "pang",
+      "floors": {
+        "normal": [],
+        "hard": [
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_6.png",
+        "sha256": "5025df190b0117a2d68a3fc662a2f1c0dc3eeacf84b8e2ad43379b120aed3eef",
+        "box": [
+          1898,
+          579,
+          2090,
+          935
+        ]
+      }
+    },
+    "1410": {
+      "en": "Sinking Deluge",
+      "zh": "沉沦泛滥",
+      "weight_key": "deluge",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_11.png",
+        "sha256": "5eacf7b6e5256d302c8cceb9f067c131fdd83025cf143239371579b55b658366",
+        "box": [
+          1664,
+          682,
+          1856,
+          1038
+        ]
+      }
+    },
+    "1411": {
+      "en": "Deep Sigh",
+      "zh": "深沉叹息",
+      "weight_key": "sigh",
+      "floors": {
+        "normal": [],
+        "hard": [
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_6.png",
+        "sha256": "5025df190b0117a2d68a3fc662a2f1c0dc3eeacf84b8e2ad43379b120aed3eef",
+        "box": [
+          2133,
+          579,
+          2325,
+          935
+        ]
+      }
+    },
+    "1412": {
+      "en": "Poised Breathing",
+      "zh": "循环呼吸",
+      "weight_key": "poised",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_11.png",
+        "sha256": "5eacf7b6e5256d302c8cceb9f067c131fdd83025cf143239371579b55b658366",
+        "box": [
+          1898,
+          682,
+          2090,
+          1038
+        ]
+      }
+    },
+    "1413": {
+      "en": "Rising Power Supply",
+      "zh": "动力渐盈",
+      "weight_key": "supply",
+      "floors": {
+        "normal": [],
+        "hard": [
+          3
+        ]
+      },
+      "source": {
+        "screenshot": "hard_3_8.png",
+        "sha256": "3819a886bc31bce7ce237013896d6e6bc74df2fcac948bc14ac69b91a2abdca4",
+        "box": [
+          1195,
+          682,
+          1387,
+          1038
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_023738\\floor_3_before_select.png",
+        "sha256": "d52cbaa18b024e96cb9db8e827f6ce77ce1644caf81860912fa1f67e223bfc77",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    },
+    "1414": {
+      "en": "Thunder and Lightning",
+      "zh": "电闪雷鸣",
+      "weight_key": "thunder",
+      "floors": {
+        "normal": [],
+        "hard": [
+          4,
+          5
+        ]
+      },
+      "source": {
+        "screenshot": "hard_4_11.png",
+        "sha256": "5eacf7b6e5256d302c8cceb9f067c131fdd83025cf143239371579b55b658366",
+        "box": [
+          2133,
+          682,
+          2325,
+          1038
+        ]
+      },
+      "choice_source": {
+        "screenshot": "logs\\theme_pack_experiment\\run_20261009_025659\\floor_4_before_select.png",
+        "sha256": "7ba02dd579560ee591d522c0663b1e7369070bb185eae2fd48b5f7ce7483f1a1",
+        "box": [
+          683,
+          376,
+          1039,
+          1036
+        ]
+      }
+    }
+  }
+}

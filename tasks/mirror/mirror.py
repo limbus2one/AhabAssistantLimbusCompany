@@ -24,6 +24,7 @@ from tasks.battle.battle import DefenseForSoloState
 from tasks.event import event_handling
 from tasks.mirror.get_floor import get_floor
 from tasks.mirror.in_shop import Shop
+from tasks.mirror.observe_theme_pack import observe_theme_pack
 from tasks.mirror.reward_card import get_reward_card
 from tasks.mirror.search_road import (
     MirrorMap,
@@ -75,6 +76,9 @@ class Mirror:
 
         self.observe_ego_gift = team_setting.observe_ego_gift  # 是否需要观测EGO饰品
         self.observe_ego_gift_selected = team_setting.observe_ego_gift_selected  # 用户选择的观测EGO饰品列表
+        self.observe_theme_pack = team_setting.observe_theme_pack
+        self.observe_theme_pack_selected = team_setting.observe_theme_pack_selected
+        self.current_observed_pack = None
 
         self.defense_first_round = team_setting.defense_first_round  # 是否第一回合全员防御
         self.defense_for_solo = team_setting.defense_for_solo  # 是否小指良单通连续防御
@@ -291,7 +295,19 @@ class Mirror:
                     if self.floor > 0:
                         self._enter_hard_mode_if_needed()
                         switch_theme_pack_difficulty(self.hard_mode)
-                select_theme_pack(self.hard_mode, self.floor, self.team_order, self.use_custom_theme_pack_weight)
+                    self.current_observed_pack = None
+                    if self.observe_theme_pack and 1 <= self.floor <= 5:
+                        target = self.observe_theme_pack_selected[self.floor - 1]
+                        if target and observe_theme_pack(target, self.hard_mode, self.floor):
+                            self.current_observed_pack = target
+                        elif target:
+                            log.warning("卡包观测失败，按已通过图片匹配的卡包权重选择")
+                selected = select_theme_pack(
+                    self.hard_mode, self.floor, self.team_order, self.use_custom_theme_pack_weight,
+                    expected_pack_id=self.current_observed_pack,
+                )
+                if selected is False:
+                    return False
                 if self.re_formation_each_floor:
                     self.first_battle = True
                 if new_floor:
