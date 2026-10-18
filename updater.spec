@@ -10,7 +10,12 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['numpy', 'pandas'],
+    excludes=[
+        'numpy', 'pandas',
+        # 更新器不联网（下载在主程序 check_update 完成）、不校验 TLS/哈希，
+        # 排除 OpenSSL/libcrypto 与其他重载荷，体积 8.3MB -> ~4MB
+        'ssl', '_ssl', 'hashlib', '_hashlib', 'pyexpat', 'unicodedata',
+    ],
     noarchive=False,
     optimize=0,
 )
