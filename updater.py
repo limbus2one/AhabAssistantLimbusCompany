@@ -52,7 +52,7 @@ _THEME_PALETTES = {
         "fill": 0x9C080B,
         "stage": 0xFFFFFF,
         "detail": 0x9CA3B0,
-        "hint": 0x7A7A7A,
+        "hint": 0xA6A6A6,
         "percent": 0xE8EBF2,
     },
     "light": {
@@ -391,13 +391,13 @@ class UpdateProgressWindow:
             return int(px * scale)
 
         font_stage = ctypes.c_void_p(
-            gdi32.CreateFontW(scaled(17), 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
+            gdi32.CreateFontW(scaled(21), 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
         )
         font_detail = ctypes.c_void_p(
-            gdi32.CreateFontW(scaled(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
+            gdi32.CreateFontW(scaled(15), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
         )
         font_small = ctypes.c_void_p(
-            gdi32.CreateFontW(scaled(11), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
+            gdi32.CreateFontW(scaled(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
         )
         brush_bg = gdi32.CreateSolidBrush(rgb(color_bg))
         brush_track = gdi32.CreateSolidBrush(rgb(color_track))
@@ -424,22 +424,22 @@ class UpdateProgressWindow:
             # 阶段（左上，加粗）
             gdi32.SelectObject(mem, font_stage)
             gdi32.SetTextColor(mem, rgb(color_stage))
-            r_stage = RECT(margin, scaled(20), width - margin - scaled(64), scaled(46))
+            r_stage = RECT(margin, scaled(22), width - margin - scaled(72), scaled(52))
             user32.DrawTextW(mem, stage, -1, ctypes.byref(r_stage), DT_SINGLELINE | DT_END_ELLIPSIS)
             # 百分比（右上，确定进度时显示）
             if maximum > 0:
                 gdi32.SelectObject(mem, font_detail)
                 gdi32.SetTextColor(mem, rgb(color_percent))
                 pct_text = f"{min(value, maximum) * 100 // maximum}%"
-                r_pct = RECT(width - margin - scaled(60), scaled(22), width - margin, scaled(44))
+                r_pct = RECT(width - margin - scaled(68), scaled(28), width - margin, scaled(52))
                 user32.DrawTextW(mem, pct_text, -1, ctypes.byref(r_pct), DT_SINGLELINE | DT_RIGHT)
             # 细节（第二行）
             gdi32.SelectObject(mem, font_detail)
             gdi32.SetTextColor(mem, rgb(color_detail))
-            r_detail = RECT(margin, scaled(52), width - margin, scaled(72))
+            r_detail = RECT(margin, scaled(60), width - margin, scaled(82))
             user32.DrawTextW(mem, detail or " ", -1, ctypes.byref(r_detail), DT_SINGLELINE | DT_END_ELLIPSIS)
             # 进度条（圆角）
-            bar_y, bar_h = scaled(88), scaled(10)
+            bar_y, bar_h = scaled(104), scaled(12)
             track_r = RECT(margin, bar_y, width - margin, bar_y + bar_h)
             gdi32.SelectObject(mem, brush_track)
             gdi32.RoundRect(mem, track_r.left, track_r.top, track_r.right, track_r.bottom, bar_h, bar_h)
@@ -494,7 +494,7 @@ class UpdateProgressWindow:
         if not user32.RegisterClassW(ctypes.byref(wc)):
             raise OSError("RegisterClassW failed")
 
-        window_width, client_height = scaled(460), scaled(150)
+        window_width, client_height = scaled(480), scaled(180)
         caption_h = user32.GetSystemMetrics(4) + user32.GetSystemMetrics(32) * 2  # 标题栏 + 上下边框
         window_height = client_height + caption_h
         screen_w = user32.GetSystemMetrics(0)
