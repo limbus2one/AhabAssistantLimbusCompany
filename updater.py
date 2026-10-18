@@ -218,6 +218,7 @@ class UpdateProgressWindow:
         self._lock = threading.Lock()
         self._stage = "正在准备更新..."
         self._detail = ""
+        self._log_lines = []  # 窗口中部的详细日志（保留最近若干条）
         self._value = 0
         self._maximum = 0  # 0 表示不定进度
         self._closing = False
@@ -242,6 +243,9 @@ class UpdateProgressWindow:
                 self._stage = stage
             if detail is not None:
                 self._detail = detail
+                if detail and (not self._log_lines or self._log_lines[-1] != detail):
+                    self._log_lines.append(detail)
+                    del self._log_lines[:-6]
             if value is not None:
                 self._value = max(0, int(value))
             if maximum is not None:
@@ -396,9 +400,6 @@ class UpdateProgressWindow:
         font_detail = ctypes.c_void_p(
             gdi32.CreateFontW(scaled(15), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
         )
-        font_small = ctypes.c_void_p(
-            gdi32.CreateFontW(scaled(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
-        )
         brush_bg = gdi32.CreateSolidBrush(rgb(color_bg))
         brush_track = gdi32.CreateSolidBrush(rgb(color_track))
         brush_fill = gdi32.CreateSolidBrush(rgb(color_fill))
@@ -417,29 +418,34 @@ class UpdateProgressWindow:
             gdi32.SelectObject(mem, pen_null)
 
             with self._lock:
-                stage, detail = self._stage, self._detail
+                stage = self._stage
+                log_lines = list(self._log_lines)
                 value, maximum = self._value, self._maximum
 
             margin = scaled(24)
             # 阶段（左上，加粗）
             gdi32.SelectObject(mem, font_stage)
             gdi32.SetTextColor(mem, rgb(color_stage))
-            r_stage = RECT(margin, scaled(22), width - margin - scaled(72), scaled(52))
+            r_stage = RECT(margin, scaled(22), width - margin - scaled(96), scaled(52))
             user32.DrawTextW(mem, stage, -1, ctypes.byref(r_stage), DT_SINGLELINE | DT_END_ELLIPSIS)
-            # 百分比（右上，确定进度时显示）
+            # 百分比（右上，与阶段同字号，确定进度时显示）
             if maximum > 0:
-                gdi32.SelectObject(mem, font_detail)
                 gdi32.SetTextColor(mem, rgb(color_percent))
                 pct_text = f"{min(value, maximum) * 100 // maximum}%"
-                r_pct = RECT(width - margin - scaled(68), scaled(28), width - margin, scaled(52))
+                r_pct = RECT(width - margin - scaled(90), scaled(22), width - margin, scaled(52))
                 user32.DrawTextW(mem, pct_text, -1, ctypes.byref(r_pct), DT_SINGLELINE | DT_RIGHT)
-            # 细节（第二行）
+            # 详细日志（中部，最近几条，新的在下、旧的渐隐）
             gdi32.SelectObject(mem, font_detail)
-            gdi32.SetTextColor(mem, rgb(color_detail))
-            r_detail = RECT(margin, scaled(60), width - margin, scaled(82))
-            user32.DrawTextW(mem, detail or " ", -1, ctypes.byref(r_detail), DT_SINGLELINE | DT_END_ELLIPSIS)
-            # 进度条（圆角）
-            bar_y, bar_h = scaled(104), scaled(12)
+            bar_y, bar_h = height - scaled(30), scaled(12)
+            line_h = scaled(24)
+            shown = log_lines[-4:]
+            log_top = bar_y - scaled(10) - line_h * len(shown)
+            for i, line in enumerate(shown):
+                older = i < len(shown) - 1
+                gdi32.SetTextColor(mem, rgb(color_hint if older else color_detail))
+                r_log = RECT(margin, log_top + i * line_h, width - margin, log_top + (i + 1) * line_h)
+                user32.DrawTextW(mem, line, -1, ctypes.byref(r_log), DT_SINGLELINE | DT_END_ELLIPSIS)
+            # 进度条（底部，圆角）
             track_r = RECT(margin, bar_y, width - margin, bar_y + bar_h)
             gdi32.SelectObject(mem, brush_track)
             gdi32.RoundRect(mem, track_r.left, track_r.top, track_r.right, track_r.bottom, bar_h, bar_h)
@@ -458,13 +464,6 @@ class UpdateProgressWindow:
                 gdi32.RoundRect(
                     mem, max(track_r.left, seg_x), track_r.top, min(track_r.right, seg_x + seg_w), track_r.bottom, bar_h, bar_h
                 )
-            # 底部提示
-            gdi32.SelectObject(mem, font_small)
-            gdi32.SetTextColor(mem, rgb(color_hint))
-            r_hint = RECT(margin, height - scaled(28), width - margin, height - scaled(8))
-            user32.DrawTextW(
-                mem, "正在更新 AALC，请稍候…  更新完成后将自动重启", -1, ctypes.byref(r_hint), DT_SINGLELINE | DT_END_ELLIPSIS
-            )
             gdi32.BitBlt(hdc, 0, 0, width, height, mem, 0, 0, SRCCOPY)
             gdi32.SelectObject(mem, old_bmp)
             gdi32.DeleteObject(bmp)
@@ -494,7 +493,7 @@ class UpdateProgressWindow:
         if not user32.RegisterClassW(ctypes.byref(wc)):
             raise OSError("RegisterClassW failed")
 
-        window_width, client_height = scaled(480), scaled(180)
+        window_width, client_height = scaled(480), scaled(200)
         caption_h = user32.GetSystemMetrics(4) + user32.GetSystemMetrics(32) * 2  # 标题栏 + 上下边框
         window_height = client_height + caption_h
         screen_w = user32.GetSystemMetrics(0)
@@ -554,7 +553,7 @@ class UpdateProgressWindow:
 
         user32.DestroyWindow(hwnd)
         user32.PostQuitMessage(0)
-        for gdi_obj in (font_stage, font_detail, font_small, brush_bg, brush_track, brush_fill):
+        for gdi_obj in (font_stage, font_detail, brush_bg, brush_track, brush_fill):
             with contextlib.suppress(Exception):
                 gdi32.DeleteObject(gdi_obj)
 
@@ -903,10 +902,14 @@ class Updater:
             _log(f"删除旧资源文件失败: {exc}")
 
         entries = self._collect_copy_entries()
-        self.progress.update(stage="正在安装新文件...", detail="", value=0, maximum=len(entries))
+        total = len(entries)
+        self.progress.update(stage="正在安装新文件...", detail=f"共 {total} 个文件待写入", value=0, maximum=total)
         for index, (source, destination) in enumerate(entries, start=1):
             self._copy_file_with_retry(source, destination)
-            self.progress.update(value=index)
+            if index % 25 == 0 or index == total:
+                self.progress.update(value=index, detail=f"已写入 {index} / {total}")
+            else:
+                self.progress.update(value=index)
         _log(f"覆盖安装完成，共写入 {len(entries)} 个文件")
 
     def _collect_copy_entries(self):
@@ -963,8 +966,16 @@ class Updater:
 
         _log("检测到增量更新清单，执行增量更新...")
         total = sum(len(changes[key]) for key in changes)
-        self.progress.update(stage="正在应用增量更新...", detail="", value=0, maximum=total)
+        self.progress.update(stage="正在应用增量更新...", detail=f"共 {total} 项变更", value=0, maximum=total)
         done = 0
+
+        def _tick(label=None):
+            nonlocal done
+            done += 1
+            if label is not None:
+                self.progress.update(value=done, detail=label)
+            else:
+                self.progress.update(value=done)
 
         for dir_path, full_path in changes["deleted_dir"]:
             try:
@@ -972,8 +983,7 @@ class Updater:
                 _log(f"删除目录: {dir_path}")
             except FileNotFoundError:
                 _log(f"删除目录不存在: {dir_path}")
-            done += 1
-            self.progress.update(value=done)
+            _tick()
 
         for file_path, full_path in changes["deleted"]:
             try:
@@ -981,15 +991,14 @@ class Updater:
                 _log(f"删除文件: {file_path}")
             except FileNotFoundError:
                 _log(f"删除文件不存在: {file_path}")
-            done += 1
-            self.progress.update(value=done)
+            _tick()
 
         for dir_path, full_path in changes["added_dir"]:
             os.makedirs(full_path, exist_ok=True)
             _log(f"创建目录: {dir_path}")
-            done += 1
-            self.progress.update(value=done)
+            _tick()
 
+        shown_at = 0
         for kind, label in (("added", "新增文件"), ("modified", "更新文件")):
             for file_path, source, destination in changes[kind]:
                 try:
@@ -999,8 +1008,8 @@ class Updater:
                     _log(f"源文件不存在: {file_path}")
                 except OSError as exc:
                     raise UpdatePayloadError(f"应用增量更新失败: {file_path}: {exc}") from exc
-                done += 1
-                self.progress.update(value=done)
+                shown_at += 1
+                _tick(f"{label}: {file_path}" if shown_at % 25 == 0 or done + 1 == total else None)
 
         _log("增量更新完成")
 
