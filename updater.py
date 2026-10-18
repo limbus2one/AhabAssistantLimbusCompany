@@ -200,20 +200,30 @@ class UpdateProgressWindow:
             self._enabled = False
 
     def _window_loop(self):
+        """自绘 MAA 风格进度窗：深色主题、雅黑字体、圆角进度条与百分比。
+
+        仅用 Win32/GDI，无额外依赖；任何一步失败都会抛给
+        ``_window_thread`` 降级为无进度窗，绝不影响更新流程。
+        """
         user32 = ctypes.windll.user32
         gdi32 = ctypes.windll.gdi32
         kernel32 = ctypes.windll.kernel32
+        dwmapi = ctypes.windll.dwmapi
 
-        WM_SETTEXT = 0x000C
-        WM_SETFONT = 0x0030
-        PBM_SETPOS = 0x0402
-        PBM_SETRANGE32 = 0x0406
-        WS_CHILD = 0x40000000
-        WS_VISIBLE = 0x10000000
         WS_CAPTION = 0x00C00000
         WS_SYSMENU = 0x00080000
-        DEFAULT_GUI_FONT = 17
+        WS_VISIBLE = 0x10000000
+        WS_EX_TOPMOST = 0x00000008
+        WS_EX_NOACTIVATE = 0x08000000
         PM_REMOVE = 1
+        WM_PAINT = 0x000F
+        WM_ERASEBKGND = 0x0014
+        DT_SINGLELINE = 0x20
+        DT_END_ELLIPSIS = 0x4000
+        DT_RIGHT = 0x2
+        SRCCOPY = 0x00CC0020
+        TRANSPARENT_BK = 1
+        NULL_PEN = 8
 
         WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
 
@@ -242,36 +252,182 @@ class UpdateProgressWindow:
                 ("pt_y", ctypes.c_long),
             ]
 
+        class RECT(ctypes.Structure):
+            _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long), ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+
+        class PAINTSTRUCT(ctypes.Structure):
+            _fields_ = [
+                ("hdc", ctypes.c_void_p),
+                ("fErase", ctypes.c_int),
+                ("rcPaint", RECT),
+                ("fRestore", ctypes.c_int),
+                ("fIncUpdate", ctypes.c_int),
+                ("rgbReserved", ctypes.c_byte * 32),
+            ]
+
         user32.CreateWindowExW.restype = ctypes.c_void_p
-        gdi32.GetStockObject.restype = ctypes.c_void_p
         kernel32.GetModuleHandleW.restype = ctypes.c_void_p
-        # DefWindowProcW 会作为窗口过程回调被调用：必须声明完整签名，
-        # 否则 lParam 指针值超过 C int 范围时回调内部会抛 OverflowError
         user32.DefWindowProcW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
         user32.DefWindowProcW.restype = ctypes.c_ssize_t
-        user32.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
-        user32.SendMessageW.restype = ctypes.c_ssize_t
+        gdi32.CreateFontW.restype = ctypes.c_void_p
+        gdi32.CreateSolidBrush.restype = ctypes.c_void_p
+        gdi32.CreateCompatibleDC.restype = ctypes.c_void_p
+        gdi32.CreateCompatibleBitmap.restype = ctypes.c_void_p
+        gdi32.GetStockObject.restype = ctypes.c_void_p
+        # 句柄是 64 位值：所有传句柄/指针的调用必须声明 argtypes，
+        # 否则默认按 32 位 int 转换，句柄超过 2^31 时抛 OverflowError
+        gdi32.SelectObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
+        gdi32.DeleteDC.argtypes = [ctypes.c_void_p]
+        gdi32.SetBkMode.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        gdi32.SetTextColor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        gdi32.RoundRect.argtypes = [ctypes.c_void_p] + [ctypes.c_int] * 6
+        gdi32.BitBlt.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                 ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+        user32.BeginPaint.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        user32.BeginPaint.restype = ctypes.c_void_p
+        user32.EndPaint.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        user32.GetClientRect.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        user32.FillRect.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+        user32.DrawTextW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint]
+        user32.InvalidateRect.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
+        user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        user32.IsWindow.argtypes = [ctypes.c_void_p]
+        user32.DestroyWindow.argtypes = [ctypes.c_void_p]
+        user32.LoadCursorW.restype = ctypes.c_void_p
+        user32.PeekMessageW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]
+        user32.TranslateMessage.argtypes = [ctypes.c_void_p]
+        user32.DispatchMessageW.argtypes = [ctypes.c_void_p]
+        dwmapi.DwmSetWindowAttribute.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
 
         hinstance = ctypes.c_void_p(kernel32.GetModuleHandleW(None))
         window_class_name = "AALCUpdaterProgressWnd"
 
-        # comctl32 的进度条控件需要注册公共控件
-        with contextlib.suppress(Exception):
-            ctypes.windll.comctl32.InitCommonControls()
+        # DPI 缩放（Win10 1703+；失败按 96 DPI 处理）
+        try:
+            dpi = user32.GetDpiForSystem()
+        except Exception:
+            dpi = 96
+        scale = max(1.0, (dpi or 96) / 96.0)
 
-        wnd_proc = WNDPROC(user32.DefWindowProcW)
+        # ---- 配色与字体（MAA 风格深色主题）----
+        def rgb(color):
+            return ((color & 0xFF) << 16) | (color & 0x00FF00) | ((color >> 16) & 0xFF)
+        color_bg = 0x1E1E26      # 窗口背景
+        color_stage = 0xFFFFFF   # 阶段主文字
+        color_detail = 0x9CA3B0  # 细节次级文字
+        color_hint = 0x6C7280    # 底部提示
+        color_percent = 0xE8EBF2 # 百分比
+        color_track = 0x33333E   # 进度槽
+        color_fill = 0x5B7CFA    # 进度填充（品牌蓝）
+
+        def scaled(px):
+            return int(px * scale)
+
+        font_stage = ctypes.c_void_p(
+            gdi32.CreateFontW(scaled(17), 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
+        )
+        font_detail = ctypes.c_void_p(
+            gdi32.CreateFontW(scaled(13), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
+        )
+        font_small = ctypes.c_void_p(
+            gdi32.CreateFontW(scaled(11), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
+        )
+        brush_bg = gdi32.CreateSolidBrush(rgb(color_bg))
+        brush_track = gdi32.CreateSolidBrush(rgb(color_track))
+        brush_fill = gdi32.CreateSolidBrush(rgb(color_fill))
+        pen_null = gdi32.GetStockObject(NULL_PEN)
+
+        def _paint(hwnd, hdc):
+            """双缓冲整窗自绘。"""
+            rect = RECT()
+            user32.GetClientRect(hwnd, ctypes.byref(rect))
+            width, height = rect.right - rect.left, rect.bottom - rect.top
+            mem = gdi32.CreateCompatibleDC(hdc)
+            bmp = gdi32.CreateCompatibleBitmap(hdc, width, height)
+            old_bmp = gdi32.SelectObject(mem, bmp)
+            user32.FillRect(mem, ctypes.byref(rect), brush_bg)
+            gdi32.SetBkMode(mem, TRANSPARENT_BK)
+            gdi32.SelectObject(mem, pen_null)
+
+            with self._lock:
+                stage, detail = self._stage, self._detail
+                value, maximum = self._value, self._maximum
+
+            margin = scaled(24)
+            # 阶段（左上，加粗）
+            gdi32.SelectObject(mem, font_stage)
+            gdi32.SetTextColor(mem, rgb(color_stage))
+            r_stage = RECT(margin, scaled(20), width - margin - scaled(64), scaled(46))
+            user32.DrawTextW(mem, stage, -1, ctypes.byref(r_stage), DT_SINGLELINE | DT_END_ELLIPSIS)
+            # 百分比（右上，确定进度时显示）
+            if maximum > 0:
+                gdi32.SelectObject(mem, font_detail)
+                gdi32.SetTextColor(mem, rgb(color_percent))
+                pct_text = f"{min(value, maximum) * 100 // maximum}%"
+                r_pct = RECT(width - margin - scaled(60), scaled(22), width - margin, scaled(44))
+                user32.DrawTextW(mem, pct_text, -1, ctypes.byref(r_pct), DT_SINGLELINE | DT_RIGHT)
+            # 细节（第二行）
+            gdi32.SelectObject(mem, font_detail)
+            gdi32.SetTextColor(mem, rgb(color_detail))
+            r_detail = RECT(margin, scaled(52), width - margin, scaled(72))
+            user32.DrawTextW(mem, detail or " ", -1, ctypes.byref(r_detail), DT_SINGLELINE | DT_END_ELLIPSIS)
+            # 进度条（圆角）
+            bar_y, bar_h = scaled(88), scaled(10)
+            track_r = RECT(margin, bar_y, width - margin, bar_y + bar_h)
+            gdi32.SelectObject(mem, brush_track)
+            gdi32.RoundRect(mem, track_r.left, track_r.top, track_r.right, track_r.bottom, bar_h, bar_h)
+            track_w = track_r.right - track_r.left
+            if maximum > 0:
+                fill_w = max(bar_h, track_w * min(value, maximum) // max(maximum, 1))
+                gdi32.SelectObject(mem, brush_fill)
+                gdi32.RoundRect(mem, track_r.left, track_r.top, track_r.left + fill_w, track_r.bottom, bar_h, bar_h)
+            else:
+                # 不定进度：30% 宽度的光带匀速扫过，带首尾淡入淡出区间
+                seg_w = max(bar_h, track_w * 3 // 10)
+                phase = (time.monotonic() % 1.8) / 1.8
+                travel = track_w + seg_w
+                seg_x = track_r.left - seg_w + int(phase * travel)
+                gdi32.SelectObject(mem, brush_fill)
+                gdi32.RoundRect(
+                    mem, max(track_r.left, seg_x), track_r.top, min(track_r.right, seg_x + seg_w), track_r.bottom, bar_h, bar_h
+                )
+            # 底部提示
+            gdi32.SelectObject(mem, font_small)
+            gdi32.SetTextColor(mem, rgb(color_hint))
+            r_hint = RECT(margin, height - scaled(28), width - margin, height - scaled(8))
+            user32.DrawTextW(
+                mem, "正在更新 AALC，请稍候…  更新完成后将自动重启", -1, ctypes.byref(r_hint), DT_SINGLELINE | DT_END_ELLIPSIS
+            )
+            gdi32.BitBlt(hdc, 0, 0, width, height, mem, 0, 0, SRCCOPY)
+            gdi32.SelectObject(mem, old_bmp)
+            gdi32.DeleteObject(bmp)
+            gdi32.DeleteDC(mem)
+
+        def wnd_proc(hwnd, msg, wparam, lparam):
+            if msg == WM_ERASEBKGND:
+                return 1
+            if msg == WM_PAINT:
+                ps = PAINTSTRUCT()
+                hdc = user32.BeginPaint(hwnd, ctypes.byref(ps))
+                with contextlib.suppress(Exception):
+                    _paint(hwnd, hdc)
+                user32.EndPaint(hwnd, ctypes.byref(ps))
+                return 0
+            return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+        wnd_proc_cb = WNDPROC(wnd_proc)
         wc = WNDCLASSW()
-        wc.lpfnWndProc = wnd_proc
+        wc.lpfnWndProc = wnd_proc_cb
         wc.hInstance = hinstance
-        wc.hbrBackground = ctypes.c_void_p(gdi32.GetStockObject(0))  # WHITE_BRUSH
+        wc.hCursor = ctypes.c_void_p(user32.LoadCursorW(None, 32512))  # IDC_ARROW
         wc.lpszClassName = window_class_name
         if not user32.RegisterClassW(ctypes.byref(wc)):
             raise OSError("RegisterClassW failed")
 
-        # 置顶 + 不抢焦点：更新期间窗口始终可见，但不会打断用户当前操作
-        WS_EX_TOPMOST = 0x00000008
-        WS_EX_NOACTIVATE = 0x08000000
-        window_width, window_height = 430, 155
+        window_width, client_height = scaled(460), scaled(150)
+        caption_h = user32.GetSystemMetrics(4) + user32.GetSystemMetrics(32) * 2  # 标题栏 + 上下边框
+        window_height = client_height + caption_h
         screen_w = user32.GetSystemMetrics(0)
         screen_h = user32.GetSystemMetrics(1)
         pos_x = max(0, (screen_w - window_width) // 2)
@@ -295,62 +451,42 @@ class UpdateProgressWindow:
         )
         if not hwnd:
             raise OSError("CreateWindowExW failed")
-        # 显式再显示一次，避免某些环境下 WS_VISIBLE 未生效
+        # 深色标题栏（Win11 生效，Win10 静默忽略）。
+        # 注意：不要设置 DWMWA_WINDOW_CORNER_PREFERENCE(33) —— 实测该属性会让
+        # 自绘客户区不再上屏（窗口框架显示、客户区永呈白色），原因不明。
+        with contextlib.suppress(Exception):
+            dark = ctypes.c_int(1)
+            dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark), 4)
         with contextlib.suppress(Exception):
             user32.ShowWindow(hwnd, 8)  # SW_SHOWNA：显示但不激活
-
-        def create_child(class_name, text, x, y, width, height):
-            return ctypes.c_void_p(
-                user32.CreateWindowExW(
-                    0, class_name, text, WS_CHILD | WS_VISIBLE, x, y, width, height, hwnd, None, hinstance, None
-                )
-            )
-
-        label_stage = create_child("STATIC", "正在准备更新...", 16, 12, 392, 20)
-        label_detail = create_child("STATIC", "", 16, 38, 392, 20)
-        progress_bar = create_child("msctls_progress32", None, 16, 68, 392, 26)
-
-        hfont = ctypes.c_void_p(gdi32.GetStockObject(DEFAULT_GUI_FONT))
-        for control in (label_stage, label_detail):
-            user32.SendMessageW(control, WM_SETFONT, hfont, 1)
+        # 立即触发一次同步重绘，避免部分环境下首帧 WM_PAINT 迟迟不派发
+        with contextlib.suppress(Exception):
+            user32.UpdateWindow(hwnd)
+        with contextlib.suppress(Exception):
+            # RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN = 0x0185
+            user32.RedrawWindow(hwnd, None, None, 0x0185)
 
         msg = MSG()
-        started_at = time.monotonic()
-        last_stage = last_detail = None
-        last_value = last_maximum = None
+        invalidate_every_frame = True  # 自绘窗口需要持续重绘（不定进度光带动画）
         while True:
             with self._lock:
                 closing = self._closing
-                stage, detail = self._stage, self._detail
-                value, maximum = self._value, self._maximum
             if closing or not user32.IsWindow(hwnd):
                 break
             while user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_REMOVE):
                 user32.TranslateMessage(ctypes.byref(msg))
                 user32.DispatchMessageW(ctypes.byref(msg))
-            if stage != last_stage:
-                user32.SendMessageW(label_stage, WM_SETTEXT, 0, ctypes.c_wchar_p(stage))
-                last_stage = stage
-            if detail != last_detail:
-                user32.SendMessageW(label_detail, WM_SETTEXT, 0, ctypes.c_wchar_p(detail))
-                last_detail = detail
-            if maximum != last_maximum:
-                user32.SendMessageW(progress_bar, PBM_SETRANGE32, 0, max(maximum, 1))
-                last_maximum = maximum
-                last_value = None
-            if maximum > 0:
-                position = min(value, maximum)
+            user32.InvalidateRect(hwnd, None, False)
+            if not invalidate_every_frame:
+                time.sleep(0.05)
             else:
-                # 不定进度：0 -> 100 -> 0 来回摆动
-                tick = int((time.monotonic() - started_at) * 1000 // 30) % 200
-                position = 200 - tick if tick > 100 else tick
-            if position != last_value:
-                user32.SendMessageW(progress_bar, PBM_SETPOS, position, 0)
-                last_value = position
-            time.sleep(0.05)
+                time.sleep(0.033)  # ~30fps，光带平滑
 
         user32.DestroyWindow(hwnd)
         user32.PostQuitMessage(0)
+        for gdi_obj in (font_stage, font_detail, font_small, brush_bg, brush_track, brush_fill):
+            with contextlib.suppress(Exception):
+                gdi32.DeleteObject(gdi_obj)
 
 
 # ---------------------------------------------------------------------------
