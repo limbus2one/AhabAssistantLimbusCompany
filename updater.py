@@ -38,6 +38,22 @@ _CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 _PARENT_EXIT_WAIT_SECONDS = 15
 _OTHER_UPDATER_WAIT_SECONDS = 30
+
+
+def _ancestor_pids():
+    """返回当前进程的祖先 pid 集合。
+
+    PyInstaller onefile 在 Windows 上是双进程模型：引导父进程与 Python 子进程
+    的 exe 同名，进程枚举时会把引导父进程误判为"其他更新器"，这里显式排除，
+    避免等待/清扫逻辑杀掉自己的引导进程导致收尾挂起。
+    """
+    pids = set()
+    try:
+        for parent in psutil.Process(os.getpid()).parents():
+            pids.add(parent.pid)
+    except psutil.Error:
+        pass
+    return pids
 _EXTRACT_MAX_ATTEMPTS = 3
 _FS_OP_MAX_ATTEMPTS = 4
 _FS_OP_RETRY_DELAY_SECONDS = 0.5
@@ -483,12 +499,13 @@ class Updater:
         清扫强制清理，保证既不竞态也不会永久卡住。
         """
         mine = os.getpid()
+        ancestors = _ancestor_pids()
         deadline = time.monotonic() + _OTHER_UPDATER_WAIT_SECONDS
         last_logged_pids = None
         while True:
             others = []
             for proc in psutil.process_iter(attrs=["pid", "name"]):
-                if proc.pid == mine:
+                if proc.pid == mine or proc.pid in ancestors:
                     continue
                 name = (proc.info.get("name") or "").lower()
                 if name.startswith("aalc updater"):
@@ -620,9 +637,12 @@ class Updater:
         """终止相关进程以准备更新。"""
         _log("开始清理占用安装目录的进程...")
         install_root = os.path.normcase(os.path.abspath(self.cover_folder_path)) + os.sep
+        ancestors = _ancestor_pids()
         for proc in psutil.process_iter(attrs=["pid", "name"]):
             if proc.pid == os.getpid():
                 continue  # 更新器自身位于 update_temp（安装根目录内），不能杀自己
+            if proc.pid in ancestors:
+                continue  # onefile 引导父进程与本更新器同名同目录，杀掉会导致收尾挂起
             try:
                 exe_path = proc.exe()
             except (psutil.AccessDenied, psutil.NoSuchProcess):
