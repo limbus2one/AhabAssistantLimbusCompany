@@ -406,7 +406,9 @@ class UpdateProgressWindow:
 
         def wnd_proc(hwnd, msg, wparam, lparam):
             if msg == WM_ERASEBKGND:
-                return 1
+                # 让 DefWindowProc 用窗口类背景刷擦除：窗口类绑定了主题色画刷，
+                # 首帧即为主题深色而不是未初始化的黑色表面
+                return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
             if msg == WM_PAINT:
                 ps = PAINTSTRUCT()
                 hdc = user32.BeginPaint(hwnd, ctypes.byref(ps))
@@ -421,6 +423,7 @@ class UpdateProgressWindow:
         wc.lpfnWndProc = wnd_proc_cb
         wc.hInstance = hinstance
         wc.hCursor = ctypes.c_void_p(user32.LoadCursorW(None, 32512))  # IDC_ARROW
+        wc.hbrBackground = brush_bg  # 主题色背景刷：消除首帧黑屏闪烁
         wc.lpszClassName = window_class_name
         if not user32.RegisterClassW(ctypes.byref(wc)):
             raise OSError("RegisterClassW failed")
