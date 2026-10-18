@@ -21,12 +21,14 @@ import contextlib
 import ctypes
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import threading
 import time
 import traceback
+import winreg
 from pathlib import Path, PurePosixPath
 
 import psutil
@@ -38,6 +40,68 @@ _CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 _PARENT_EXIT_WAIT_SECONDS = 15
 _OTHER_UPDATER_WAIT_SECONDS = 30
+
+# 进度窗配色：与主程序保持一致（app/my_app.py 的主题色、app/common/ui_config.py 的
+# 窗口/内容背景）。深色：窗口 #1C1C1C、内容 #2D2D2D；亮色：窗口纯白、内容浅灰；
+# 品牌色 #9C080B 两种模式下都用作进度填充。
+_THEME_PALETTES = {
+    "dark": {
+        "dark_title": True,
+        "bg": 0x1C1C1C,
+        "track": 0x2D2D2D,
+        "fill": 0x9C080B,
+        "stage": 0xFFFFFF,
+        "detail": 0x9CA3B0,
+        "hint": 0x7A7A7A,
+        "percent": 0xE8EBF2,
+    },
+    "light": {
+        "dark_title": False,
+        "bg": 0xFFFFFF,
+        "track": 0xEBEBEB,
+        "fill": 0x9C080B,
+        "stage": 0x1C1C1C,
+        "detail": 0x767676,
+        "hint": 0x9A9A9A,
+        "percent": 0x9C080B,
+    },
+}
+
+
+def _resolve_theme_palette():
+    """按主程序的主题设置选择进度窗配色。
+
+    读取安装目录 config.yaml 的 theme_mode（AUTO/LIGHT/DARK）；AUTO 或读取
+    失败时跟随 Windows 系统应用主题，兜底深色。
+    """
+    mode = ""
+    bases = []
+    for base in (os.getcwd(), os.path.dirname(sys.executable or ".")):
+        bases.append(base)
+        bases.append(os.path.dirname(base))  # apply 模式 cwd/exe 位于 update_temp 时取上级
+    for base in bases:
+        if not base:
+            continue
+        try:
+            with open(os.path.join(base, "config.yaml"), encoding="utf-8") as f:
+                match = re.search(r"^\s*theme_mode:\s*([A-Za-z]+)", f.read(), re.MULTILINE)
+            if match:
+                mode = match.group(1).upper()
+                break
+        except OSError:
+            continue
+    if mode == "DARK":
+        return _THEME_PALETTES["dark"]
+    if mode == "LIGHT":
+        return _THEME_PALETTES["light"]
+    try:
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+        ) as key:
+            apps_light, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+        return _THEME_PALETTES["light" if apps_light else "dark"]
+    except OSError:
+        return _THEME_PALETTES["dark"]
 
 
 def _ancestor_pids():
@@ -310,16 +374,18 @@ class UpdateProgressWindow:
             dpi = 96
         scale = max(1.0, (dpi or 96) / 96.0)
 
-        # ---- 配色与字体（MAA 风格深色主题）----
+        # ---- 配色与字体（跟随主程序主题：窗口/内容背景与品牌色一致）----
         def rgb(color):
             return ((color & 0xFF) << 16) | (color & 0x00FF00) | ((color >> 16) & 0xFF)
-        color_bg = 0x1E1E26      # 窗口背景
-        color_stage = 0xFFFFFF   # 阶段主文字
-        color_detail = 0x9CA3B0  # 细节次级文字
-        color_hint = 0x6C7280    # 底部提示
-        color_percent = 0xE8EBF2 # 百分比
-        color_track = 0x33333E   # 进度槽
-        color_fill = 0x5B7CFA    # 进度填充（品牌蓝）
+
+        palette = _resolve_theme_palette()
+        color_bg = palette["bg"]        # 窗口背景 = 主程序主窗口背景
+        color_stage = palette["stage"]  # 阶段主文字
+        color_detail = palette["detail"]  # 细节次级文字
+        color_hint = palette["hint"]    # 底部提示
+        color_percent = palette["percent"]  # 百分比
+        color_track = palette["track"]  # 进度槽 = 主程序内容卡片色
+        color_fill = palette["fill"]    # 进度填充 = 主程序品牌色 #9C080B
 
         def scaled(px):
             return int(px * scale)
@@ -454,12 +520,13 @@ class UpdateProgressWindow:
         )
         if not hwnd:
             raise OSError("CreateWindowExW failed")
-        # 深色标题栏（Win11 生效，Win10 静默忽略）。
+        # 标题栏明暗与主程序主题一致（Win11 生效，Win10 静默忽略）。
         # 注意：不要设置 DWMWA_WINDOW_CORNER_PREFERENCE(33) —— 实测该属性会让
         # 自绘客户区不再上屏（窗口框架显示、客户区永呈白色），原因不明。
-        with contextlib.suppress(Exception):
-            dark = ctypes.c_int(1)
-            dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark), 4)
+        if palette["dark_title"]:
+            with contextlib.suppress(Exception):
+                dark = ctypes.c_int(1)
+                dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark), 4)
         with contextlib.suppress(Exception):
             user32.ShowWindow(hwnd, 8)  # SW_SHOWNA：显示但不激活
         # 立即触发一次同步重绘，避免部分环境下首帧 WM_PAINT 迟迟不派发
