@@ -463,14 +463,19 @@ def update(assets_url):
             file_path = os.path.join("update_temp", file_name)
 
             # 第三步：边下载边写入本地文件，并在可计算百分比时同步上报下载进度。
+            # 使用 1MB 大块读取，且仅在百分比变化时上报进度：小块+高频跨线程
+            # 信号会把吞吐拖到几 MB/s（本地回环实测 ~7MB/s），大块+节流后可跑满磁盘/网络。
+            last_progress = -1
             with open(file_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024):
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
                     if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
                         if total_size > 0:
                             progress = int(downloaded / total_size * 100)
-                            mediator.update_progress.emit(progress)
+                            if progress != last_progress:
+                                last_progress = progress
+                                mediator.update_progress.emit(progress)
 
         log.info("下载进度100%")
 
