@@ -212,7 +212,6 @@ class UpdateProgressWindow:
         WS_VISIBLE = 0x10000000
         WS_CAPTION = 0x00C00000
         WS_SYSMENU = 0x00080000
-        CW_USEDEFAULT = 0x80000000
         DEFAULT_GUI_FONT = 17
         PM_REMOVE = 1
 
@@ -269,16 +268,25 @@ class UpdateProgressWindow:
         if not user32.RegisterClassW(ctypes.byref(wc)):
             raise OSError("RegisterClassW failed")
 
+        # 置顶 + 不抢焦点：更新期间窗口始终可见，但不会打断用户当前操作
+        WS_EX_TOPMOST = 0x00000008
+        WS_EX_NOACTIVATE = 0x08000000
+        window_width, window_height = 430, 155
+        screen_w = user32.GetSystemMetrics(0)
+        screen_h = user32.GetSystemMetrics(1)
+        pos_x = max(0, (screen_w - window_width) // 2)
+        pos_y = max(0, (screen_h - window_height) // 2)
+
         hwnd = ctypes.c_void_p(
             user32.CreateWindowExW(
-                0,
+                WS_EX_TOPMOST | WS_EX_NOACTIVATE,
                 window_class_name,
                 "AALC 正在更新 | AALC Updating",
-                WS_CAPTION | WS_SYSMENU,
-                ctypes.c_int(CW_USEDEFAULT),
-                ctypes.c_int(CW_USEDEFAULT),
-                430,
-                155,
+                WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
+                pos_x,
+                pos_y,
+                window_width,
+                window_height,
                 None,
                 None,
                 hinstance,
@@ -287,6 +295,9 @@ class UpdateProgressWindow:
         )
         if not hwnd:
             raise OSError("CreateWindowExW failed")
+        # 显式再显示一次，避免某些环境下 WS_VISIBLE 未生效
+        with contextlib.suppress(Exception):
+            user32.ShowWindow(hwnd, 8)  # SW_SHOWNA：显示但不激活
 
         def create_child(class_name, text, x, y, width, height):
             return ctypes.c_void_p(
