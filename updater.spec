@@ -13,7 +13,7 @@ a = Analysis(
     excludes=[
         'numpy', 'pandas',
         # 更新器不联网（下载在主程序 check_update 完成）、不校验 TLS/哈希，
-        # 排除 OpenSSL/libcrypto 与其他重载荷，体积 8.3MB -> ~4MB
+        # 排除 OpenSSL/libcrypto 与其他重载荷，实测体积 8.29MB -> 6.01MB（-27%）
         'ssl', '_ssl', 'hashlib', '_hashlib', 'pyexpat', 'unicodedata',
     ],
     noarchive=False,

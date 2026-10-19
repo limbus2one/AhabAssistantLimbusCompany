@@ -95,6 +95,8 @@ class MainWindow(FramelessWindow):
         self._pending_start_commands: list[list[str]] = []
         self._scheduled_start_pending = False
         self._scheduled_start_command: list[str] | None = None
+        # 更新流程触发的退出标志：closeEvent 据此跳过确认框直接收尾
+        self.updating = False
 
         # 应用全局字体配置
         apply_font_config()
@@ -497,7 +499,7 @@ class MainWindow(FramelessWindow):
         cfg.set_value("window_position_x", self.x())
         cfg.set_value("window_position_y", self.y())
 
-        if getattr(self, "updating", False):
+        if self.updating:
             # 更新流程触发的退出：不再弹确认框，直接收尾任务后退出，
             # 更新器在等待本进程退出（超时才会强制清理）
             log.info("更新流程退出：收尾运行中的任务")

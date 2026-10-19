@@ -79,6 +79,39 @@ def _make_updater_for_manifest_check() -> Updater:
 
 
 @pytest.mark.parametrize(
+    ("parent_pid", "no_progress_ui", "expect_pid", "expect_no_ui"),
+    [
+        (4242, False, True, False),
+        (4242, True, True, True),
+        (None, True, False, True),
+    ],
+)
+def test_handoff_forwards_flags(monkeypatch, parent_pid, no_progress_ui, expect_pid, expect_no_ui):
+    """handoff 必须把 --parent-pid 转发给新版更新器，否则优雅退出等待在标准路径失效。"""
+    import updater
+
+    instance = _make_updater_for_manifest_check()
+    instance.updater_name = "AALC Updater.exe"
+    instance.apply_updater_name = "AALC Updater.apply.exe"
+    instance.temp_path = os.path.normpath("C:/temp/update_temp")
+    instance.file_name = "AALC.7z"
+    instance.no_progress_ui = no_progress_ui
+
+    monkeypatch.setattr(updater.os.path, "exists", lambda _path: True)
+    monkeypatch.setattr(updater.shutil, "copy2", lambda _src, _dst: None)
+    # 当前可执行文件与包内新版更新器不同路径，才会真正走 handoff 分支
+    monkeypatch.setattr(updater.sys, "argv", [os.path.normpath("C:/elsewhere/AALC Updater.exe")])
+    launched: dict = {}
+    monkeypatch.setattr(updater.subprocess, "Popen", lambda args, **_kwargs: launched.setdefault("args", args))
+
+    assert instance._handoff_to_new_updater(parent_pid=parent_pid) is True
+    args = launched["args"]
+    assert "--apply-update" in args and "AALC.7z" in args
+    assert ("--parent-pid" in args and "4242" in args) is expect_pid
+    assert ("--no-progress-ui" in args) is expect_no_ui
+
+
+@pytest.mark.parametrize(
     ("raw", "expected"),
     [
         ("AALC/AALC.exe", "AALC.exe"),
