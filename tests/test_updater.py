@@ -9,8 +9,11 @@ updater 纯逻辑单元测试
 
 from __future__ import annotations
 
+import ctypes
+import json
 import os
 import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -152,3 +155,61 @@ def test_update_thread_safe_smoke():
     for thread in threads:
         thread.join()
     assert errors == []
+
+
+def test_handoff_reuses_existing_progress_window(monkeypatch):
+    import updater
+
+    instance = _make_updater_for_manifest_check()
+    instance.updater_name = "AALC Updater.exe"
+    instance.apply_updater_name = "AALC Updater.apply.exe"
+    instance.temp_path = os.path.normpath("C:/temp/update_temp")
+    instance.file_name = "AALC.7z"
+    instance.no_progress_ui = False
+    instance.progress = SimpleNamespace(get_window_handle=lambda: 987654)
+    monkeypatch.setattr(updater.os.path, "exists", lambda _path: True)
+    monkeypatch.setattr(updater.shutil, "copy2", lambda *_args: None)
+    launched = {}
+    monkeypatch.setattr(updater.subprocess, "Popen", lambda args, **_kwargs: launched.setdefault("args", args))
+    assert instance._handoff_to_new_updater() is True
+    args = parse_updater_args(launched["args"][1:])
+    assert args.progress_window == 987654
+    assert args.apply_mode is True
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_handoff_keeps_owner_alive_until_apply_finishes(monkeypatch, tmp_path, exit_code):
+    monkeypatch.chdir(tmp_path)
+    instance = Updater("AALC.7z")
+    waited = []
+    monkeypatch.setattr(instance, "_prepare_update_payload", lambda _apply: None)
+    monkeypatch.setattr(instance, "validate_update_payload", lambda: None)
+    monkeypatch.setattr(instance, "_handoff_to_new_updater", lambda **_kwargs: True)
+    instance._apply_process = SimpleNamespace(wait=lambda: (waited.append(True), exit_code)[1])
+    assert instance.run() is (exit_code == 0)
+    assert waited == [True]
+
+
+@pytest.mark.parametrize("data, accepted", [
+    ({"stage": "正在安装", "detail": "版本文件", "value": 1, "maximum": 2}, True),
+    ({"stage": []}, False),
+    ({"value": "1"}, False),
+    ({"unexpected": 1}, False),
+    ([], False),
+])
+def test_progress_relay_validates_and_updates_same_window(data, accepted):
+    import updater
+
+    progress = UpdateProgressWindow()
+    original_stage = progress._stage
+    raw = json.dumps(data).encode("utf-8")
+    buffer = ctypes.create_string_buffer(raw)
+    message = updater._ProgressMessage(0x41414C43, len(raw), ctypes.cast(buffer, ctypes.c_void_p))
+    assert progress._receive_progress(ctypes.byref(message)) is accepted
+    assert progress._thread is None
+    if accepted:
+        assert progress._stage == "正在安装"
+        assert progress._log_lines == ["版本文件"]
+        assert (progress._value, progress._maximum) == (1, 2)
+    else:
+        assert progress._stage == original_stage

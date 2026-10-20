@@ -11,8 +11,11 @@ from PySide6.QtCore import (
     Qt,
     QThread,
     QTimer,
+    QUrl,
+    Slot,
 )
 from PySide6.QtGui import QAction, QCursor, QIcon
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -651,11 +654,24 @@ class MainWindow(FramelessWindow):
         mediator.tasks_warning.connect(self.show_tasks_warning)
         mediator.update_progress.connect(self.set_progress_ring)
         mediator.download_complete.connect(self.download_and_install)
+        mediator.play_audio.connect(self.play_audio)
         mediator.warning.connect(self.show_warning)
         mediator.hdr_warning.connect(self.show_hdr_warning)
         # 由任务线程发起请求、由主窗口执行前台切换，避免执行层直接耦合 UI。
         mediator.request_focus.connect(self._force_foreground)
         mediator.script_finished.connect(self._schedule_next_queued_start)
+
+    @Slot(str)
+    def play_audio(self, path: str) -> None:
+        """在 GUI 线程异步播放语音，避免音频依赖探测外部播放器时弹出终端。"""
+        player = QMediaPlayer(self)
+        player.setAudioOutput(QAudioOutput(player))
+        player.mediaStatusChanged.connect(
+            lambda status: player.deleteLater() if status == QMediaPlayer.MediaStatus.EndOfMedia else None
+        )
+        player.errorOccurred.connect(lambda _error, message: (log.warning(f"语音播放失败: {message}"), player.deleteLater()))
+        player.setSource(QUrl.fromLocalFile(os.path.abspath(path)))
+        player.play()
 
     def _force_foreground(self) -> None:
         """强制将 AALC 主窗口拉至前台，绕过 Windows 焦点保护。

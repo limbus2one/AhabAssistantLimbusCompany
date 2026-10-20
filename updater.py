@@ -222,6 +222,35 @@ class _NullProgress:
     def close(self):
         pass
 
+    def get_window_handle(self):
+        return None
+
+
+class _ProgressMessage(ctypes.Structure):
+    _fields_ = [("dwData", ctypes.c_size_t), ("cbData", ctypes.c_uint32), ("lpData", ctypes.c_void_p)]
+
+
+class _RemoteProgress(_NullProgress):
+    """apply 更新器把进度发送到引导进程持有的窗口，不创建第二个窗口。"""
+
+    def __init__(self, window_handle):
+        self.window_handle = window_handle
+
+    def update(self, stage=None, detail=None, value=None, maximum=None):
+        if not self.window_handle:
+            return
+        data = json.dumps(dict(stage=stage, detail=detail, value=value, maximum=maximum)).encode("utf-8")
+        buffer = ctypes.create_string_buffer(data)
+        message = _ProgressMessage(0x41414C43, len(data), ctypes.cast(buffer, ctypes.c_void_p))
+        send = ctypes.windll.user32.SendMessageTimeoutW
+        send.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_void_p,
+                         ctypes.c_uint, ctypes.c_uint, ctypes.POINTER(ctypes.c_size_t)]
+        send.restype = ctypes.c_ssize_t
+        result = ctypes.c_size_t()
+        # 接收进程退出或失去响应时放弃显示，不阻塞安装。
+        if not send(self.window_handle, 0x004A, 0, ctypes.byref(message), 0x0002, 200, ctypes.byref(result)):
+            self.window_handle = None
+
 
 class UpdateProgressWindow:
     """Win32 原生更新进度窗口（参考 MAA.Updater）。
@@ -240,6 +269,8 @@ class UpdateProgressWindow:
         self._maximum = 0  # 0 表示不定进度
         self._closing = False
         self._thread = None
+        self._hwnd = None
+        self._ready = threading.Event()
 
     @property
     def enabled(self):
@@ -276,12 +307,36 @@ class UpdateProgressWindow:
             self._thread.join(timeout=2)
             self._thread = None
 
+    def get_window_handle(self):
+        if self._thread is not None and self.enabled:
+            self._ready.wait(timeout=2)
+        return self._hwnd
+
+    def _receive_progress(self, address):
+        message = ctypes.cast(address, ctypes.POINTER(_ProgressMessage)).contents
+        if message.dwData != 0x41414C43 or not 0 < message.cbData <= 65536 or not message.lpData:
+            return False
+        try:
+            data = json.loads(ctypes.string_at(message.lpData, message.cbData).decode("utf-8"))
+            if not isinstance(data, dict) or data.keys() - {"stage", "detail", "value", "maximum"}:
+                return False
+            if any(data.get(key) is not None and not isinstance(data[key], str) for key in ("stage", "detail")):
+                return False
+            if any(data.get(key) is not None and type(data[key]) is not int for key in ("value", "maximum")):
+                return False
+            self.update(**data)
+            return True
+        except (ValueError, TypeError, UnicodeError):
+            return False
+
     def _window_thread(self):
         try:
             self._window_loop()
         except Exception as exc:  # 进度窗失败不允许影响更新流程
             _log(f"进度窗口不可用，已降级为无进度窗更新: {exc}")
             self._enabled = False
+        finally:
+            self._ready.set()
 
     def _window_loop(self):
         """自绘 MAA 风格进度窗：深色主题、雅黑字体、圆角进度条与百分比。
@@ -356,11 +411,14 @@ class UpdateProgressWindow:
         gdi32.CreateFontW.restype = ctypes.c_void_p
         gdi32.CreateSolidBrush.restype = ctypes.c_void_p
         gdi32.CreateCompatibleDC.restype = ctypes.c_void_p
+        gdi32.CreateCompatibleDC.argtypes = [ctypes.c_void_p]
         gdi32.CreateCompatibleBitmap.restype = ctypes.c_void_p
+        gdi32.CreateCompatibleBitmap.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
         gdi32.GetStockObject.restype = ctypes.c_void_p
         # 句柄是 64 位值：所有传句柄/指针的调用必须声明 argtypes，
         # 否则默认按 32 位 int 转换，句柄超过 2^31 时抛 OverflowError
         gdi32.SelectObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        gdi32.SelectObject.restype = ctypes.c_void_p
         gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
         gdi32.DeleteDC.argtypes = [ctypes.c_void_p]
         gdi32.SetBkMode.argtypes = [ctypes.c_void_p, ctypes.c_int]
@@ -485,7 +543,12 @@ class UpdateProgressWindow:
             gdi32.DeleteObject(bmp)
             gdi32.DeleteDC(mem)
 
+        paint_error_logged = False
+
         def wnd_proc(hwnd, msg, wparam, lparam):
+            nonlocal paint_error_logged
+            if msg == 0x004A:  # WM_COPYDATA：apply 进程的进度消息。
+                return int(self._receive_progress(lparam)) if lparam else 0
             if msg == WM_ERASEBKGND:
                 # 让 DefWindowProc 用窗口类背景刷擦除：窗口类绑定了主题色画刷，
                 # 首帧即为主题深色而不是未初始化的黑色表面
@@ -493,8 +556,12 @@ class UpdateProgressWindow:
             if msg == WM_PAINT:
                 ps = PAINTSTRUCT()
                 hdc = user32.BeginPaint(hwnd, ctypes.byref(ps))
-                with contextlib.suppress(Exception):
+                try:
                     _paint(hwnd, hdc)
+                except Exception as exc:
+                    if not paint_error_logged:
+                        _log(f"进度窗口绘制失败: {exc}")
+                        paint_error_logged = True
                 user32.EndPaint(hwnd, ctypes.byref(ps))
                 return 0
             return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
@@ -535,6 +602,9 @@ class UpdateProgressWindow:
         )
         if not hwnd:
             raise OSError("CreateWindowExW failed")
+        self._hwnd = hwnd.value
+        self._ready.set()
+        _log(f"更新进度窗口已创建: hwnd={self._hwnd}")
         # 标题栏明暗与主程序主题一致（Win11 生效，Win10 静默忽略）。
         # 注意：不要设置 DWMWA_WINDOW_CORNER_PREFERENCE(33) —— 实测该属性会让
         # 自绘客户区不再上屏（窗口框架显示、客户区永呈白色），原因不明。
@@ -564,6 +634,7 @@ class UpdateProgressWindow:
             time.sleep(0.033)  # ~30fps 持续重绘（不定进度光带动画需要）
 
         user32.DestroyWindow(hwnd)
+        self._hwnd = None
         user32.PostQuitMessage(0)
         for gdi_obj in (font_stage, font_detail, brush_bg, brush_track, brush_fill):
             with contextlib.suppress(Exception):
@@ -577,11 +648,12 @@ class UpdateProgressWindow:
 class UpdaterArguments:
     """更新器命令行参数。"""
 
-    def __init__(self, file_name=None, apply_mode=False, parent_pid=None, no_progress_ui=False):
+    def __init__(self, file_name=None, apply_mode=False, parent_pid=None, no_progress_ui=False, progress_window=None):
         self.file_name = file_name
         self.apply_mode = apply_mode
         self.parent_pid = parent_pid
         self.no_progress_ui = no_progress_ui
+        self.progress_window = progress_window
 
 
 def parse_updater_args(argv):
@@ -590,6 +662,7 @@ def parse_updater_args(argv):
     apply_mode = False
     parent_pid = None
     no_progress_ui = False
+    progress_window = None
 
     index = 0
     while index < len(argv):
@@ -602,11 +675,18 @@ def parse_updater_args(argv):
                 parent_pid = int(argv[index])
         elif arg == "--no-progress-ui":
             no_progress_ui = True
+        elif arg == "--progress-window" and index + 1 < len(argv):
+            index += 1
+            with contextlib.suppress(ValueError):
+                handle = int(argv[index])
+                if handle > 0:
+                    progress_window = handle
         elif file_name is None and not arg.startswith("-"):
             file_name = arg
         index += 1
 
-    return UpdaterArguments(file_name=file_name, apply_mode=apply_mode, parent_pid=parent_pid, no_progress_ui=no_progress_ui)
+    return UpdaterArguments(file_name=file_name, apply_mode=apply_mode, parent_pid=parent_pid,
+                            no_progress_ui=no_progress_ui, progress_window=progress_window)
 
 
 # ---------------------------------------------------------------------------
@@ -669,7 +749,8 @@ class Updater:
         # 引导进程把剩余工作交给包内新更新器（其自身体积大、可能需要先自更新）；
         # parent-pid 必须一并转发，否则新版更新器会跳过"等待主程序优雅退出"
         if not apply_mode and self._handoff_to_new_updater(parent_pid=parent_pid):
-            return True
+            # 保持当前进度窗及消息循环存活，直到 apply 完成；失败状态也必须向上传递。
+            return self._apply_process.wait() == 0
 
         self._wait_for_parent_exit(parent_pid)
 
@@ -854,7 +935,11 @@ class Updater:
                 extra_args += ["--parent-pid", str(parent_pid)]
             if self.no_progress_ui:
                 extra_args.append("--no-progress-ui")
-            subprocess.Popen(
+            else:
+                handle = getattr(self, "progress", _NullProgress()).get_window_handle()
+                if handle:
+                    extra_args += ["--progress-window", str(handle)]
+            self._apply_process = subprocess.Popen(
                 [staged_updater_path, "--apply-update", self.file_name, *extra_args],
                 creationflags=_DETACHED_PROCESS | _CREATE_NEW_PROCESS_GROUP,
                 cwd=self.cover_folder_path,
@@ -1220,7 +1305,11 @@ def main():
     _log(f"更新器启动: argv={sys.argv[1:]}, apply_mode={args.apply_mode}, log={log_path}")
     _maybe_relaunch_from_temp()
 
-    progress = UpdateProgressWindow(enabled=not args.no_progress_ui)
+    if args.progress_window and not args.no_progress_ui:
+        progress = _RemoteProgress(args.progress_window)
+        _log(f"复用更新进度窗口: hwnd={args.progress_window}")
+    else:
+        progress = UpdateProgressWindow(enabled=not args.no_progress_ui)
     progress.start()
     updater = Updater(args.file_name, no_progress_ui=args.no_progress_ui)
     try:
