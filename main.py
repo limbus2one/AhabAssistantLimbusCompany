@@ -1,3 +1,4 @@
+import atexit
 import os
 import socket
 import sys
@@ -13,6 +14,48 @@ _ORIG_SSLKEYLOGFILE = os.environ.pop("SSLKEYLOGFILE", None)
 os.chdir(
     os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
 )
+
+
+def send_args_to_existing_instance(port, args):
+    """尝试将参数发送给已存在的实例。"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1.0)
+            s.connect(("127.0.0.1", port))
+            s.sendall("|".join(args).encode("utf-8"))
+        return True
+    except OSError:
+        return False
+
+
+# 安装互斥必须在加载 Qt 和其他安装目录中的 DLL 前建立。
+if __name__ == "__main__" and getattr(sys, "frozen", False):
+    import ctypes
+
+    import pyuac
+
+    from update_support import InstallationLock, incomplete_update_path
+
+    if send_args_to_existing_instance(62333, sys.argv[1:]):
+        sys.exit(0)
+    if not pyuac.isUserAdmin():
+        pyuac.runAsAdmin(False)
+        sys.exit(0)
+    _installation_lock = InstallationLock(os.getcwd())
+    if not _installation_lock.acquire():
+        ctypes.windll.user32.MessageBoxW(None, "AALC 或更新器正在使用此安装目录，请稍后再试。", "AALC", 0x30)
+        sys.exit(1)
+    atexit.register(_installation_lock.close)
+    if os.path.exists(incomplete_update_path(os.getcwd())):
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            "上次更新未完成，已阻止启动以免使用不完整的文件。\n"
+            "请将完整更新包放入 update_temp 后交给 AALC Updater.exe 修复。\n"
+            "日志和旧文件备份保存在 update_temp；修复前请保留该目录。",
+            "AALC 更新需要修复", 0x10,
+        )
+        sys.exit(2)
+
 # 解决 Windows DPI 缩放问题
 from ctypes import c_void_p, windll
 
@@ -77,20 +120,6 @@ def start_socket_server(port, signaler):
                 if data:
                     # 收到参数后通过信号发送给主线程处理
                     signaler.arguments_received.emit(data.split("|"))
-
-
-def send_args_to_existing_instance(port, args):
-    """尝试将参数发送给已存在的实例"""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1.0)  # 设置 1 秒超时
-            s.connect(("127.0.0.1", port))
-            s.sendall("|".join(args).encode("utf-8"))
-        return True
-    except ConnectionRefusedError:
-        return False
-    except Exception:
-        return False
 
 
 if __name__ == "__main__":

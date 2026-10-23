@@ -77,6 +77,8 @@ class ResourceSyncCoordinator(QObject):
 
     def start_manual_resource_sync_check(self) -> None:
         """由设置页触发的手动资源同步检查入口。"""
+        if self._window.updating:
+            return
         # 第一步：如果当前已有资源任务在跑，则直接提示用户稍后再试。
         if self._resource_sync_worker is not None and self._resource_sync_worker.isRunning():
             self._show_resource_sync_infobar(
@@ -89,6 +91,11 @@ class ResourceSyncCoordinator(QObject):
         # 第二步：手动入口也先走软件更新门禁，确保与启动入口共用同一套版本规则。
         log.debug("开始手动检查图片资源更新前的软件版本状态")
         self._start_resource_sync_gate_check(trigger="manual")
+
+    def is_busy(self) -> bool:
+        return (self._resource_sync_worker is not None and self._resource_sync_worker.isRunning()) or (
+            self._pending_resource_sync_apply_request is not None
+        )
 
     def apply_status_style(self, is_dark: bool) -> None:
         """根据主题刷新标题栏资源状态标签样式。

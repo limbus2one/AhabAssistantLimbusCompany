@@ -3,8 +3,9 @@ import re
 import shutil
 import subprocess
 from enum import Enum
-from threading import Thread
+from threading import Lock, Thread
 from typing import Callable
+from urllib.parse import urlsplit
 
 import requests  # 导入requests模块，用于发送HTTP请求
 from markdown_it import MarkdownIt
@@ -17,9 +18,11 @@ from app.card.messagebox_custom import BaseInfoBar, MessageBoxUpdate
 from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
+from module.update.download import download_update
 from utils.utils import decrypt_string
 
 md_renderer = MarkdownIt("gfm-like", {"html": True})
+_download_lock = Lock()
 
 
 class UpdateStatus(Enum):
@@ -434,6 +437,16 @@ def is_valid_url(url):
 
 
 def update(assets_url):
+    if not _download_lock.acquire(blocking=False):
+        log.info("已有更新包正在下载，请等待下载完成")
+        return False
+    try:
+        return _update(assets_url)
+    finally:
+        _download_lock.release()
+
+
+def _update(assets_url):
     """
     从给定的URL下载更新文件到本地。
     :param assets_url : 更新文件的URL。
@@ -444,7 +457,7 @@ def update(assets_url):
         return
 
     # 提取文件名
-    file_name = assets_url.split("/")[-1]
+    file_name = urlsplit(assets_url).path.rsplit("/", 1)[-1]
     if "7z" not in file_name:
         file_name = "AALC.zip"
     elif "AALC" in file_name:
@@ -452,31 +465,7 @@ def update(assets_url):
     log.info(f"正在下载 {file_name} ...")
 
     try:
-        # 第一步：仅发起一次流式下载请求，并在同一响应对象上完成大小读取与内容落盘。
-        with requests.get(assets_url, stream=True, timeout=10) as response:
-            response.raise_for_status()  # 检查 HTTP 请求是否成功
-
-            # 第二步：读取总大小并准备本地临时文件路径。
-            total_size = int(response.headers.get("content-length", 0))
-            downloaded = 0
-            os.makedirs("update_temp", exist_ok=True)
-            file_path = os.path.join("update_temp", file_name)
-
-            # 第三步：边下载边写入本地文件，并在可计算百分比时同步上报下载进度。
-            # 使用 1MB 大块读取，且仅在百分比变化时上报进度：小块+高频跨线程
-            # 信号会把吞吐拖到几 MB/s（本地回环实测 ~7MB/s），大块+节流后可跑满磁盘/网络。
-            last_progress = -1
-            with open(file_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total_size > 0:
-                            progress = int(downloaded / total_size * 100)
-                            if progress != last_progress:
-                                last_progress = progress
-                                mediator.update_progress.emit(progress)
-
+        download_update(assets_url, os.path.join("update_temp", file_name), mediator.update_progress.emit, log.warning)
         log.info("下载进度100%")
 
         if "OCR" in file_name:
@@ -503,8 +492,10 @@ def update(assets_url):
 
     except requests.exceptions.RequestException as e:
         log.error(f"下载失败，请检查网络: {e}")
+        mediator.warning.emit(f"更新包下载失败，已重试 3 次，请稍后重试：{e}")
     except OSError as e:
         log.error(f"文件操作失败: {e}")
+        mediator.warning.emit(f"更新包保存失败，请检查磁盘空间和权限：{e}")
 
 
 def start_update_thread(assets_url):
@@ -527,8 +518,13 @@ def start_update(assert_name):
     if not os.path.exists(source_file):
         log.error("启动更新失败：找不到 AALC Updater.exe")
         return False
-    subprocess.Popen(
-        [source_file, assert_name, "--parent-pid", str(os.getpid())],
-        creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-    )
+    try:
+        subprocess.Popen(
+            [source_file, assert_name, "--parent-pid", str(os.getpid())],
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
+    except OSError as exc:
+        log.error(f"启动更新失败: {exc}")
+        mediator.warning.emit(f"无法启动更新器：{exc}")
+        return False
     return True

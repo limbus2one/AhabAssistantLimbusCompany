@@ -100,6 +100,7 @@ class MainWindow(FramelessWindow):
         self._scheduled_start_command: list[str] | None = None
         # 更新流程触发的退出标志：closeEvent 据此跳过确认框直接收尾
         self.updating = False
+        self._pending_update_file = None
 
         # 应用全局字体配置
         apply_font_config()
@@ -336,6 +337,9 @@ class MainWindow(FramelessWindow):
 
     def command_start(self, argv: list[str]):
         """通过命令行参数控制程序启动行为"""
+        if self.updating:
+            log.info("正在交接更新，暂不接受新的命令")
+            return
         # 初始化控制符
         log.debug(f"接收到命令行参数: {argv}")
         if self._is_start_command(argv) and (self._has_running_script() or self._scheduled_start_pending):
@@ -457,6 +461,7 @@ class MainWindow(FramelessWindow):
 
         队列尚有后续任务时置为 True，禁止当前任务关闭程序、模拟器或执行电源操作。
         """
+        suspended = suspended or self._pending_update_file is not None
         suspend_completion_actions(suspended)
         mediator.completion_suppressed_changed.emit(suspended)
 
@@ -503,20 +508,8 @@ class MainWindow(FramelessWindow):
         cfg.set_value("window_position_y", self.y())
 
         if self.updating:
-            # 更新流程触发的退出：不再弹确认框，直接收尾任务后退出，
-            # 更新器在等待本进程退出（超时才会强制清理）
-            log.info("更新流程退出：收尾运行中的任务")
-            if (
-                self.farming_interface.interface_left.my_script is not None
-                and self.farming_interface.interface_left.my_script.isRunning()
-            ):
-                self.farming_interface.interface_left.my_script.terminate()
-            if self.tools_interface.tools:
-                for tool in self.tools_interface.tools.values():
-                    if isinstance(tool.w, QWidget):
-                        tool.w.close()
-                    elif isinstance(tool.w, QThread):
-                        tool.w.terminate()
+            # 仅在空闲时交接；不能使用 QThread.terminate 中断任务或配置写入。
+            log.info("任务已结束，退出 AALC 以安装更新")
             e.accept()
             return super().closeEvent(e)
 
@@ -732,18 +725,35 @@ class MainWindow(FramelessWindow):
             self.help_interface.load_markdown(url)
 
     def download_and_install(self, file_name):
-        """下载完成后自动进入安装：启动更新器并优雅退出主程序，全程无需再次确认。
-
-        参考 MAA 的更新流程：更新器通过 --parent-pid 等待本进程退出后再应用
-        更新包，因此这里只负责交接，退出统一走 close() 让 closeEvent 收尾。
-        """
-        log.info("更新包下载完成，自动启动更新器并退出 AALC")
-        self.updating = True
-        if not start_update(file_name):
-            self.updating = False
+        """参考 MAA，下载可在后台进行，安装等待任务与工具空闲。"""
+        if self.updating or self._pending_update_file is not None:
             return
-        # 略作延迟，保证更新器进程已拉起后再退出；更新器会等待本进程退出
-        QTimer.singleShot(300, self.close)
+        self._pending_update_file = file_name
+        self._set_completion_actions_suspended(True)
+        log.info("更新包已准备好，将在当前任务、排队任务和工具结束后自动安装")
+        self._try_install_update()
+
+    def _try_install_update(self):
+        if self._pending_update_file is None or self.updating:
+            return
+        tools_busy = any(
+            not isinstance(tool.w, QThread) or tool.w.isRunning()
+            for tool in self.tools_interface.tools.values()
+        )
+        if (self._has_running_script() or tools_busy or self._scheduled_start_pending
+                or self._pending_start_commands or self.resource_sync_coordinator.is_busy()):
+            QTimer.singleShot(1000, self._try_install_update)
+            return
+
+        self.updating = True
+        self.setEnabled(False)
+        if not start_update(self._pending_update_file):
+            self.updating = False
+            self._pending_update_file = None
+            self.setEnabled(True)
+            self._set_completion_actions_suspended(False)
+            return
+        self.close()
 
     def retranslateUi(self):
         self.pivot.setItemText("farming_interface", self.tr("一键长草"))

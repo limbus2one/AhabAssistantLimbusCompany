@@ -8,7 +8,7 @@
   MessageBox 提示（而非终端），并尽量恢复旧版本可用后自动重启 AALC；
 - 可视进度：用 Win32 原生小窗口展示阶段与进度（``--no-progress-ui`` 可关闭），
   参考 MAA.Updater 的进度窗口；
-- 平滑交接：支持 ``--parent-pid`` 等待主程序优雅退出（限时内不退出再强制清理），
+- 平滑交接：支持 ``--parent-pid`` 等待主程序优雅退出（超时取消安装），
   避免更新器主动杀掉正在保存配置的主程序。
 
 命令行兼容形式：
@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -33,13 +34,15 @@ from pathlib import Path, PurePosixPath
 
 import psutil
 
+from update_support import InstallationLock, incomplete_update_path
+
 # Windows 进程创建标记：统一无窗口启动，避免任何控制台闪现
 _CREATE_NO_WINDOW = 0x08000000
 _DETACHED_PROCESS = 0x00000008
 _CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 _PARENT_EXIT_WAIT_SECONDS = 15
-_OTHER_UPDATER_WAIT_SECONDS = 30
+_INSTALL_LOCK_WAIT_SECONDS = 30
 
 # 进度窗配色：与主程序保持一致（app/my_app.py 的主题色、app/common/ui_config.py 的
 # 窗口/内容背景）。深色：窗口 #1C1C1C、内容 #2D2D2D；亮色：窗口纯白、内容浅灰；
@@ -195,13 +198,12 @@ def _retry_fs_op(operation, description, attempts=_FS_OP_MAX_ATTEMPTS, delay=_FS
             time.sleep(delay)
 
 
-def show_error_dialog(title, text):
+def show_error_dialog(title, text, owner=None):
     """用原生 MessageBox 提示致命错误（无控制台场景下的兜底交互）。"""
     if os.name != "nt":
         return
     try:
-        # MB_ICONERROR | MB_SETFOREGROUND：确保前置显示
-        ctypes.windll.user32.MessageBoxW(None, ctypes.c_wchar_p(text), ctypes.c_wchar_p(title), 0x00000010 | 0x00010000)
+        ctypes.windll.user32.MessageBoxW(ctypes.c_void_p(owner), ctypes.c_wchar_p(text), ctypes.c_wchar_p(title), 0x00000010)
     except Exception:
         pass
 
@@ -235,6 +237,9 @@ class _RemoteProgress(_NullProgress):
 
     def __init__(self, window_handle):
         self.window_handle = window_handle
+
+    def get_window_handle(self):
+        return self.window_handle
 
     def update(self, stage=None, detail=None, value=None, maximum=None):
         if not self.window_handle:
@@ -278,7 +283,7 @@ class UpdateProgressWindow:
         return self._enabled
 
     def start(self):
-        if not self._enabled:
+        if not self._enabled or self._thread is not None:
             return
         self._thread = threading.Thread(target=self._window_thread, name="AALCUpdaterProgressUI", daemon=True)
         self._thread.start()
@@ -350,10 +355,8 @@ class UpdateProgressWindow:
         dwmapi = ctypes.windll.dwmapi
 
         WS_CAPTION = 0x00C00000
-        WS_SYSMENU = 0x00080000
-        WS_VISIBLE = 0x10000000
-        WS_EX_TOPMOST = 0x00000008
-        WS_EX_NOACTIVATE = 0x08000000
+        WS_EX_APPWINDOW = 0x00040000
+        WS_EX_DLGMODALFRAME = 0x00000001
         PM_REMOVE = 1
         WM_PAINT = 0x000F
         WM_ERASEBKGND = 0x0014
@@ -434,6 +437,7 @@ class UpdateProgressWindow:
         user32.DrawTextW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint]
         user32.InvalidateRect.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
         user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        user32.SetForegroundWindow.argtypes = [ctypes.c_void_p]
         user32.IsWindow.argtypes = [ctypes.c_void_p]
         user32.DestroyWindow.argtypes = [ctypes.c_void_p]
         user32.LoadCursorW.restype = ctypes.c_void_p
@@ -547,6 +551,8 @@ class UpdateProgressWindow:
 
         def wnd_proc(hwnd, msg, wparam, lparam):
             nonlocal paint_error_logged
+            if msg == 0x0010:  # WM_CLOSE：安装中不能只关闭窗口而让文件写入在后台继续。
+                return 0
             if msg == 0x004A:  # WM_COPYDATA：apply 进程的进度消息。
                 return int(self._receive_progress(lparam)) if lparam else 0
             if msg == WM_ERASEBKGND:
@@ -586,10 +592,10 @@ class UpdateProgressWindow:
 
         hwnd = ctypes.c_void_p(
             user32.CreateWindowExW(
-                WS_EX_TOPMOST | WS_EX_NOACTIVATE,
+                WS_EX_APPWINDOW | WS_EX_DLGMODALFRAME,
                 window_class_name,
                 "AALC 正在更新 | AALC Updating",
-                WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
+            WS_CAPTION,
                 pos_x,
                 pos_y,
                 window_width,
@@ -613,7 +619,9 @@ class UpdateProgressWindow:
                 dark = ctypes.c_int(1)
                 dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark), 4)
         with contextlib.suppress(Exception):
-            user32.ShowWindow(hwnd, 8)  # SW_SHOWNA：显示但不激活
+            user32.ShowWindow(hwnd, 1)  # SW_SHOWNORMAL：显示并激活
+            # 与 MAA 一致：弹出时尝试切到前台一次，不持续置顶。
+            user32.SetForegroundWindow(hwnd)
         # 立即触发一次同步重绘，避免部分环境下首帧 WM_PAINT 迟迟不派发
         with contextlib.suppress(Exception):
             user32.UpdateWindow(hwnd)
@@ -648,12 +656,13 @@ class UpdateProgressWindow:
 class UpdaterArguments:
     """更新器命令行参数。"""
 
-    def __init__(self, file_name=None, apply_mode=False, parent_pid=None, no_progress_ui=False, progress_window=None):
+    def __init__(self, file_name=None, apply_mode=False, parent_pid=None, no_progress_ui=False, progress_window=None, work_dir=None):
         self.file_name = file_name
         self.apply_mode = apply_mode
         self.parent_pid = parent_pid
         self.no_progress_ui = no_progress_ui
         self.progress_window = progress_window
+        self.work_dir = work_dir
 
 
 def parse_updater_args(argv):
@@ -663,6 +672,7 @@ def parse_updater_args(argv):
     parent_pid = None
     no_progress_ui = False
     progress_window = None
+    work_dir = None
 
     index = 0
     while index < len(argv):
@@ -675,6 +685,9 @@ def parse_updater_args(argv):
                 parent_pid = int(argv[index])
         elif arg == "--no-progress-ui":
             no_progress_ui = True
+        elif arg == "--work-dir" and index + 1 < len(argv):
+            index += 1
+            work_dir = argv[index]
         elif arg == "--progress-window" and index + 1 < len(argv):
             index += 1
             with contextlib.suppress(ValueError):
@@ -686,7 +699,7 @@ def parse_updater_args(argv):
         index += 1
 
     return UpdaterArguments(file_name=file_name, apply_mode=apply_mode, parent_pid=parent_pid,
-                            no_progress_ui=no_progress_ui, progress_window=progress_window)
+                            no_progress_ui=no_progress_ui, progress_window=progress_window, work_dir=work_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -696,13 +709,13 @@ def parse_updater_args(argv):
 class Updater:
     """应用程序更新器，负责检查、下载、解压和安装最新版本的应用程序。"""
 
-    def __init__(self, file_name=None, no_progress_ui=False):
-        self.process_names = ["AALC.exe"]
+    def __init__(self, file_name=None, no_progress_ui=False, work_dir=None):
         self.updater_name = "AALC Updater.exe"
         self.apply_updater_name = "AALC Updater.apply.exe"
 
         self.temp_path = os.path.abspath(f"./{TEMP_DIR_NAME}")
         os.makedirs(self.temp_path, exist_ok=True)
+        self.work_dir = _update_work_dir(work_dir)
 
         self.file_name = file_name
         self.no_progress_ui = no_progress_ui
@@ -712,19 +725,23 @@ class Updater:
 
         self.exe_path = os.path.abspath("./assets/binary/7za.exe")
         self.delete_folder_path = os.path.abspath("./assets/images")
-        self.changes_file_path = os.path.abspath(f"./{TEMP_DIR_NAME}/changes.json")
+        self.changes_file_path = os.path.join(self.work_dir, "changes.json")
 
         if self.file_name is None:
             self.download_file_path = None
-            self.extract_folder_path = self.temp_path
+            self.extract_folder_path = self.work_dir
         else:
+            if os.path.basename(self.file_name) != self.file_name:
+                raise UpdatePayloadError("更新包必须是 update_temp 内的文件名")
             self.download_file_path = os.path.join(self.temp_path, self.file_name)
-            self.extract_folder_path = os.path.join(self.temp_path, self.file_name.rsplit(".", 1)[0])
+            self.extract_folder_path = os.path.join(self.work_dir, self.file_name.rsplit(".", 1)[0])
 
         self.progress = _NullProgress()
         self._incremental_update_plan = None
         # 是否已开始改动安装目录（删除/覆盖文件）：决定失败后能否安全重启旧版本
         self._install_touched = False
+        self._undo = []
+        self._backup_dir = os.path.join(self.work_dir, "backup")
 
     # ------------------------------------------------------------------
     # 对外流程
@@ -733,6 +750,12 @@ class Updater:
     def run(self, apply_mode=False, parent_pid=None, progress=None):
         """执行完整更新流程，返回是否成功。"""
         self.progress = progress or _NullProgress()
+        try:
+            self._wait_for_parent_exit(parent_pid)
+        except UpdatePayloadError as exc:
+            self._abort_safely(str(exc), install_modified=False, restart=False)
+            return False
+        self.progress.start()
         self.progress.update(stage="正在准备更新...", detail="校验更新包")
         try:
             self._prepare_update_payload(apply_mode)
@@ -742,7 +765,7 @@ class Updater:
 
         try:
             self.validate_update_payload()
-        except UpdateManifestError as exc:
+        except (UpdateManifestError, UpdatePayloadError) as exc:
             self._abort_safely(f"更新清单无效，已取消更新: {exc}", install_modified=False)
             return False
 
@@ -752,41 +775,58 @@ class Updater:
             # 保持当前进度窗及消息循环存活，直到 apply 完成；失败状态也必须向上传递。
             return self._apply_process.wait() == 0
 
-        self._wait_for_parent_exit(parent_pid)
-
-        self._wait_other_updaters()
-
-        self.progress.update(stage="正在关闭 AALC 进程...", detail="清理可能占用更新文件的进程")
-        self.terminate_processes()
-
-        try:
-            self.cover_folder()
-        except Exception as exc:
-            self._abort_safely(f"覆盖安装失败: {exc}", install_modified=True)
+        install_lock = InstallationLock(self.cover_folder_path)
+        if not install_lock.acquire(timeout=_INSTALL_LOCK_WAIT_SECONDS):
+            self._abort_safely("安装目录正被其他 AALC 或更新器使用，请稍后重试。", install_modified=False, restart=False)
             return False
+        try:
+            self.progress.update(stage="正在关闭 AALC 进程...", detail="清理当前安装目录内占用文件的进程")
+            self.terminate_processes()
+            marker = incomplete_update_path(self.cover_folder_path)
+            was_incomplete = os.path.exists(marker)
+            if was_incomplete and self._incremental_update_plan is not None:
+                self._abort_safely("上次安装未完成，请使用完整更新包修复。", install_modified=True)
+                return False
+            with open(marker, "w", encoding="utf-8") as stream:
+                json.dump({"backup": self._backup_dir, "package": self.file_name}, stream, ensure_ascii=False)
+            try:
+                self.cover_folder()
+            except Exception as exc:
+                restored = self._rollback() and not was_incomplete
+                if restored:
+                    os.remove(marker)
+                install_lock.close()
+                self._abort_safely(f"覆盖安装失败: {exc}", install_modified=not restored)
+                return False
+            os.remove(marker)
+            self.progress.update(stage="正在清理临时文件...", detail="")
+            self.cleanup()
+            self._cleanup_tree(self._backup_dir, "旧文件备份")
+            # 当前 exe 尚在运行，下一次更新再清理已完成的会话目录。
+            with contextlib.suppress(OSError):
+                Path(self.work_dir, "completed.flag").touch()
+        finally:
+            install_lock.close()
 
-        self.progress.update(stage="正在清理临时文件...", detail="")
-        self.cleanup()
         relaunch_app(self.progress)
         return True
 
-    def _abort_safely(self, reason, install_modified):
+    def _abort_safely(self, reason, install_modified, restart=True):
         """更新中止：弹窗说明原因；未改动安装时自动恢复旧版本运行。"""
         _log(f"更新中止: {reason}")
         if install_modified:
             hint = "\n\n本次更新未完成，安装目录可能不完整，请重新更新或手动恢复。"
         else:
-            hint = "\n\n安装文件未被改动，将自动重启当前版本的 AALC。"
-        show_error_dialog("AALC 更新失败", f"{reason}{hint}\n\n详细日志: {self.log_path}")
+            hint = "\n\n当前版本文件保持完整。" + ("将自动重启 AALC。" if restart else "")
+        show_error_dialog("AALC 更新失败", f"{reason}{hint}\n\n详细日志: {self.log_path}", self.progress.get_window_handle())
         self.progress.update(stage="更新失败", detail=reason)
-        if not install_modified:
+        if not install_modified and restart:
             relaunch_app(self.progress)
 
     def _wait_for_parent_exit(self, parent_pid):
         """等待主程序优雅退出（MAA.Updater 的 ParentPid 等待策略）。
 
-        主程序启动更新器后会自行保存配置并退出；限时内未退出则放行，
-        由随后的进程清扫兜底强制结束，避免更新被挂死的主程序卡住。
+        先静默等待，再显示倒计时；仍未退出则取消，保留主程序当前任务和配置。
         """
         if not parent_pid:
             return
@@ -801,37 +841,14 @@ class Updater:
             except psutil.Error:
                 return
             time.sleep(0.2)
-        _log("等待主程序退出超时，转由进程清扫兜底")
-
-    def _wait_other_updaters(self):
-        """等待其他更新器实例退出（参考 MAA.Updater 的更新互斥语义）。
-
-        被中断的更新可能遗留仍在运行的更新器进程；两个更新器并发应用会互相
-        覆盖文件、重复重启主程序。这里限时等待其退出，超时则交给随后的进程
-        清扫强制清理，保证既不竞态也不会永久卡住。
-        """
-        mine = os.getpid()
-        ancestors = _ancestor_pids()
-        deadline = time.monotonic() + _OTHER_UPDATER_WAIT_SECONDS
-        last_logged_pids = None
-        while True:
-            others = []
-            for proc in psutil.process_iter(attrs=["pid", "name"]):
-                if proc.pid == mine or proc.pid in ancestors:
-                    continue
-                name = (proc.info.get("name") or "").lower()
-                if name.startswith("aalc updater"):
-                    others.append(proc)
-            if not others:
+        self.progress.start()
+        for remaining in range(60, 0, -1):
+            if not psutil.pid_exists(parent_pid):
                 return
-            pids = tuple(sorted(o.pid for o in others))
-            if pids != last_logged_pids:
-                _log(f"检测到其他更新器进程 {list(pids)}，等待其退出...")
-                last_logged_pids = pids
-            if time.monotonic() >= deadline:
-                _log("等待其他更新器退出超时，转由进程清扫兜底")
-                return
-            time.sleep(0.5)
+            self.progress.update(stage="正在等待 AALC 退出...", detail=f"主程序尚未退出，{remaining} 秒后取消本次更新")
+            time.sleep(1)
+        # 有安装锁时不能绕过仍在保存配置的主程序；超时取消比强杀更安全。
+        raise UpdatePayloadError("主程序未能正常退出，本次更新已取消，请关闭 AALC 后重试。")
 
     # ------------------------------------------------------------------
     # 解压与校验
@@ -848,7 +865,7 @@ class Updater:
                 if os.path.exists(self.exe_path):
                     self._run_7zip_extract()
                 else:
-                    shutil.unpack_archive(self.download_file_path, self.temp_path)
+                    shutil.unpack_archive(self.download_file_path, self.work_dir)
                 _log("解压完成")
                 return True
             except Exception as exc:
@@ -863,7 +880,7 @@ class Updater:
         """调用 7za 解压；无窗口启动并捕获输出，避免控制台闪现。"""
         try:
             result = subprocess.run(
-                [self.exe_path, "x", self.download_file_path, f"-o{self.temp_path}", "-aoa"],
+                [self.exe_path, "x", self.download_file_path, f"-o{self.work_dir}", "-aoa"],
                 check=True,
                 capture_output=True,
                 creationflags=_CREATE_NO_WINDOW,
@@ -900,8 +917,15 @@ class Updater:
         """在终止应用进程前验证增量更新清单及其所有目标路径。"""
         self._incremental_update_plan = None
         if not os.path.exists(self.changes_file_path):
+            if not os.path.isfile(os.path.join(self.extract_folder_path, "AALC.exe")):
+                raise UpdatePayloadError("完整更新包缺少 AALC.exe")
+            self._collect_copy_entries()  # 写入前检查全部目标路径
             return
         self._incremental_update_plan = self._load_incremental_update_plan()
+        for kind in ("added", "modified"):
+            for name, source, _destination in self._incremental_update_plan[kind]:
+                if not os.path.isfile(source):
+                    raise UpdatePayloadError(f"更新包缺少清单中的文件: {name}")
 
     # ------------------------------------------------------------------
     # 新旧更新器交接
@@ -911,7 +935,7 @@ class Updater:
         return os.path.join(self.extract_folder_path, self.updater_name)
 
     def _get_staged_updater_path(self):
-        return os.path.join(self.temp_path, self.apply_updater_name)
+        return os.path.join(getattr(self, "work_dir", self.temp_path), self.apply_updater_name)
 
     def _handoff_to_new_updater(self, current_executable=None, parent_pid=None):
         if not self.file_name:
@@ -930,6 +954,8 @@ class Updater:
 
             shutil.copy2(extracted_updater_path, staged_updater_path)
             extra_args = []
+            if getattr(self, "work_dir", None):
+                extra_args += ["--work-dir", self.work_dir]
             if parent_pid:
                 # 交接必须保留父进程等待语义：新版更新器同样要先等 AALC 优雅退出
                 extra_args += ["--parent-pid", str(parent_pid)]
@@ -970,7 +996,10 @@ class Updater:
                 continue
             # 覆盖 AALC 及安装目录内的附属进程（如 adb 服务），否则其可执行文件会被占用无法覆盖
             is_install_binary = os.path.normcase(exe_path).startswith(install_root)
-            if proc.info["name"] in self.process_names or any(name in proc.info["name"] for name in self.process_names) or is_install_binary:
+            # 其他更新器可能正在准备独立工作目录，不能按名称或安装目录误杀。
+            if (proc.info.get("name") or "").lower().startswith("aalc updater"):
+                continue
+            if is_install_binary:
                 try:
                     proc.terminate()
                     try:
@@ -1001,14 +1030,12 @@ class Updater:
         _log("开始覆盖安装...")
         if not os.path.isdir(self.extract_folder_path):
             raise UpdatePayloadError(f"解压目录缺失，更新包内容不完整: {self.extract_folder_path}")
-        try:
-            self._retry_fs(lambda: shutil.rmtree(self.delete_folder_path), "删除旧资源目录")
-        except FileNotFoundError:
-            _log("待删除目录不存在，跳过")
-        except Exception as exc:
-            _log(f"删除旧资源文件失败: {exc}")
-
         entries = self._collect_copy_entries()
+        self._backup_existing(self.delete_folder_path)
+        # PyInstaller 运行库由完整包管理，整体替换可清除旧版本遗留 DLL。
+        # 只处理包内提供的运行库目录，不清扫安装根目录中的用户文件。
+        if os.path.isdir(os.path.join(self.extract_folder_path, "_internal")):
+            self._backup_existing(os.path.join(self.cover_folder_path, "_internal"))
         total = len(entries)
         self.progress.update(stage="正在安装新文件...", detail=f"共 {total} 个文件待写入", value=0, maximum=total)
         for index, (source, destination) in enumerate(entries, start=1):
@@ -1026,11 +1053,11 @@ class Updater:
             dir_names.sort()
             relative_root = os.path.relpath(current_root, self.extract_folder_path)
             destination_root = self.cover_folder_path if relative_root == "." else os.path.join(self.cover_folder_path, relative_root)
-            with contextlib.suppress(OSError):
-                os.makedirs(destination_root, exist_ok=True)
             for file_name in sorted(file_names):
                 source = os.path.join(current_root, file_name)
-                destination = os.path.join(destination_root, file_name)
+                relative = os.path.relpath(os.path.join(destination_root, file_name), self.cover_folder_path)
+                destination = self._resolve_path_within_root(self.cover_folder_path, relative)
+                self._check_install_path(relative)
                 entries.append((source, destination))
         return entries
 
@@ -1039,36 +1066,58 @@ class Updater:
         return _retry_fs_op(operation, description, attempts=attempts)
 
     def _copy_file_with_retry(self, source, destination):
-        """复制单个文件；目标被占用时按 MAA.Updater 的思路改名腾位后重试。"""
-
-        def do_copy():
-            parent = os.path.dirname(destination)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
-            shutil.copy2(source, destination)
-
+        """先写临时文件，再备份旧文件、原子改名；失败由本次安装统一恢复。"""
+        self._ensure_directory(os.path.dirname(destination))
+        descriptor, temporary = tempfile.mkstemp(prefix=".aalc-update-", dir=os.path.dirname(destination))
+        os.close(descriptor)
         try:
-            self._retry_fs(do_copy, f"写入 {os.path.basename(destination)}")
-            return
-        except OSError:
-            if not os.path.exists(destination):
-                raise
-
-        # 目标存在且始终写不进去（例如被短暂锁定）：把旧文件改名让出位置后重试
-        backup_path = f"{destination}.old-{os.getpid()}-{int(time.time())}"
-        _log(f"目标仍被占用，尝试改名腾位: {backup_path}")
-        os.replace(destination, backup_path)
-        try:
-            self._retry_fs(do_copy, f"写入 {os.path.basename(destination)}")
-        except Exception:
-            # 复制仍失败：把旧文件放回原位，避免留下残缺目标与孤儿备份
+            self._retry_fs(lambda: shutil.copy2(source, temporary), f"写入 {os.path.basename(destination)}")
+            if not self._backup_existing(destination):
+                self._undo.append(("file", destination, None))
+            self._retry_fs(lambda: os.replace(temporary, destination), f"替换 {os.path.basename(destination)}")
+        finally:
             with contextlib.suppress(OSError):
-                if not os.path.exists(destination):
-                    os.replace(backup_path, destination)
-            raise
-        # 新文件已就位：腾位备份不再需要，及时删除避免长期残留
-        with contextlib.suppress(OSError):
-            os.remove(backup_path)
+                os.remove(temporary)
+
+    def _ensure_directory(self, path):
+        missing = []
+        while not os.path.exists(path):
+            missing.append(path)
+            path = os.path.dirname(path)
+        for directory in reversed(missing):
+            os.mkdir(directory)
+            self._undo.append(("directory", directory, None))
+
+    def _backup_existing(self, path):
+        if not os.path.lexists(path):
+            return False
+        os.makedirs(self._backup_dir, exist_ok=True)
+        backup = os.path.join(self._backup_dir, str(len(self._undo)))
+        # 保留路径映射，异常退出后仍可根据 journal.jsonl 手动恢复备份。
+        with open(os.path.join(self._backup_dir, "journal.jsonl"), "a", encoding="utf-8") as journal:
+            journal.write(json.dumps({"target": path, "backup": backup}, ensure_ascii=False) + "\n")
+        self._retry_fs(lambda: os.replace(path, backup), f"备份 {path}")
+        self._undo.append(("restore", path, backup))
+        return True
+
+    def _rollback(self):
+        """恢复本进程已完成的变更；恢复失败时保留标记、日志与备份。"""
+        restored = True
+        self.progress.update(stage="正在恢复旧版本...", detail="安装未完成，撤销本次变更")
+        for kind, target, backup in reversed(self._undo):
+            try:
+                if kind == "directory":
+                    self._retry_fs(lambda: os.rmdir(target), f"移除新目录 {target}")
+                elif kind == "file":
+                    if os.path.lexists(target):
+                        self._retry_fs(lambda: os.remove(target), f"移除新文件 {target}")
+                else:
+                    self._retry_fs(lambda: os.replace(backup, target), f"恢复 {target}")
+            except OSError as exc:
+                restored = False
+                _log(f"恢复失败: {target}: {exc}")
+        self._install_touched = not restored
+        return restored
 
     def _apply_incremental_update(self):
         """根据 changes.json 执行增量更新。"""
@@ -1088,23 +1137,17 @@ class Updater:
                 self.progress.update(value=done)
 
         for dir_path, full_path in changes["deleted_dir"]:
-            try:
-                shutil.rmtree(full_path)
-                _log(f"删除目录: {dir_path}")
-            except FileNotFoundError:
-                _log(f"删除目录不存在: {dir_path}")
+            self._backup_existing(full_path)
+            _log(f"移除目录（已备份）: {dir_path}")
             _tick()
 
         for file_path, full_path in changes["deleted"]:
-            try:
-                os.remove(full_path)
-                _log(f"删除文件: {file_path}")
-            except FileNotFoundError:
-                _log(f"删除文件不存在: {file_path}")
+            self._backup_existing(full_path)
+            _log(f"移除文件（已备份）: {file_path}")
             _tick()
 
         for dir_path, full_path in changes["added_dir"]:
-            os.makedirs(full_path, exist_ok=True)
+            self._ensure_directory(full_path)
             _log(f"创建目录: {dir_path}")
             _tick()
 
@@ -1114,8 +1157,6 @@ class Updater:
                 try:
                     self._copy_file_with_retry(source, destination)
                     _log(f"{label}: {file_path}")
-                except FileNotFoundError:
-                    _log(f"源文件不存在: {file_path}")
                 except OSError as exc:
                     raise UpdatePayloadError(f"应用增量更新失败: {file_path}: {exc}") from exc
                 shown_at += 1
@@ -1186,6 +1227,7 @@ class Updater:
 
             for original_path in entries:
                 normalized_path = self._normalize_manifest_path(original_path)
+                self._check_install_path(normalized_path)
                 target_path = self._resolve_path_within_root(self.cover_folder_path, normalized_path)
                 if operation in {"added", "modified"}:
                     source_path = self._resolve_path_within_root(self.extract_folder_path, normalized_path)
@@ -1194,6 +1236,12 @@ class Updater:
                     plan[operation].append((original_path, target_path))
 
         return plan
+
+    @staticmethod
+    def _check_install_path(relative_path):
+        # 工作目录中的锁、备份和未完成标记不能被更新包覆盖或删除。
+        if relative_path.replace("\\", "/").split("/")[0].lower() == TEMP_DIR_NAME.lower():
+            raise UpdateManifestError("更新包不能修改 update_temp 工作目录")
 
     # ------------------------------------------------------------------
     # 清理与重启
@@ -1255,9 +1303,30 @@ def relaunch_app(progress=None):
 # 入口
 # ---------------------------------------------------------------------------
 
-def _maybe_relaunch_from_temp():
+def _update_work_dir(work_dir=None):
+    root = Path(TEMP_DIR_NAME).resolve()
+    root.mkdir(exist_ok=True)
+    if work_dir is None:
+        for completed in root.glob("session-*/completed.flag"):
+            if completed.parent.resolve().parent != root:
+                continue
+            try:
+                shutil.rmtree(completed.parent)
+            except OSError:
+                # 并发更新时上一个会话的 exe 可能尚未退出，留待下次重试。
+                with contextlib.suppress(OSError):
+                    completed.touch()
+        return tempfile.mkdtemp(prefix="session-", dir=root)
+    candidate = Path(work_dir).resolve()
+    if candidate.parent != root or not candidate.name.startswith("session-"):
+        raise UpdatePayloadError("更新工作目录必须位于 update_temp/session-* 内")
+    candidate.mkdir(exist_ok=True)
+    return str(candidate)
+
+
+def _maybe_relaunch_from_temp(work_dir):
     """引导：把更新器自身复制到 update_temp 再重启，避免安装根目录内的自身被覆盖。"""
-    temp_path = os.path.abspath(f"./{TEMP_DIR_NAME}")
+    temp_path = work_dir
     file_path = sys.argv[0]
     destination_path = os.path.join(temp_path, os.path.basename(file_path))
 
@@ -1268,8 +1337,7 @@ def _maybe_relaunch_from_temp():
         if os.path.exists("./Update.exe"):
             os.remove("./Update.exe")
         os.makedirs(temp_path, exist_ok=True)
-        # 上次更新遗留的更新器可能仍在 update_temp 中运行并占用目标映像：
-        # 限时重试等它退出（与 _wait_other_updaters 的互斥语义一致），超时才放弃
+        # 每次更新使用独立目录，有限重试用于应对扫描软件的短暂占用。
         _retry_fs_op(
             lambda: shutil.copy(file_path, destination_path),
             "复制更新器到临时目录",
@@ -1278,12 +1346,12 @@ def _maybe_relaunch_from_temp():
         )
     except OSError as exc:
         _log(f"初始化更新器失败: {exc}")
-        show_error_dialog("AALC 更新失败", f"初始化更新器失败: {exc}\n\n详细日志: {os.path.join(temp_path, LOG_FILE_NAME)}")
+        show_error_dialog("AALC 更新失败", f"初始化更新器失败: {exc}\n\n详细日志: {os.path.abspath(TEMP_DIR_NAME)}/{LOG_FILE_NAME}")
         relaunch_app()
         sys.exit(2)
 
     subprocess.Popen(
-        [destination_path] + sys.argv[1:],
+        [destination_path] + sys.argv[1:] + (["--work-dir", work_dir] if "--work-dir" not in sys.argv else []),
         creationflags=_DETACHED_PROCESS | _CREATE_NEW_PROCESS_GROUP,
         cwd=os.path.abspath("./"),
     )
@@ -1303,21 +1371,21 @@ def main():
 
     log_path = _setup_logging()
     _log(f"更新器启动: argv={sys.argv[1:]}, apply_mode={args.apply_mode}, log={log_path}")
-    _maybe_relaunch_from_temp()
+    work_dir = _update_work_dir(args.work_dir)
+    _maybe_relaunch_from_temp(work_dir)
 
     if args.progress_window and not args.no_progress_ui:
         progress = _RemoteProgress(args.progress_window)
         _log(f"复用更新进度窗口: hwnd={args.progress_window}")
     else:
         progress = UpdateProgressWindow(enabled=not args.no_progress_ui)
-    progress.start()
-    updater = Updater(args.file_name, no_progress_ui=args.no_progress_ui)
+    updater = Updater(args.file_name, no_progress_ui=args.no_progress_ui, work_dir=work_dir)
     try:
         succeeded = updater.run(apply_mode=args.apply_mode, parent_pid=args.parent_pid, progress=progress)
     except Exception as exc:
         _log(f"更新过程出现未处理异常: {exc}")
         _log(traceback.format_exc())
-        show_error_dialog("AALC 更新失败", f"{exc}\n\n详细日志: {updater.log_path}")
+        show_error_dialog("AALC 更新失败", f"{exc}\n\n详细日志: {updater.log_path}", progress.get_window_handle())
         if not updater._install_touched:
             # 异常发生在改动安装目录之前，旧版本仍完整，自动恢复运行
             relaunch_app()
