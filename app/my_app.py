@@ -1,7 +1,6 @@
 import ctypes
 import os
 import re
-import subprocess
 import sys
 from enum import Enum
 
@@ -12,8 +11,11 @@ from PySide6.QtCore import (
     Qt,
     QThread,
     QTimer,
+    QUrl,
+    Slot,
 )
 from PySide6.QtGui import QAction, QCursor, QIcon
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -56,6 +58,7 @@ from module.config import cfg
 from module.font_manager import font_manager
 from module.logger import log
 from module.system_actions import autodaily_exit_to_after_completion_config, suspend_completion_actions
+from module.update.check_update import start_update
 
 # WinRT toast / Win32 焦点切换存在异步回跳，这里保留一次延迟补偿。
 _FOREGROUND_RETRY_DELAY_MS = 600
@@ -95,6 +98,9 @@ class MainWindow(FramelessWindow):
         self._pending_start_commands: list[list[str]] = []
         self._scheduled_start_pending = False
         self._scheduled_start_command: list[str] | None = None
+        # 更新流程触发的退出标志：closeEvent 据此跳过确认框直接收尾
+        self.updating = False
+        self._pending_update_file = None
 
         # 应用全局字体配置
         apply_font_config()
@@ -331,6 +337,9 @@ class MainWindow(FramelessWindow):
 
     def command_start(self, argv: list[str]):
         """通过命令行参数控制程序启动行为"""
+        if self.updating:
+            log.info("正在交接更新，暂不接受新的命令")
+            return
         # 初始化控制符
         log.debug(f"接收到命令行参数: {argv}")
         if self._is_start_command(argv) and (self._has_running_script() or self._scheduled_start_pending):
@@ -452,6 +461,7 @@ class MainWindow(FramelessWindow):
 
         队列尚有后续任务时置为 True，禁止当前任务关闭程序、模拟器或执行电源操作。
         """
+        suspended = suspended or self._pending_update_file is not None
         suspend_completion_actions(suspended)
         mediator.completion_suppressed_changed.emit(suspended)
 
@@ -496,6 +506,12 @@ class MainWindow(FramelessWindow):
         # 保存窗口位置
         cfg.set_value("window_position_x", self.x())
         cfg.set_value("window_position_y", self.y())
+
+        if self.updating:
+            # 仅在空闲时交接；不能使用 QThread.terminate 中断任务或配置写入。
+            log.info("任务已结束，退出 AALC 以安装更新")
+            e.accept()
+            return super().closeEvent(e)
 
         if (
             self.farming_interface.interface_left.my_script is not None
@@ -631,11 +647,24 @@ class MainWindow(FramelessWindow):
         mediator.tasks_warning.connect(self.show_tasks_warning)
         mediator.update_progress.connect(self.set_progress_ring)
         mediator.download_complete.connect(self.download_and_install)
+        mediator.play_audio.connect(self.play_audio)
         mediator.warning.connect(self.show_warning)
         mediator.hdr_warning.connect(self.show_hdr_warning)
         # 由任务线程发起请求、由主窗口执行前台切换，避免执行层直接耦合 UI。
         mediator.request_focus.connect(self._force_foreground)
         mediator.script_finished.connect(self._schedule_next_queued_start)
+
+    @Slot(str)
+    def play_audio(self, path: str) -> None:
+        """在 GUI 线程异步播放语音，避免音频依赖探测外部播放器时弹出终端。"""
+        player = QMediaPlayer(self)
+        player.setAudioOutput(QAudioOutput(player))
+        player.mediaStatusChanged.connect(
+            lambda status: player.deleteLater() if status == QMediaPlayer.MediaStatus.EndOfMedia else None
+        )
+        player.errorOccurred.connect(lambda _error, message: (log.warning(f"语音播放失败: {message}"), player.deleteLater()))
+        player.setSource(QUrl.fromLocalFile(os.path.abspath(path)))
+        player.play()
 
     def _force_foreground(self) -> None:
         """强制将 AALC 主窗口拉至前台，绕过 Windows 焦点保护。
@@ -696,11 +725,35 @@ class MainWindow(FramelessWindow):
             self.help_interface.load_markdown(url)
 
     def download_and_install(self, file_name):
-        messages_box = MessageBoxConfirm(self.tr("更新提醒"), self.tr("下载已经完成，是否开始更新"), self.window())
-        if messages_box.exec():
-            source_file = os.path.abspath("./AALC Updater.exe")
-            assert_name = file_name
-            subprocess.Popen([source_file, assert_name], creationflags=subprocess.DETACHED_PROCESS)
+        """参考 MAA，下载可在后台进行，安装等待任务与工具空闲。"""
+        if self.updating or self._pending_update_file is not None:
+            return
+        self._pending_update_file = file_name
+        self._set_completion_actions_suspended(True)
+        log.info("更新包已准备好，将在当前任务、排队任务和工具结束后自动安装")
+        self._try_install_update()
+
+    def _try_install_update(self):
+        if self._pending_update_file is None or self.updating:
+            return
+        tools_busy = any(
+            not isinstance(tool.w, QThread) or tool.w.isRunning()
+            for tool in self.tools_interface.tools.values()
+        )
+        if (self._has_running_script() or tools_busy or self._scheduled_start_pending
+                or self._pending_start_commands or self.resource_sync_coordinator.is_busy()):
+            QTimer.singleShot(1000, self._try_install_update)
+            return
+
+        self.updating = True
+        self.setEnabled(False)
+        if not start_update(self._pending_update_file):
+            self.updating = False
+            self._pending_update_file = None
+            self.setEnabled(True)
+            self._set_completion_actions_suspended(False)
+            return
+        self.close()
 
     def retranslateUi(self):
         self.pivot.setItemText("farming_interface", self.tr("一键长草"))

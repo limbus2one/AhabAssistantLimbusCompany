@@ -91,6 +91,8 @@ class ToolsInterface(ScrollArea):
         self.get_screenshot_card.clicked.connect(lambda: self._tool_start("screenshot", self.get_screenshot_card))
 
     def _tool_start(self, tool_name: str, card: BasePushSettingCard):
+        if getattr(self.window(), "updating", False):
+            return
         if tool_name in self.tools:
             tool = self.tools[tool_name]
             if isinstance(tool.w, QWidget):
