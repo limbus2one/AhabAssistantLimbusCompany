@@ -110,6 +110,37 @@ def test_handoff_keeps_window_and_forwards_arguments(install, monkeypatch):
     assert (args.apply_mode, args.parent_pid, args.progress_window, args.work_dir) == (True, 456, 123, instance.work_dir)
 
 
+@pytest.mark.parametrize("args", [[], ["--apply-update"]])
+def test_missing_package_exits_before_creating_workspace(tmp_path, monkeypatch, args):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "argv", ["AALC Updater.exe", *args])
+    messages = []
+    monkeypatch.setattr(updater, "show_error_dialog", lambda *args: messages.append(args))
+    with pytest.raises(SystemExit) as error:
+        updater.main()
+    assert error.value.code == 2 and "缺少更新包" in messages[0][1]
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("operation", ["unlink", "remove"])
+def test_extraction_cleanup_failure_retries_without_using_stale_files(install, monkeypatch, operation):
+    instance, _, _ = install
+    write(instance.extract_folder_path, "stale.txt")
+    write(instance.work_dir, "changes.json", "{}")
+    failures, extractions = [], []
+
+    def fail(*args, **kwargs):
+        failures.append(True)
+        raise PermissionError("cleanup blocked")
+
+    monkeypatch.setattr(updater.os, operation, fail)
+    monkeypatch.setattr(updater.shutil, "unpack_archive", lambda *_: extractions.append(True))
+    with pytest.raises(updater.UpdatePayloadError, match="cleanup blocked"):
+        updater.Updater._prepare_update_payload(instance, False)
+    assert len(failures) == updater._EXTRACT_MAX_ATTEMPTS and not extractions
+
+
 @pytest.mark.parametrize("path", ["", "/abs", "C:/abs", "../escape", "ok/../../escape", "bad\0name"])
 def test_manifest_rejects_unsafe_paths(install, path):
     with pytest.raises(updater.UpdateManifestError):

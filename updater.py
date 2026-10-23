@@ -55,9 +55,6 @@ _THEME_PALETTES = {
         "track": 0x2D2D2D,
         "fill": 0x9C080B,
         "stage": 0xFFFFFF,
-        "detail": 0x9CA3B0,
-        "hint": 0xA6A6A6,
-        "percent": 0xE8EBF2,
     },
     "light": {
         "dark_title": False,
@@ -65,9 +62,6 @@ _THEME_PALETTES = {
         "track": 0xEBEBEB,
         "fill": 0x9C080B,
         "stage": 0x1C1C1C,
-        "detail": 0x767676,
-        "hint": 0x9A9A9A,
-        "percent": 0x9C080B,
     },
 }
 
@@ -79,21 +73,13 @@ def _resolve_theme_palette():
     失败时跟随 Windows 系统应用主题，兜底深色。
     """
     mode = ""
-    bases = []
-    for base in (os.getcwd(), os.path.dirname(sys.executable or ".")):
-        bases.append(base)
-        bases.append(os.path.dirname(base))  # apply 模式 cwd/exe 位于 update_temp 时取上级
-    for base in bases:
-        if not base:
-            continue
-        try:
-            with open(os.path.join(base, "config.yaml"), encoding="utf-8") as f:
-                match = re.search(r"^\s*theme_mode:\s*([A-Za-z]+)", f.read(), re.MULTILINE)
-            if match:
-                mode = match.group(1).upper()
-                break
-        except OSError:
-            continue
+    try:
+        with open("config.yaml", encoding="utf-8") as f:
+            match = re.search(r"^\s*theme_mode:\s*([A-Za-z]+)", f.read(), re.MULTILINE)
+        if match:
+            mode = match.group(1).upper()
+    except OSError:
+        pass
     if mode == "DARK":
         return _THEME_PALETTES["dark"]
     if mode == "LIGHT":
@@ -441,7 +427,7 @@ def parse_updater_args(argv):
 class Updater:
     """应用程序更新器，负责检查、下载、解压和安装最新版本的应用程序。"""
 
-    def __init__(self, file_name=None, no_progress_ui=False, work_dir=None):
+    def __init__(self, file_name, no_progress_ui=False, work_dir=None):
         self.updater_name = "AALC Updater.exe"
         self.apply_updater_name = "AALC Updater.apply.exe"
 
@@ -459,14 +445,10 @@ class Updater:
         self.delete_folder_path = os.path.abspath("./assets/images")
         self.changes_file_path = os.path.join(self.work_dir, "changes.json")
 
-        if self.file_name is None:
-            self.download_file_path = None
-            self.extract_folder_path = self.work_dir
-        else:
-            if os.path.basename(self.file_name) != self.file_name:
-                raise UpdatePayloadError("更新包必须是 update_temp 内的文件名")
-            self.download_file_path = os.path.join(self.temp_path, self.file_name)
-            self.extract_folder_path = os.path.join(self.work_dir, self.file_name.rsplit(".", 1)[0])
+        if not self.file_name or os.path.basename(self.file_name) != self.file_name:
+            raise UpdatePayloadError("更新包必须是 update_temp 内的文件名")
+        self.download_file_path = os.path.join(self.temp_path, self.file_name)
+        self.extract_folder_path = os.path.join(self.work_dir, self.file_name.rsplit(".", 1)[0])
 
         self.progress = _NullProgress()
         self._incremental_update_plan = None
@@ -582,7 +564,7 @@ class Updater:
     def extract_file(self):
         """解压下载的更新包，自动重试有限次数。"""
         _log("开始解压更新包...")
-        self.progress.update(stage="正在解压更新包...", detail=os.path.basename(self.download_file_path or ""))
+        self.progress.update(stage="正在解压更新包...", detail=self.file_name)
         last_error = None
         for attempt in range(1, _EXTRACT_MAX_ATTEMPTS + 1):
             try:
@@ -620,14 +602,10 @@ class Updater:
 
     def _reset_extraction_workspace(self):
         """清理本次解压目标，避免复用上一次更新残留的载荷或清单。"""
-        if not self.download_file_path:
-            return
-
-        if self.extract_folder_path and os.path.isdir(self.extract_folder_path):
-            shutil.rmtree(self.extract_folder_path, ignore_errors=True)
-        if self.changes_file_path and os.path.exists(self.changes_file_path):
-            with contextlib.suppress(OSError):
-                os.remove(self.changes_file_path)
+        if os.path.isdir(self.extract_folder_path):
+            shutil.rmtree(self.extract_folder_path)
+        if os.path.exists(self.changes_file_path):
+            os.remove(self.changes_file_path)
 
     def _prepare_update_payload(self, apply_mode):
         # 引导进程已解压过同一归档（handoff 只发生在解压成功后），apply 模式直接复用，避免重复解压。
@@ -635,8 +613,7 @@ class Updater:
             _log("复用引导进程的解压结果...")
             return
         if not self.extract_file():
-            detail = f"（最后错误: {getattr(self, '_last_extract_error', None)}）" if hasattr(self, "_last_extract_error") else ""
-            raise UpdatePayloadError(f"更新包解压失败{detail}")
+            raise UpdatePayloadError(f"更新包解压失败（最后错误: {self._last_extract_error}）")
 
     def validate_update_payload(self):
         """在终止应用进程前验证增量更新清单及其所有目标路径。"""
@@ -654,9 +631,6 @@ class Updater:
 
 
     def _handoff_to_new_updater(self, current_executable=None, parent_pid=None):
-        if not self.file_name:
-            return False
-
         extracted_updater_path = os.path.join(self.extract_folder_path, self.updater_name)
         if not os.path.exists(extracted_updater_path):
             return False
@@ -669,16 +643,14 @@ class Updater:
                 return False
 
             shutil.copy2(extracted_updater_path, staged_updater_path)
-            extra_args = []
-            if getattr(self, "work_dir", None):
-                extra_args += ["--work-dir", self.work_dir]
+            extra_args = ["--work-dir", self.work_dir]
             if parent_pid:
                 # 交接必须保留父进程等待语义：新版更新器同样要先等 AALC 优雅退出
                 extra_args += ["--parent-pid", str(parent_pid)]
             if self.no_progress_ui:
                 extra_args.append("--no-progress-ui")
             else:
-                handle = getattr(self, "progress", _NullProgress()).get_window_handle()
+                handle = self.progress.get_window_handle()
                 if handle:
                     extra_args += ["--progress-window", str(handle)]
             self._apply_process = subprocess.Popen(
@@ -771,20 +743,16 @@ class Updater:
                 entries.append((source, destination))
         return entries
 
-    def _retry_fs(self, operation, description, attempts=_FS_OP_MAX_ATTEMPTS):
-        """对文件操作做有限次自动重试，应对杀软扫描等短暂占用。"""
-        return _retry_fs_op(operation, description, attempts=attempts)
-
     def _copy_file_with_retry(self, source, destination):
         """先写临时文件，再备份旧文件、原子改名；失败由本次安装统一恢复。"""
         self._ensure_directory(os.path.dirname(destination))
         descriptor, temporary = tempfile.mkstemp(prefix=".aalc-update-", dir=os.path.dirname(destination))
         os.close(descriptor)
         try:
-            self._retry_fs(lambda: shutil.copy2(source, temporary), f"写入 {os.path.basename(destination)}")
+            _retry_fs_op(lambda: shutil.copy2(source, temporary), f"写入 {os.path.basename(destination)}")
             if not self._backup_existing(destination):
                 self._undo.append(("file", destination, None))
-            self._retry_fs(lambda: os.replace(temporary, destination), f"替换 {os.path.basename(destination)}")
+            _retry_fs_op(lambda: os.replace(temporary, destination), f"替换 {os.path.basename(destination)}")
         finally:
             with contextlib.suppress(OSError):
                 os.remove(temporary)
@@ -806,7 +774,7 @@ class Updater:
         # 保留路径映射，异常退出后仍可根据 journal.jsonl 手动恢复备份。
         with open(os.path.join(self._backup_dir, "journal.jsonl"), "a", encoding="utf-8") as journal:
             journal.write(json.dumps({"target": path, "backup": backup}, ensure_ascii=False) + "\n")
-        self._retry_fs(lambda: os.replace(path, backup), f"备份 {path}")
+        _retry_fs_op(lambda: os.replace(path, backup), f"备份 {path}")
         self._undo.append(("restore", path, backup))
         return True
 
@@ -817,12 +785,12 @@ class Updater:
         for kind, target, backup in reversed(self._undo):
             try:
                 if kind == "directory":
-                    self._retry_fs(lambda: os.rmdir(target), f"移除新目录 {target}")
+                    _retry_fs_op(lambda: os.rmdir(target), f"移除新目录 {target}")
                 elif kind == "file":
                     if os.path.lexists(target):
-                        self._retry_fs(lambda: os.remove(target), f"移除新文件 {target}")
+                        _retry_fs_op(lambda: os.remove(target), f"移除新文件 {target}")
                 else:
-                    self._retry_fs(lambda: os.replace(backup, target), f"恢复 {target}")
+                    _retry_fs_op(lambda: os.replace(backup, target), f"恢复 {target}")
             except OSError as exc:
                 restored = False
                 _log(f"恢复失败: {target}: {exc}")
@@ -926,9 +894,9 @@ class Updater:
     def cleanup(self):
         for path in (self.download_file_path, self.extract_folder_path, self.changes_file_path, self._backup_dir):
             try:
-                if path and os.path.isdir(path):
+                if os.path.isdir(path):
                     shutil.rmtree(path)
-                elif path:
+                else:
                     os.remove(path)
             except FileNotFoundError:
                 pass
@@ -1019,7 +987,7 @@ def main():
         sys.exit(1)
 
     args = parse_updater_args(sys.argv[1:])
-    if args.apply_mode and not args.file_name:
+    if not args.file_name:
         show_error_dialog("AALC 更新器", "缺少更新包文件名参数，更新已取消。")
         sys.exit(2)
 
