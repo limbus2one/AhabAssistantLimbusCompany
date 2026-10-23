@@ -17,6 +17,7 @@
     任意位置可附加 --parent-pid <pid> / --no-progress-ui
 """
 
+import argparse
 import contextlib
 import ctypes
 import json
@@ -126,8 +127,7 @@ def _ancestor_pids():
 _EXTRACT_MAX_ATTEMPTS = 3
 _FS_OP_MAX_ATTEMPTS = 4
 _FS_OP_RETRY_DELAY_SECONDS = 0.5
-# 引导复制自身到 update_temp 时，可能撞上上次更新遗留、仍在运行的更新器占用
-# 目标映像：限时重试等它退出（约 30s），与 _OTHER_UPDATER_WAIT_SECONDS 互斥语义一致
+# 自复制时限时重试，容忍扫描软件的短暂文件占用。
 _SELF_COPY_MAX_ATTEMPTS = 15
 _SELF_COPY_RETRY_DELAY_SECONDS = 2
 _LOG_ROTATE_SIZE = 512 * 1024
@@ -143,10 +143,6 @@ class UpdateManifestError(ValueError):
 class UpdatePayloadError(RuntimeError):
     """更新包无法解压或缺失关键内容。"""
 
-
-# ---------------------------------------------------------------------------
-# 日志与错误提示
-# ---------------------------------------------------------------------------
 
 _LOG_STREAM = None
 
@@ -208,10 +204,6 @@ def show_error_dialog(title, text, owner=None):
         pass
 
 
-# ---------------------------------------------------------------------------
-# 进度窗口
-# ---------------------------------------------------------------------------
-
 class _NullProgress:
     """进度接口的空实现（进度窗被禁用或不可用时使用）。"""
 
@@ -261,7 +253,7 @@ class UpdateProgressWindow:
     """Win32 原生更新进度窗口（参考 MAA.Updater）。
 
     - 窗口与消息泵运行在独立线程，更新逻辑线程只写入共享状态；
-    - 进度未知时展示来回摆动的不定进度条；
+    - 进度未知时展示阶段文字，进度已知时交给系统控件显示；
     - 任何 Win32 调用失败都静默降级为无进度窗，绝不阻塞更新流程。
     """
 
@@ -344,367 +336,107 @@ class UpdateProgressWindow:
             self._ready.set()
 
     def _window_loop(self):
-        """自绘 MAA 风格进度窗：深色主题、雅黑字体、圆角进度条与百分比。
+        """复用 Windows 文本和进度条控件，免去 GDI 自绘、双缓冲及 ctypes API 声明。"""
+        import commctrl
+        import win32api
+        import win32con as wc
+        import win32event
+        import win32gui as gui
 
-        仅用 Win32/GDI，无额外依赖；任何一步失败都会抛给
-        ``_window_thread`` 降级为无进度窗，绝不影响更新流程。
-        """
-        user32 = ctypes.windll.user32
-        gdi32 = ctypes.windll.gdi32
-        kernel32 = ctypes.windll.kernel32
-        dwmapi = ctypes.windll.dwmapi
+        gui.InitCommonControls()
+        colors = _resolve_theme_palette()
+        def color(key):
+            rgb = colors[key]
+            return win32api.RGB(rgb >> 16, (rgb >> 8) & 255, rgb & 255)
 
-        WS_CAPTION = 0x00C00000
-        WS_EX_APPWINDOW = 0x00040000
-        WS_EX_DLGMODALFRAME = 0x00000001
-        PM_REMOVE = 1
-        WM_PAINT = 0x000F
-        WM_ERASEBKGND = 0x0014
-        DT_SINGLELINE = 0x20
-        DT_END_ELLIPSIS = 0x4000
-        DT_RIGHT = 0x2
-        SRCCOPY = 0x00CC0020
-        TRANSPARENT_BK = 1
-        NULL_PEN = 8
+        brush = gui.CreateSolidBrush(color("bg"))
+        fonts = []
+        for size in (24, 18):
+            font = gui.LOGFONT()
+            font.lfFaceName, font.lfHeight = "Microsoft YaHei UI", -size
+            fonts.append(gui.CreateFontIndirect(font))
 
-        WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
-
-        class WNDCLASSW(ctypes.Structure):
-            _fields_ = [
-                ("style", ctypes.c_uint),
-                ("lpfnWndProc", WNDPROC),
-                ("cbClsExtra", ctypes.c_int),
-                ("cbWndExtra", ctypes.c_int),
-                ("hInstance", ctypes.c_void_p),
-                ("hIcon", ctypes.c_void_p),
-                ("hCursor", ctypes.c_void_p),
-                ("hbrBackground", ctypes.c_void_p),
-                ("lpszMenuName", ctypes.c_wchar_p),
-                ("lpszClassName", ctypes.c_wchar_p),
-            ]
-
-        class MSG(ctypes.Structure):
-            _fields_ = [
-                ("hwnd", ctypes.c_void_p),
-                ("message", ctypes.c_uint),
-                ("wParam", ctypes.c_size_t),
-                ("lParam", ctypes.c_ssize_t),
-                ("time", ctypes.c_uint),
-                ("pt_x", ctypes.c_long),
-                ("pt_y", ctypes.c_long),
-            ]
-
-        class RECT(ctypes.Structure):
-            _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long), ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
-
-        class PAINTSTRUCT(ctypes.Structure):
-            _fields_ = [
-                ("hdc", ctypes.c_void_p),
-                ("fErase", ctypes.c_int),
-                ("rcPaint", RECT),
-                ("fRestore", ctypes.c_int),
-                ("fIncUpdate", ctypes.c_int),
-                ("rgbReserved", ctypes.c_byte * 32),
-            ]
-
-        user32.CreateWindowExW.restype = ctypes.c_void_p
-        kernel32.GetModuleHandleW.restype = ctypes.c_void_p
-        user32.DefWindowProcW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
-        user32.DefWindowProcW.restype = ctypes.c_ssize_t
-        gdi32.CreateFontW.restype = ctypes.c_void_p
-        gdi32.CreateSolidBrush.restype = ctypes.c_void_p
-        gdi32.CreateCompatibleDC.restype = ctypes.c_void_p
-        gdi32.CreateCompatibleDC.argtypes = [ctypes.c_void_p]
-        gdi32.CreateCompatibleBitmap.restype = ctypes.c_void_p
-        gdi32.CreateCompatibleBitmap.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
-        gdi32.GetStockObject.restype = ctypes.c_void_p
-        # 句柄是 64 位值：所有传句柄/指针的调用必须声明 argtypes，
-        # 否则默认按 32 位 int 转换，句柄超过 2^31 时抛 OverflowError
-        gdi32.SelectObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        gdi32.SelectObject.restype = ctypes.c_void_p
-        gdi32.DeleteObject.argtypes = [ctypes.c_void_p]
-        gdi32.DeleteDC.argtypes = [ctypes.c_void_p]
-        gdi32.SetBkMode.argtypes = [ctypes.c_void_p, ctypes.c_int]
-        gdi32.SetTextColor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
-        gdi32.RoundRect.argtypes = [ctypes.c_void_p] + [ctypes.c_int] * 6
-        gdi32.BitBlt.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-                                 ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
-        user32.BeginPaint.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        user32.BeginPaint.restype = ctypes.c_void_p
-        user32.EndPaint.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        user32.GetClientRect.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        user32.FillRect.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-        user32.DrawTextW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint]
-        user32.InvalidateRect.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int]
-        user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
-        user32.SetForegroundWindow.argtypes = [ctypes.c_void_p]
-        user32.IsWindow.argtypes = [ctypes.c_void_p]
-        user32.DestroyWindow.argtypes = [ctypes.c_void_p]
-        user32.LoadCursorW.restype = ctypes.c_void_p
-        user32.PeekMessageW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]
-        user32.TranslateMessage.argtypes = [ctypes.c_void_p]
-        user32.DispatchMessageW.argtypes = [ctypes.c_void_p]
-        dwmapi.DwmSetWindowAttribute.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
-
-        hinstance = ctypes.c_void_p(kernel32.GetModuleHandleW(None))
-        window_class_name = "AALCUpdaterProgressWnd"
-
-        # DPI 缩放（Win10 1703+；失败按 96 DPI 处理）
-        try:
-            dpi = user32.GetDpiForSystem()
-        except Exception:
-            dpi = 96
-        scale = max(1.0, (dpi or 96) / 96.0)
-
-        # ---- 配色与字体（跟随主程序主题：窗口/内容背景与品牌色一致）----
-        def rgb(color):
-            return ((color & 0xFF) << 16) | (color & 0x00FF00) | ((color >> 16) & 0xFF)
-
-        palette = _resolve_theme_palette()
-        color_bg = palette["bg"]        # 窗口背景 = 主程序主窗口背景
-        color_stage = palette["stage"]  # 阶段主文字
-        color_detail = palette["detail"]  # 细节次级文字
-        color_hint = palette["hint"]    # 底部提示
-        color_percent = palette["percent"]  # 百分比
-        color_track = palette["track"]  # 进度槽 = 主程序内容卡片色
-        color_fill = palette["fill"]    # 进度填充 = 主程序品牌色 #9C080B
-
-        def scaled(px):
-            return int(px * scale)
-
-        font_stage = ctypes.c_void_p(
-            gdi32.CreateFontW(scaled(21), 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
-        )
-        font_detail = ctypes.c_void_p(
-            gdi32.CreateFontW(scaled(15), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Microsoft YaHei UI")
-        )
-        brush_bg = gdi32.CreateSolidBrush(rgb(color_bg))
-        brush_track = gdi32.CreateSolidBrush(rgb(color_track))
-        brush_fill = gdi32.CreateSolidBrush(rgb(color_fill))
-        pen_null = gdi32.GetStockObject(NULL_PEN)
-
-        def _paint(hwnd, hdc):
-            """双缓冲整窗自绘。"""
-            rect = RECT()
-            user32.GetClientRect(hwnd, ctypes.byref(rect))
-            width, height = rect.right - rect.left, rect.bottom - rect.top
-            mem = gdi32.CreateCompatibleDC(hdc)
-            bmp = gdi32.CreateCompatibleBitmap(hdc, width, height)
-            old_bmp = gdi32.SelectObject(mem, bmp)
-            user32.FillRect(mem, ctypes.byref(rect), brush_bg)
-            gdi32.SetBkMode(mem, TRANSPARENT_BK)
-            gdi32.SelectObject(mem, pen_null)
-
-            with self._lock:
-                stage = self._stage
-                log_lines = list(self._log_lines)
-                value, maximum = self._value, self._maximum
-
-            margin = scaled(24)
-            # 阶段（左上，加粗）
-            gdi32.SelectObject(mem, font_stage)
-            gdi32.SetTextColor(mem, rgb(color_stage))
-            r_stage = RECT(margin, scaled(22), width - margin - scaled(96), scaled(52))
-            user32.DrawTextW(mem, stage, -1, ctypes.byref(r_stage), DT_SINGLELINE | DT_END_ELLIPSIS)
-            # 百分比（右上，与阶段同字号，确定进度时显示）
-            if maximum > 0:
-                gdi32.SetTextColor(mem, rgb(color_percent))
-                pct_text = f"{min(value, maximum) * 100 // maximum}%"
-                r_pct = RECT(width - margin - scaled(90), scaled(22), width - margin, scaled(52))
-                user32.DrawTextW(mem, pct_text, -1, ctypes.byref(r_pct), DT_SINGLELINE | DT_RIGHT)
-            # 详细日志（中部，最近几条，新的在下、旧的渐隐）
-            gdi32.SelectObject(mem, font_detail)
-            bar_y, bar_h = height - scaled(30), scaled(12)
-            line_h = scaled(24)
-            shown = log_lines[-4:]
-            log_top = bar_y - scaled(10) - line_h * len(shown)
-            for i, line in enumerate(shown):
-                older = i < len(shown) - 1
-                gdi32.SetTextColor(mem, rgb(color_hint if older else color_detail))
-                r_log = RECT(margin, log_top + i * line_h, width - margin, log_top + (i + 1) * line_h)
-                user32.DrawTextW(mem, line, -1, ctypes.byref(r_log), DT_SINGLELINE | DT_END_ELLIPSIS)
-            # 进度条（底部，圆角）
-            track_r = RECT(margin, bar_y, width - margin, bar_y + bar_h)
-            gdi32.SelectObject(mem, brush_track)
-            gdi32.RoundRect(mem, track_r.left, track_r.top, track_r.right, track_r.bottom, bar_h, bar_h)
-            track_w = track_r.right - track_r.left
-            if maximum > 0:
-                fill_w = max(bar_h, track_w * min(value, maximum) // max(maximum, 1))
-                gdi32.SelectObject(mem, brush_fill)
-                gdi32.RoundRect(mem, track_r.left, track_r.top, track_r.left + fill_w, track_r.bottom, bar_h, bar_h)
-            else:
-                # 不定进度：30% 宽度的光带匀速扫过，带首尾淡入淡出区间
-                seg_w = max(bar_h, track_w * 3 // 10)
-                phase = (time.monotonic() % 1.8) / 1.8
-                travel = track_w + seg_w
-                seg_x = track_r.left - seg_w + int(phase * travel)
-                gdi32.SelectObject(mem, brush_fill)
-                gdi32.RoundRect(
-                    mem, max(track_r.left, seg_x), track_r.top, min(track_r.right, seg_x + seg_w), track_r.bottom, bar_h, bar_h
-                )
-            gdi32.BitBlt(hdc, 0, 0, width, height, mem, 0, 0, SRCCOPY)
-            gdi32.SelectObject(mem, old_bmp)
-            gdi32.DeleteObject(bmp)
-            gdi32.DeleteDC(mem)
-
-        paint_error_logged = False
-
-        def wnd_proc(hwnd, msg, wparam, lparam):
-            nonlocal paint_error_logged
-            if msg == 0x0010:  # WM_CLOSE：安装中不能只关闭窗口而让文件写入在后台继续。
+        def window_proc(hwnd, message, wparam, lparam):
+            if message == wc.WM_CLOSE:
                 return 0
-            if msg == 0x004A:  # WM_COPYDATA：apply 进程的进度消息。
+            if message == wc.WM_COPYDATA:
                 return int(self._receive_progress(lparam)) if lparam else 0
-            if msg == WM_ERASEBKGND:
-                # 让 DefWindowProc 用窗口类背景刷擦除：窗口类绑定了主题色画刷，
-                # 首帧即为主题深色而不是未初始化的黑色表面
-                return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
-            if msg == WM_PAINT:
-                ps = PAINTSTRUCT()
-                hdc = user32.BeginPaint(hwnd, ctypes.byref(ps))
-                try:
-                    _paint(hwnd, hdc)
-                except Exception as exc:
-                    if not paint_error_logged:
-                        _log(f"进度窗口绘制失败: {exc}")
-                        paint_error_logged = True
-                user32.EndPaint(hwnd, ctypes.byref(ps))
-                return 0
-            return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+            if message == wc.WM_CTLCOLORSTATIC:
+                gui.SetTextColor(wparam, color("stage"))
+                gui.SetBkColor(wparam, color("bg"))
+                return brush
+            return gui.DefWindowProc(hwnd, message, wparam, lparam)
 
-        wnd_proc_cb = WNDPROC(wnd_proc)
-        wc = WNDCLASSW()
-        wc.lpfnWndProc = wnd_proc_cb
-        wc.hInstance = hinstance
-        wc.hCursor = ctypes.c_void_p(user32.LoadCursorW(None, 32512))  # IDC_ARROW
-        wc.hbrBackground = brush_bg  # 主题色背景刷：消除首帧黑屏闪烁
-        wc.lpszClassName = window_class_name
-        if not user32.RegisterClassW(ctypes.byref(wc)):
-            raise OSError("RegisterClassW failed")
+        window_class = gui.WNDCLASS()
+        window_class.lpszClassName = "AALCUpdaterProgressWnd"
+        window_class.lpfnWndProc = window_proc
+        window_class.hInstance = win32api.GetModuleHandle(None)
+        window_class.hbrBackground = brush
+        window_class.hCursor = gui.LoadCursor(None, wc.IDC_ARROW)
+        gui.RegisterClass(window_class)
+        hwnd = None
+        try:
+            width, height = 650, 330
+            hwnd = gui.CreateWindowEx(wc.WS_EX_APPWINDOW | wc.WS_EX_DLGMODALFRAME,
+                                      window_class.lpszClassName, "AALC 更新", wc.WS_CAPTION,
+                                      (win32api.GetSystemMetrics(0) - width) // 2,
+                                      (win32api.GetSystemMetrics(1) - height) // 2,
+                                      width, height, 0, 0, window_class.hInstance, None)
+            def control(kind, text, y, height, font):
+                child = gui.CreateWindowEx(0, kind, text, wc.WS_CHILD | wc.WS_VISIBLE,
+                                           24, y, 594, height, hwnd, 0, window_class.hInstance, None)
+                gui.SendMessage(child, wc.WM_SETFONT, font, True)
+                return child
 
-        window_width, client_height = scaled(480), scaled(200)
-        caption_h = user32.GetSystemMetrics(4) + user32.GetSystemMetrics(32) * 2  # 标题栏 + 上下边框
-        window_height = client_height + caption_h
-        screen_w = user32.GetSystemMetrics(0)
-        screen_h = user32.GetSystemMetrics(1)
-        pos_x = max(0, (screen_w - window_width) // 2)
-        pos_y = max(0, (screen_h - window_height) // 2)
-
-        hwnd = ctypes.c_void_p(
-            user32.CreateWindowExW(
-                WS_EX_APPWINDOW | WS_EX_DLGMODALFRAME,
-                window_class_name,
-                "AALC 正在更新 | AALC Updating",
-            WS_CAPTION,
-                pos_x,
-                pos_y,
-                window_width,
-                window_height,
-                None,
-                None,
-                hinstance,
-                None,
-            )
-        )
-        if not hwnd:
-            raise OSError("CreateWindowExW failed")
-        self._hwnd = hwnd.value
-        self._ready.set()
-        _log(f"更新进度窗口已创建: hwnd={self._hwnd}")
-        # 标题栏明暗与主程序主题一致（Win11 生效，Win10 静默忽略）。
-        # 注意：不要设置 DWMWA_WINDOW_CORNER_PREFERENCE(33) —— 实测该属性会让
-        # 自绘客户区不再上屏（窗口框架显示、客户区永呈白色），原因不明。
-        if palette["dark_title"]:
+            stage = control("STATIC", "", 20, 40, fonts[0])
+            detail = control("STATIC", "", 68, 120, fonts[1])
+            bar = control(commctrl.PROGRESS_CLASS, "", 208, 20, fonts[1])
+            percent = control("STATIC", "", 244, 28, fonts[1])
             with contextlib.suppress(Exception):
-                dark = ctypes.c_int(1)
-                dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark), 4)
-        with contextlib.suppress(Exception):
-            user32.ShowWindow(hwnd, 1)  # SW_SHOWNORMAL：显示并激活
-            # 与 MAA 一致：弹出时尝试切到前台一次，不持续置顶。
-            user32.SetForegroundWindow(hwnd)
-        # 立即触发一次同步重绘，避免部分环境下首帧 WM_PAINT 迟迟不派发
-        with contextlib.suppress(Exception):
-            user32.UpdateWindow(hwnd)
-        with contextlib.suppress(Exception):
-            # RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN = 0x0185
-            user32.RedrawWindow(hwnd, None, None, 0x0185)
-
-        msg = MSG()
-        while True:
-            with self._lock:
-                closing = self._closing
-            if closing or not user32.IsWindow(hwnd):
-                break
-            while user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_REMOVE):
-                user32.TranslateMessage(ctypes.byref(msg))
-                user32.DispatchMessageW(ctypes.byref(msg))
-            user32.InvalidateRect(hwnd, None, False)
-            time.sleep(0.033)  # ~30fps 持续重绘（不定进度光带动画需要）
-
-        user32.DestroyWindow(hwnd)
-        self._hwnd = None
-        user32.PostQuitMessage(0)
-        for gdi_obj in (font_stage, font_detail, brush_bg, brush_track, brush_fill):
+                ctypes.windll.uxtheme.SetWindowTheme(ctypes.c_void_p(bar), "", "")
+                dark = ctypes.c_int(colors["dark_title"])
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(ctypes.c_void_p(hwnd), 20, ctypes.byref(dark), 4)
+            gui.SendMessage(bar, commctrl.PBM_SETBARCOLOR, 0, color("fill"))
+            gui.SendMessage(bar, commctrl.PBM_SETBKCOLOR, 0, color("track"))
+            self._hwnd = hwnd
+            self._ready.set()
+            gui.ShowWindow(hwnd, wc.SW_SHOWNORMAL)
             with contextlib.suppress(Exception):
-                gdi32.DeleteObject(gdi_obj)
-
-
-# ---------------------------------------------------------------------------
-# 命令行参数
-# ---------------------------------------------------------------------------
-
-class UpdaterArguments:
-    """更新器命令行参数。"""
-
-    def __init__(self, file_name=None, apply_mode=False, parent_pid=None, no_progress_ui=False, progress_window=None, work_dir=None):
-        self.file_name = file_name
-        self.apply_mode = apply_mode
-        self.parent_pid = parent_pid
-        self.no_progress_ui = no_progress_ui
-        self.progress_window = progress_window
-        self.work_dir = work_dir
+                gui.SetForegroundWindow(hwnd)
+            previous = None
+            while not self._closing:
+                gui.PumpWaitingMessages()
+                with self._lock:
+                    state = (self._stage, "\r\n".join(self._log_lines[-5:]), self._value, self._maximum)
+                if state != previous:
+                    title, lines, value, maximum = state
+                    gui.SetWindowText(stage, title)
+                    gui.SetWindowText(detail, lines)
+                    gui.SendMessage(bar, commctrl.PBM_SETRANGE32, 0, maximum or 1)
+                    gui.SendMessage(bar, commctrl.PBM_SETPOS, min(value, maximum), 0)
+                    gui.SetWindowText(percent, f"{min(100, value * 100 // maximum)}%" if maximum else "正在处理…")
+                    previous = state
+                win32event.MsgWaitForMultipleObjects([], False, 100, wc.QS_ALLINPUT)
+        finally:
+            if hwnd:
+                gui.DestroyWindow(hwnd)
+            self._hwnd = None
+            gui.UnregisterClass(window_class.lpszClassName, window_class.hInstance)
+            for handle in fonts:  # 窗口类的背景刷由 UnregisterClass 释放。
+                gui.DeleteObject(handle)
 
 
 def parse_updater_args(argv):
-    """解析更新器命令行，兼容旧版 ``<file>`` 与 ``--apply-update <file>`` 形式。"""
-    file_name = None
-    apply_mode = False
-    parent_pid = None
-    no_progress_ui = False
-    progress_window = None
-    work_dir = None
+    """保留旧参数形式和未知参数兼容性，交给标准库解析。"""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("file_name", nargs="?")
+    parser.add_argument("--apply-update", dest="apply_mode", action="store_true")
+    parser.add_argument("--no-progress-ui", action="store_true")
+    parser.add_argument("--work-dir")
+    for name in ("parent-pid", "progress-window"):
+        parser.add_argument(f"--{name}", type=lambda value: int(value) if value.isdecimal() and int(value) > 0 else None)
+    return parser.parse_known_args(argv)[0]
 
-    index = 0
-    while index < len(argv):
-        arg = argv[index]
-        if arg == "--apply-update":
-            apply_mode = True
-        elif arg == "--parent-pid" and index + 1 < len(argv):
-            index += 1
-            with contextlib.suppress(ValueError):
-                parent_pid = int(argv[index])
-        elif arg == "--no-progress-ui":
-            no_progress_ui = True
-        elif arg == "--work-dir" and index + 1 < len(argv):
-            index += 1
-            work_dir = argv[index]
-        elif arg == "--progress-window" and index + 1 < len(argv):
-            index += 1
-            with contextlib.suppress(ValueError):
-                handle = int(argv[index])
-                if handle > 0:
-                    progress_window = handle
-        elif file_name is None and not arg.startswith("-"):
-            file_name = arg
-        index += 1
-
-    return UpdaterArguments(file_name=file_name, apply_mode=apply_mode, parent_pid=parent_pid,
-                            no_progress_ui=no_progress_ui, progress_window=progress_window, work_dir=work_dir)
-
-
-# ---------------------------------------------------------------------------
-# 更新器主体
-# ---------------------------------------------------------------------------
 
 class Updater:
     """应用程序更新器，负责检查、下载、解压和安装最新版本的应用程序。"""
@@ -743,9 +475,6 @@ class Updater:
         self._undo = []
         self._backup_dir = os.path.join(self.work_dir, "backup")
 
-    # ------------------------------------------------------------------
-    # 对外流程
-    # ------------------------------------------------------------------
 
     def run(self, apply_mode=False, parent_pid=None, progress=None):
         """执行完整更新流程，返回是否成功。"""
@@ -801,7 +530,6 @@ class Updater:
             os.remove(marker)
             self.progress.update(stage="正在清理临时文件...", detail="")
             self.cleanup()
-            self._cleanup_tree(self._backup_dir, "旧文件备份")
             # 当前 exe 尚在运行，下一次更新再清理已完成的会话目录。
             with contextlib.suppress(OSError):
                 Path(self.work_dir, "completed.flag").touch()
@@ -850,9 +578,6 @@ class Updater:
         # 有安装锁时不能绕过仍在保存配置的主程序；超时取消比强杀更安全。
         raise UpdatePayloadError("主程序未能正常退出，本次更新已取消，请关闭 AALC 后重试。")
 
-    # ------------------------------------------------------------------
-    # 解压与校验
-    # ------------------------------------------------------------------
 
     def extract_file(self):
         """解压下载的更新包，自动重试有限次数。"""
@@ -927,26 +652,17 @@ class Updater:
                 if not os.path.isfile(source):
                     raise UpdatePayloadError(f"更新包缺少清单中的文件: {name}")
 
-    # ------------------------------------------------------------------
-    # 新旧更新器交接
-    # ------------------------------------------------------------------
-
-    def _get_extracted_updater_path(self):
-        return os.path.join(self.extract_folder_path, self.updater_name)
-
-    def _get_staged_updater_path(self):
-        return os.path.join(getattr(self, "work_dir", self.temp_path), self.apply_updater_name)
 
     def _handoff_to_new_updater(self, current_executable=None, parent_pid=None):
         if not self.file_name:
             return False
 
-        extracted_updater_path = self._get_extracted_updater_path()
+        extracted_updater_path = os.path.join(self.extract_folder_path, self.updater_name)
         if not os.path.exists(extracted_updater_path):
             return False
 
         current_executable_path = os.path.abspath(current_executable or sys.argv[0])
-        staged_updater_path = self._get_staged_updater_path()
+        staged_updater_path = os.path.join(self.work_dir, self.apply_updater_name)
 
         try:
             if os.path.normcase(os.path.abspath(extracted_updater_path)) == os.path.normcase(current_executable_path):
@@ -976,9 +692,6 @@ class Updater:
             _log(f"切换到新版本更新器失败，将继续使用当前更新器: {exc}")
             return False
 
-    # ------------------------------------------------------------------
-    # 进程清理
-    # ------------------------------------------------------------------
 
     def terminate_processes(self):
         """终止相关进程以准备更新。"""
@@ -1014,9 +727,6 @@ class Updater:
                     _log(f"进程 PID: {proc.info['pid']} 已退出")
         _log("进程清理完成")
 
-    # ------------------------------------------------------------------
-    # 覆盖安装
-    # ------------------------------------------------------------------
 
     def cover_folder(self):
         """覆盖安装最新版本的文件。"""
@@ -1120,53 +830,22 @@ class Updater:
         return restored
 
     def _apply_incremental_update(self):
-        """根据 changes.json 执行增量更新。"""
         changes = self._incremental_update_plan or self._load_incremental_update_plan()
-
-        _log("检测到增量更新清单，执行增量更新...")
-        total = sum(len(changes[key]) for key in changes)
-        self.progress.update(stage="正在应用增量更新...", detail=f"共 {total} 项变更", value=0, maximum=total)
+        total = sum(map(len, changes.values()))
+        self.progress.update(stage="正在应用增量更新...", value=0, maximum=total)
         done = 0
-
-        def _tick(label=None):
-            nonlocal done
-            done += 1
-            if label is not None:
-                self.progress.update(value=done, detail=label)
-            else:
-                self.progress.update(value=done)
-
-        for dir_path, full_path in changes["deleted_dir"]:
-            self._backup_existing(full_path)
-            _log(f"移除目录（已备份）: {dir_path}")
-            _tick()
-
-        for file_path, full_path in changes["deleted"]:
-            self._backup_existing(full_path)
-            _log(f"移除文件（已备份）: {file_path}")
-            _tick()
-
-        for dir_path, full_path in changes["added_dir"]:
-            self._ensure_directory(full_path)
-            _log(f"创建目录: {dir_path}")
-            _tick()
-
-        shown_at = 0
-        for kind, label in (("added", "新增文件"), ("modified", "更新文件")):
-            for file_path, source, destination in changes[kind]:
-                try:
-                    self._copy_file_with_retry(source, destination)
-                    _log(f"{label}: {file_path}")
-                except OSError as exc:
-                    raise UpdatePayloadError(f"应用增量更新失败: {file_path}: {exc}") from exc
-                shown_at += 1
-                _tick(f"{label}: {file_path}" if shown_at % 25 == 0 or done + 1 == total else None)
-
+        for kind in ("deleted_dir", "deleted", "added_dir", "added", "modified"):
+            for name, *paths in changes[kind]:
+                if kind in ("deleted_dir", "deleted"):
+                    self._backup_existing(paths[0])
+                elif kind == "added_dir":
+                    self._ensure_directory(paths[0])
+                else:
+                    self._copy_file_with_retry(*paths)
+                done += 1
+                self.progress.update(value=done, detail=f"{kind}: {name}")
         _log("增量更新完成")
 
-    # ------------------------------------------------------------------
-    # 增量清单安全校验（保持原有逻辑不变）
-    # ------------------------------------------------------------------
 
     def _normalize_manifest_path(self, relative_path):
         """兼容带归档根目录前缀与普通相对路径的增量清单。"""
@@ -1243,39 +922,18 @@ class Updater:
         if relative_path.replace("\\", "/").split("/")[0].lower() == TEMP_DIR_NAME.lower():
             raise UpdateManifestError("更新包不能修改 update_temp 工作目录")
 
-    # ------------------------------------------------------------------
-    # 清理与重启
-    # ------------------------------------------------------------------
 
     def cleanup(self):
-        """清理下载和解压的临时文件。"""
-        _log("开始清理...")
-        self._cleanup_file(self.download_file_path, "下载文件")
-        self._cleanup_tree(self.extract_folder_path, "提取目录")
-        self._cleanup_file(self.changes_file_path, "变更清单文件")
-        _log("清理完成")
-
-    @staticmethod
-    def _cleanup_file(path, label):
-        if not path:
-            return
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            _log(f"{label}不存在，跳过")
-        except Exception as exc:
-            _log(f"清理{label}失败: {exc}")
-
-    @staticmethod
-    def _cleanup_tree(path, label):
-        if not path:
-            return
-        try:
-            shutil.rmtree(path)
-        except FileNotFoundError:
-            _log(f"{label}不存在，跳过")
-        except Exception as exc:
-            _log(f"清理{label}失败: {exc}")
+        for path in (self.download_file_path, self.extract_folder_path, self.changes_file_path, self._backup_dir):
+            try:
+                if path and os.path.isdir(path):
+                    shutil.rmtree(path)
+                elif path:
+                    os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                _log(f"清理失败: {path}: {exc}")
 
 
 def relaunch_app(progress=None):
@@ -1298,10 +956,6 @@ def relaunch_app(progress=None):
         _log(f"AALC 启动失败: {exc}")
         show_error_dialog("AALC 更新完成", f"更新已完成，但自动启动 AALC 失败，请手动运行 AALC.exe。\n\n{exc}")
 
-
-# ---------------------------------------------------------------------------
-# 入口
-# ---------------------------------------------------------------------------
 
 def _update_work_dir(work_dir=None):
     root = Path(TEMP_DIR_NAME).resolve()

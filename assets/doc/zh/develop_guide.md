@@ -51,10 +51,10 @@ python main_dev.py --no-reload
 在 `aalc` 环境运行离线回归测试：
 
 ```powershell
-python -m pytest tests/test_updater.py tests/test_update_installation.py tests/test_update_download.py tests/test_update_idle_handoff.py -q -p no:cacheprovider --basetemp .tmp-update-tests
+python -m pytest tests/test_update.py -q -p no:cacheprovider --basetemp .tmp-update-tests
 ```
 
-测试覆盖缺失载荷、文件写入失败、备份恢复失败、跨进程互斥、下载重试及空闲交接。打包验收还应在独立目录中使用测试程序和测试更新包，检查旧更新器自复制、新更新器接管、文件替换和重启结果；不要在真实游戏目录中注入故障。
+测试覆盖缺失载荷、文件写入失败、备份恢复失败、跨进程互斥、下载重试及进程交接。打包验收还应在独立目录中使用测试程序和测试更新包，检查旧更新器自复制、新更新器接管、文件替换和重启结果；不要在真实游戏目录中注入故障。
 
 安装失败会尝试恢复旧文件；恢复失败或进程被中断时，`update_temp/install-incomplete.json` 保留未完成标记，主程序会阻止启动。旧文件和路径映射位于该标记指定的 `backup` 目录及 `journal.jsonl` 中，日志为 `update_temp/updater.log`。此时须使用完整包修复，不能继续叠加增量包：把正式完整包按归档根目录命名为 `AALC.zip` 或 `AALC.7z` 放到 `update_temp`，在安装根目录运行：
 
