@@ -15,6 +15,7 @@ import requests
 import updater
 from module.update import download
 from update_support import InstallationLock, incomplete_update_path
+from utils.ui_theme import MAIN_WINDOW_STYLES, THEME_COLOR, UPDATER_WINDOW_STYLES
 
 
 def write(root, name, text="old"):
@@ -323,3 +324,42 @@ def test_progress_stage_does_not_keep_previous_completion_or_details():
     window.update(detail="恢复旧文件")
     window.update(detail="")
     assert window._detail == ""
+
+
+@pytest.mark.parametrize("mode, system_light, expected", [
+    ("LIGHT", 0, "light"),
+    ("DARK", 1, "dark"),
+    ("AUTO", 1, "light"),
+    ("AUTO", 0, "dark"),
+    (None, 1, "light"),
+    ("AUTO", None, "dark"),
+])
+def test_updater_theme_uses_shared_styles(tmp_path, monkeypatch, mode, system_light, expected):
+    monkeypatch.chdir(tmp_path)
+    if mode is not None:
+        write(tmp_path, "config.yaml", f"theme_mode: {mode}\n")
+
+    def open_key(*args):
+        assert mode not in ("LIGHT", "DARK"), "explicit theme must not read system settings"
+        if system_light is None:
+            raise OSError("system theme unavailable")
+        return nullcontext("theme key")
+
+    monkeypatch.setattr(updater.winreg, "OpenKey", open_key)
+    monkeypatch.setattr(updater.winreg, "QueryValueEx", lambda *_: (system_light, 4))
+    style = updater._resolve_theme_style()
+    assert style is UPDATER_WINDOW_STYLES[expected]
+    assert style["bg_color"] == MAIN_WINDOW_STYLES[expected]["bg_color"]
+    assert style["bar_color"] == THEME_COLOR
+    assert style["dark_title"] is (expected == "dark")
+
+
+def test_updater_theme_import_does_not_load_main_application():
+    subprocess.run(
+        [sys.executable, "-c", "import updater, sys; "
+         "assert not any(name in sys.modules for name in ('PySide6', 'qfluentwidgets', 'app', 'module.config'))"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        creationflags=updater._CREATE_NO_WINDOW,
+    )

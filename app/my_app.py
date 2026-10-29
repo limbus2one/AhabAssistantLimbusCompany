@@ -41,6 +41,11 @@ from qframelesswindow.titlebar.title_bar_buttons import TitleBarButtonState
 from app import AnnouncementStatus, mediator
 from app.announcement_board import AnnouncementBoard, AnnouncementThread
 from app.card.messagebox_custom import MessageBoxConfirm, MessageBoxWarning
+from app.common.ui_config import (
+    apply_font_config,
+    get_main_window_style,
+    get_title_bar_style,
+)
 from app.custom_pivot import FullWidthPivot
 from app.farming_interface import FarmingInterface
 from app.language_manager import LanguageManager
@@ -49,6 +54,7 @@ from app.resource_sync_coordinator import ResourceSyncCoordinator
 from app.setting_interface import SettingInterface
 from app.team_setting_card import TeamSettingCard
 from app.tools_interface import ToolsInterface
+from app.widget.dev_watermark import DevWatermark
 from module.after_completion_types import (
     LEGACY_AFTER_COMPLETION_TO_CONFIG,
     POWER_ACTION_NONE,
@@ -59,6 +65,7 @@ from module.font_manager import font_manager
 from module.logger import log
 from module.system_actions import autodaily_exit_to_after_completion_config, suspend_completion_actions
 from module.update.check_update import start_update
+from utils.ui_theme import THEME_COLOR
 
 # WinRT toast / Win32 焦点切换存在异步回跳，这里保留一次延迟补偿。
 _FOREGROUND_RETRY_DELAY_MS = 600
@@ -71,14 +78,6 @@ class Language(Enum):
     CHINESE_TRADITIONAL = QLocale(QLocale.Language.Chinese, QLocale.Country.HongKong)
     ENGLISH = QLocale(QLocale.Language.English)
     AUTO = QLocale()
-
-
-from app.common.ui_config import (
-    apply_font_config,
-    get_main_window_style,
-    get_title_bar_style,
-)
-from app.widget.dev_watermark import DevWatermark
 
 
 # 自定义托盘菜单，处理鼠标在外部释放时关闭菜单
@@ -109,7 +108,7 @@ class MainWindow(FramelessWindow):
         self.setWindowIcon(QIcon("./assets/logo/my_icon_256X256.ico"))
         self.setWindowTitle(f"Ahab Assistant Limbus Company - {cfg.version}")
         self.setObjectName("MainWindow")
-        setThemeColor("#9c080b")
+        setThemeColor(THEME_COLOR)
         LanguageManager().register_component(self)
 
         # Apply theme

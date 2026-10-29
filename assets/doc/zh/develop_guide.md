@@ -1,5 +1,7 @@
 # 开发指南
 
+模块职责、调用关系与主题样式位置见[项目架构](architecture.md)，控件使用约定见 [UI 组件开发说明](ui_components.md)。
+
 ## 环境配置
 
 1. **Python 版本**：项目要求 Python 3.12

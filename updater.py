@@ -36,6 +36,7 @@ from pathlib import Path, PurePosixPath
 import psutil
 
 from update_support import InstallationLock, incomplete_update_path
+from utils.ui_theme import UPDATER_WINDOW_STYLES
 
 # Windows 进程创建标记：统一无窗口启动，避免任何控制台闪现
 _CREATE_NO_WINDOW = 0x08000000
@@ -45,29 +46,8 @@ _CREATE_NEW_PROCESS_GROUP = 0x00000200
 _PARENT_EXIT_WAIT_SECONDS = 15
 _INSTALL_LOCK_WAIT_SECONDS = 30
 
-# 进度窗配色：与主程序保持一致（app/my_app.py 的主题色、app/common/ui_config.py 的
-# 窗口/内容背景）。深色：窗口 #1C1C1C、内容 #2D2D2D；亮色：窗口纯白、内容浅灰；
-# 品牌色 #9C080B 两种模式下都用作进度填充。
-_THEME_PALETTES = {
-    "dark": {
-        "dark_title": True,
-        "bg": 0x1C1C1C,
-        "track": 0x2D2D2D,
-        "fill": 0x9C080B,
-        "stage": 0xFFFFFF,
-    },
-    "light": {
-        "dark_title": False,
-        "bg": 0xFFFFFF,
-        "track": 0xEBEBEB,
-        "fill": 0x9C080B,
-        "stage": 0x1C1C1C,
-    },
-}
-
-
-def _resolve_theme_palette():
-    """按主程序的主题设置选择进度窗配色。
+def _resolve_theme_style() -> dict:
+    """按主程序的主题设置选择进度窗样式，配色统一维护于 utils/ui_theme.py。
 
     读取安装目录 config.yaml 的 theme_mode（AUTO/LIGHT/DARK）；AUTO 或读取
     失败时跟随 Windows 系统应用主题，兜底深色。
@@ -81,17 +61,17 @@ def _resolve_theme_palette():
     except OSError:
         pass
     if mode == "DARK":
-        return _THEME_PALETTES["dark"]
+        return UPDATER_WINDOW_STYLES["dark"]
     if mode == "LIGHT":
-        return _THEME_PALETTES["light"]
+        return UPDATER_WINDOW_STYLES["light"]
     try:
         with winreg.OpenKey(
             winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
         ) as key:
             apps_light, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-        return _THEME_PALETTES["light" if apps_light else "dark"]
+        return UPDATER_WINDOW_STYLES["light" if apps_light else "dark"]
     except OSError:
-        return _THEME_PALETTES["dark"]
+        return UPDATER_WINDOW_STYLES["dark"]
 
 
 def _ancestor_pids():
@@ -331,12 +311,13 @@ class UpdateProgressWindow:
         import win32gui as gui
 
         gui.InitCommonControls()
-        colors = _resolve_theme_palette()
+        style = _resolve_theme_style()
+
         def color(key):
-            rgb = colors[key]
+            rgb = int(style[key].removeprefix("#"), 16)
             return win32api.RGB(rgb >> 16, (rgb >> 8) & 255, rgb & 255)
 
-        brush = gui.CreateSolidBrush(color("bg"))
+        brush = gui.CreateSolidBrush(color("bg_color"))
         fonts = []
         for size in (24, 18):
             font = gui.LOGFONT()
@@ -349,8 +330,8 @@ class UpdateProgressWindow:
             if message == wc.WM_COPYDATA:
                 return int(self._receive_progress(lparam)) if lparam else 0
             if message == wc.WM_CTLCOLORSTATIC:
-                gui.SetTextColor(wparam, color("stage"))
-                gui.SetBkColor(wparam, color("bg"))
+                gui.SetTextColor(wparam, color("text_color"))
+                gui.SetBkColor(wparam, color("bg_color"))
                 return brush
             return gui.DefWindowProc(hwnd, message, wparam, lparam)
 
@@ -381,10 +362,10 @@ class UpdateProgressWindow:
             percent = control("STATIC", "", 164, 28, fonts[1])
             with contextlib.suppress(Exception):
                 ctypes.windll.uxtheme.SetWindowTheme(ctypes.c_void_p(bar), "", "")
-                dark = ctypes.c_int(colors["dark_title"])
+                dark = ctypes.c_int(style["dark_title"])
                 ctypes.windll.dwmapi.DwmSetWindowAttribute(ctypes.c_void_p(hwnd), 20, ctypes.byref(dark), 4)
-            gui.SendMessage(bar, commctrl.PBM_SETBARCOLOR, 0, color("fill"))
-            gui.SendMessage(bar, commctrl.PBM_SETBKCOLOR, 0, color("track"))
+            gui.SendMessage(bar, commctrl.PBM_SETBARCOLOR, 0, color("bar_color"))
+            gui.SendMessage(bar, commctrl.PBM_SETBKCOLOR, 0, color("track_color"))
             self._hwnd = hwnd
             self._ready.set()
             gui.ShowWindow(hwnd, wc.SW_SHOWNORMAL)
