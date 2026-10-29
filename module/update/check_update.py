@@ -3,9 +3,8 @@ import re
 import shutil
 import subprocess
 from enum import Enum
-from threading import Lock, Thread
+from threading import Thread
 from typing import Callable
-from urllib.parse import urlsplit
 
 import requests  # 导入requests模块，用于发送HTTP请求
 from markdown_it import MarkdownIt
@@ -18,11 +17,9 @@ from app.card.messagebox_custom import BaseInfoBar, MessageBoxUpdate
 from module.config import cfg
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
-from module.update.download import download_update
 from utils.utils import decrypt_string
 
 md_renderer = MarkdownIt("gfm-like", {"html": True})
-_download_lock = Lock()
 
 
 class UpdateStatus(Enum):
@@ -437,16 +434,6 @@ def is_valid_url(url):
 
 
 def update(assets_url):
-    if not _download_lock.acquire(blocking=False):
-        log.info("已有更新包正在下载，请等待下载完成")
-        return False
-    try:
-        return _update(assets_url)
-    finally:
-        _download_lock.release()
-
-
-def _update(assets_url):
     """
     从给定的URL下载更新文件到本地。
     :param assets_url : 更新文件的URL。
@@ -457,7 +444,7 @@ def _update(assets_url):
         return
 
     # 提取文件名
-    file_name = urlsplit(assets_url).path.rsplit("/", 1)[-1]
+    file_name = assets_url.split("/")[-1]
     if "7z" not in file_name:
         file_name = "AALC.zip"
     elif "AALC" in file_name:
@@ -465,7 +452,26 @@ def _update(assets_url):
     log.info(f"正在下载 {file_name} ...")
 
     try:
-        download_update(assets_url, os.path.join("update_temp", file_name), mediator.update_progress.emit, log.warning)
+        # 第一步：仅发起一次流式下载请求，并在同一响应对象上完成大小读取与内容落盘。
+        with requests.get(assets_url, stream=True, timeout=10) as response:
+            response.raise_for_status()  # 检查 HTTP 请求是否成功
+
+            # 第二步：读取总大小并准备本地临时文件路径。
+            total_size = int(response.headers.get("content-length", 0))
+            downloaded = 0
+            os.makedirs("update_temp", exist_ok=True)
+            file_path = os.path.join("update_temp", file_name)
+
+            # 第三步：边下载边写入本地文件，并在可计算百分比时同步上报下载进度。
+            with open(file_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total_size > 0:
+                            progress = int(downloaded / total_size * 100)
+                            mediator.update_progress.emit(progress)
+
         log.info("下载进度100%")
 
         if "OCR" in file_name:
@@ -483,19 +489,16 @@ def _update(assets_url):
                     shutil.unpack_archive(download_file_path, destination)
                 log.info("OCR解压完成，请重启AALC")
                 return True
-            except Exception as e:
-                # 无窗口环境下不允许 input() 等待：记录日志并提示用户手动处理
-                log.error(f"OCR更新包解压失败: {e}，请查看日志或手动重新下载")
+            except Exception as exc:
+                log.error(f"OCR 更新包解压失败，请重新下载: {exc}")
                 return False
         else:
             mediator.download_complete.emit(file_name)
 
     except requests.exceptions.RequestException as e:
         log.error(f"下载失败，请检查网络: {e}")
-        mediator.warning.emit(f"更新包下载失败，已重试 3 次，请稍后重试：{e}")
     except OSError as e:
         log.error(f"文件操作失败: {e}")
-        mediator.warning.emit(f"更新包保存失败，请检查磁盘空间和权限：{e}")
 
 
 def start_update_thread(assets_url):
@@ -509,22 +512,5 @@ def start_update_thread(assets_url):
 
 
 def start_update(assert_name):
-    """启动独立更新器进程（无窗口、无确认）。
-
-    通过 ``--parent-pid`` 告知更新器本进程 PID：更新器会先等待 AALC 优雅退出
-    （保存配置、结束任务），超时后再强制清理，避免直接杀进程丢失状态。
-    """
     source_file = os.path.abspath("./AALC Updater.exe")
-    if not os.path.exists(source_file):
-        log.error("启动更新失败：找不到 AALC Updater.exe")
-        return False
-    try:
-        subprocess.Popen(
-            [source_file, assert_name, "--parent-pid", str(os.getpid())],
-            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-        )
-    except OSError as exc:
-        log.error(f"启动更新失败: {exc}")
-        mediator.warning.emit(f"无法启动更新器：{exc}")
-        return False
-    return True
+    subprocess.Popen([source_file, assert_name], creationflags=subprocess.CREATE_NO_WINDOW)

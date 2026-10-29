@@ -1,4 +1,3 @@
-import atexit
 import os
 import socket
 import sys
@@ -14,53 +13,6 @@ _ORIG_SSLKEYLOGFILE = os.environ.pop("SSLKEYLOGFILE", None)
 os.chdir(
     os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
 )
-APP_PORT = 62333
-
-
-def send_args_to_existing_instance(port, args):
-    """尝试将参数发送给已存在的实例。"""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(1.0)
-            s.connect(("127.0.0.1", port))
-            s.sendall("|".join(args).encode("utf-8"))
-        return True
-    except OSError:
-        return False
-
-
-# 单实例和提权统一在加载 Qt 前处理；安装锁仅用于打包版本。
-if __name__ == "__main__":
-    import pyuac
-
-    if send_args_to_existing_instance(APP_PORT, sys.argv[1:]):
-        sys.exit(0)
-    if not pyuac.isUserAdmin():
-        try:
-            pyuac.runAsAdmin(False)
-        except Exception:
-            sys.exit(1)
-        sys.exit(0)
-    if getattr(sys, "frozen", False):
-        import ctypes
-
-        from update_support import InstallationLock, incomplete_update_path
-
-        _installation_lock = InstallationLock(os.getcwd())
-        if not _installation_lock.acquire():
-            ctypes.windll.user32.MessageBoxW(None, "AALC 或更新器正在使用此安装目录，请稍后再试。", "AALC", 0x30)
-            sys.exit(1)
-        atexit.register(_installation_lock.close)
-        if os.path.exists(incomplete_update_path(os.getcwd())):
-            ctypes.windll.user32.MessageBoxW(
-                None,
-                "上次更新未完成，已阻止启动以免使用不完整的文件。\n"
-                "请将完整更新包放入 update_temp 后交给 AALC Updater.exe 修复。\n"
-                "日志和旧文件备份保存在 update_temp；修复前请保留该目录。",
-                "AALC 更新需要修复", 0x10,
-            )
-            sys.exit(2)
-
 # 解决 Windows DPI 缩放问题
 from ctypes import c_void_p, windll
 
@@ -87,12 +39,22 @@ from module.logger.my_log import Logger
 
 Logger()
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
-from PySide6.QtWidgets import QApplication
+# 获取管理员权限
+import pyuac
 
 from app.language_manager import LanguageManager
 from app.my_app import MainWindow
 from module.config import cfg
+
+if not pyuac.isUserAdmin():
+    try:
+        pyuac.runAsAdmin(False)
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)
+
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtWidgets import QApplication
 
 QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 QApplication.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
@@ -117,11 +79,33 @@ def start_socket_server(port, signaler):
                     signaler.arguments_received.emit(data.split("|"))
 
 
+def send_args_to_existing_instance(port, args):
+    """尝试将参数发送给已存在的实例"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1.0)  # 设置 1 秒超时
+            s.connect(("127.0.0.1", port))
+            s.sendall("|".join(args).encode("utf-8"))
+        return True
+    except ConnectionRefusedError:
+        return False
+    except Exception:
+        return False
+
+
 if __name__ == "__main__":
     if _ORIG_SSLKEYLOGFILE is not None:
         log.warning(f"检测到冲突的环境变量 SSLKEYLOGFILE={_ORIG_SSLKEYLOGFILE}，"
                      f"已在进程内清除，避免 OpenSSL 崩溃")
 
+    # 定义一个唯一的端口号（建议选择 1024-65535 之间的随机数）
+    APP_PORT = 62333
+
+    # 1. 尝试发送参数给已有实例
+    if send_args_to_existing_instance(APP_PORT, sys.argv[1:]):
+        sys.exit(0)
+
+    # 2. 如果发送失败，说明是第一个实例，开始初始化
     if cfg.zoom_scale != 0:
         os.environ["QT_SCALE_FACTOR"] = str(cfg.zoom_scale / 100)
 

@@ -4,8 +4,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame
 from qfluentwidgets import isDarkTheme, qconfig
 
-from utils.ui_theme import MAIN_WINDOW_STYLES
-
 BORDER_STYLE = {
     "dark": """border: 1px solid #545454; border-radius: {radius}px;""",
     "light": """border: 1px solid #c0c0c0; border-radius: {radius}px;""",
@@ -21,6 +19,12 @@ FONT_FAMILIES = [
     "SansSerif",  # 无衬线字体另一个名称
     "SimSun",  # 宋体
 ]
+
+# 主窗口样式配置
+MAIN_WINDOW_STYLES = {
+    "dark": {"bg_color": "rgba(28, 28, 28, 1)"},
+    "light": {"bg_color": "rgba(255, 255, 255, 1)"},
+}
 
 # 标题栏样式配置
 TITLE_BAR_STYLES = {
