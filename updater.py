@@ -247,7 +247,7 @@ class UpdateProgressWindow:
         self._enabled = enabled and os.name == "nt"
         self._lock = threading.Lock()
         self._stage = "正在准备更新..."
-        self._log_lines = []  # 窗口中部的详细日志（保留最近若干条）
+        self._detail = ""
         self._value = 0
         self._maximum = 0  # 0 表示不定进度
         self._closing = False
@@ -271,11 +271,12 @@ class UpdateProgressWindow:
             return
         with self._lock:
             if stage is not None:
+                if stage != self._stage:
+                    self._detail = ""
+                    self._value = self._maximum = 0
                 self._stage = stage
             if detail is not None:
-                if detail and (not self._log_lines or self._log_lines[-1] != detail):
-                    self._log_lines.append(detail)
-                    del self._log_lines[:-6]
+                self._detail = detail
             if value is not None:
                 self._value = max(0, int(value))
             if maximum is not None:
@@ -362,7 +363,7 @@ class UpdateProgressWindow:
         gui.RegisterClass(window_class)
         hwnd = None
         try:
-            width, height = 650, 330
+            width, height = 650, 240
             hwnd = gui.CreateWindowEx(wc.WS_EX_APPWINDOW | wc.WS_EX_DLGMODALFRAME,
                                       window_class.lpszClassName, "AALC 更新", wc.WS_CAPTION,
                                       (win32api.GetSystemMetrics(0) - width) // 2,
@@ -375,9 +376,9 @@ class UpdateProgressWindow:
                 return child
 
             stage = control("STATIC", "", 20, 40, fonts[0])
-            detail = control("STATIC", "", 68, 120, fonts[1])
-            bar = control(commctrl.PROGRESS_CLASS, "", 208, 20, fonts[1])
-            percent = control("STATIC", "", 244, 28, fonts[1])
+            detail = control("STATIC", "", 68, 50, fonts[1])
+            bar = control(commctrl.PROGRESS_CLASS, "", 128, 20, fonts[1])
+            percent = control("STATIC", "", 164, 28, fonts[1])
             with contextlib.suppress(Exception):
                 ctypes.windll.uxtheme.SetWindowTheme(ctypes.c_void_p(bar), "", "")
                 dark = ctypes.c_int(colors["dark_title"])
@@ -393,7 +394,7 @@ class UpdateProgressWindow:
             while not self._closing:
                 gui.PumpWaitingMessages()
                 with self._lock:
-                    state = (self._stage, "\r\n".join(self._log_lines[-5:]), self._value, self._maximum)
+                    state = (self._stage, self._detail, self._value, self._maximum)
                 if state != previous:
                     title, lines, value, maximum = state
                     gui.SetWindowText(stage, title)
@@ -432,10 +433,14 @@ class Updater:
         self.apply_updater_name = "AALC Updater.apply.exe"
 
         self.temp_path = os.path.abspath(f"./{TEMP_DIR_NAME}")
-        os.makedirs(self.temp_path, exist_ok=True)
+        self.file_name = file_name
+        if not self.file_name or os.path.basename(self.file_name) != self.file_name:
+            raise UpdatePayloadError("更新包必须是 update_temp 内的文件名")
+        self.download_file_path = os.path.join(self.temp_path, self.file_name)
+        if not os.path.isfile(self.download_file_path):
+            raise UpdatePayloadError(f"更新包不存在或不是文件，更新已取消: {self.download_file_path}")
         self.work_dir = _update_work_dir(work_dir)
 
-        self.file_name = file_name
         self.no_progress_ui = no_progress_ui
         self.log_path = os.path.join(self.temp_path, LOG_FILE_NAME)
 
@@ -445,9 +450,6 @@ class Updater:
         self.delete_folder_path = os.path.abspath("./assets/images")
         self.changes_file_path = os.path.join(self.work_dir, "changes.json")
 
-        if not self.file_name or os.path.basename(self.file_name) != self.file_name:
-            raise UpdatePayloadError("更新包必须是 update_temp 内的文件名")
-        self.download_file_path = os.path.join(self.temp_path, self.file_name)
         self.extract_folder_path = os.path.join(self.work_dir, self.file_name.rsplit(".", 1)[0])
 
         self.progress = _NullProgress()
@@ -476,13 +478,14 @@ class Updater:
 
         try:
             self.validate_update_payload()
+            legacy_updater = self._replace_legacy_updater()
         except (UpdateManifestError, UpdatePayloadError) as exc:
             self._abort_safely(f"更新清单无效，已取消更新: {exc}", install_modified=False)
             return False
 
         # 引导进程把剩余工作交给包内新更新器（其自身体积大、可能需要先自更新）；
         # parent-pid 必须一并转发，否则新版更新器会跳过"等待主程序优雅退出"
-        if not apply_mode and self._handoff_to_new_updater(parent_pid=parent_pid):
+        if not apply_mode and not legacy_updater and self._handoff_to_new_updater(parent_pid=parent_pid):
             # 保持当前进度窗及消息循环存活，直到 apply 完成；失败状态也必须向上传递。
             return self._apply_process.wait() == 0
 
@@ -630,6 +633,29 @@ class Updater:
                     raise UpdatePayloadError(f"更新包缺少清单中的文件: {name}")
 
 
+    def _replace_legacy_updater(self):
+        """旧发布包的控制台更新器不支持窗口、备份及交接参数，保留当前窗口版。"""
+        path = os.path.join(self.extract_folder_path, self.updater_name)
+        if not os.path.isfile(path):
+            return False
+        try:
+            with open(path, "rb") as stream:
+                if stream.read(2) != b"MZ":
+                    raise UpdatePayloadError("包内更新器不是有效的 Windows 程序")
+                stream.seek(0x3C)
+                stream.seek(int.from_bytes(stream.read(4), "little"))
+                header = stream.read(94)
+            # PE 签名 + 文件头共 24 字节；OptionalHeader.Subsystem 位于其后 68 字节。
+            if len(header) != 94 or header[:4] != b"PE\0\0":
+                raise UpdatePayloadError("包内更新器的 PE 头不完整")
+            if int.from_bytes(header[92:94], "little") != 3:  # IMAGE_SUBSYSTEM_WINDOWS_CUI
+                return False
+            _retry_fs_op(lambda: shutil.copy2(sys.executable, path), "保留窗口版更新器")
+        except OSError as exc:
+            raise UpdatePayloadError(f"准备包内更新器失败: {exc}") from exc
+        _log("更新包内是旧控制台更新器，保留当前窗口版并继续安装")
+        return True
+
     def _handoff_to_new_updater(self, current_executable=None, parent_pid=None):
         extracted_updater_path = os.path.join(self.extract_folder_path, self.updater_name)
         if not os.path.exists(extracted_updater_path):
@@ -638,31 +664,27 @@ class Updater:
         current_executable_path = os.path.abspath(current_executable or sys.argv[0])
         staged_updater_path = os.path.join(self.work_dir, self.apply_updater_name)
 
-        try:
-            if os.path.normcase(os.path.abspath(extracted_updater_path)) == os.path.normcase(current_executable_path):
-                return False
-
-            shutil.copy2(extracted_updater_path, staged_updater_path)
-            extra_args = ["--work-dir", self.work_dir]
-            if parent_pid:
-                # 交接必须保留父进程等待语义：新版更新器同样要先等 AALC 优雅退出
-                extra_args += ["--parent-pid", str(parent_pid)]
-            if self.no_progress_ui:
-                extra_args.append("--no-progress-ui")
-            else:
-                handle = self.progress.get_window_handle()
-                if handle:
-                    extra_args += ["--progress-window", str(handle)]
-            self._apply_process = subprocess.Popen(
-                [staged_updater_path, "--apply-update", self.file_name, *extra_args],
-                creationflags=_DETACHED_PROCESS | _CREATE_NEW_PROCESS_GROUP,
-                cwd=self.cover_folder_path,
-            )
-            _log("已切换到新版本更新器继续更新...")
-            return True
-        except Exception as exc:
-            _log(f"切换到新版本更新器失败，将继续使用当前更新器: {exc}")
+        if os.path.normcase(os.path.abspath(extracted_updater_path)) == os.path.normcase(current_executable_path):
             return False
+
+        shutil.copy2(extracted_updater_path, staged_updater_path)
+        extra_args = ["--work-dir", self.work_dir]
+        if parent_pid:
+            # 交接必须保留父进程等待语义：新版更新器同样要先等 AALC 优雅退出
+            extra_args += ["--parent-pid", str(parent_pid)]
+        if self.no_progress_ui:
+            extra_args.append("--no-progress-ui")
+        else:
+            handle = self.progress.get_window_handle()
+            if handle:
+                extra_args += ["--progress-window", str(handle)]
+        self._apply_process = subprocess.Popen(
+            [staged_updater_path, "--apply-update", self.file_name, *extra_args],
+            creationflags=_DETACHED_PROCESS | _CREATE_NEW_PROCESS_GROUP,
+            cwd=self.cover_folder_path,
+        )
+        _log("已切换到新版本更新器继续更新...")
+        return True
 
 
     def terminate_processes(self):
@@ -713,6 +735,7 @@ class Updater:
         if not os.path.isdir(self.extract_folder_path):
             raise UpdatePayloadError(f"解压目录缺失，更新包内容不完整: {self.extract_folder_path}")
         entries = self._collect_copy_entries()
+        self.progress.update(stage="正在备份旧文件...", detail="安装失败时将恢复旧版本")
         self._backup_existing(self.delete_folder_path)
         # PyInstaller 运行库由完整包管理，整体替换可清除旧版本遗留 DLL。
         # 只处理包内提供的运行库目录，不清扫安装根目录中的用户文件。
@@ -724,8 +747,6 @@ class Updater:
             self._copy_file_with_retry(source, destination)
             if index % 25 == 0 or index == total:
                 self.progress.update(value=index, detail=f"已写入 {index} / {total}")
-            else:
-                self.progress.update(value=index)
         _log(f"覆盖安装完成，共写入 {len(entries)} 个文件")
 
     def _collect_copy_entries(self):
@@ -798,12 +819,12 @@ class Updater:
         return restored
 
     def _apply_incremental_update(self):
-        changes = self._incremental_update_plan or self._load_incremental_update_plan()
+        changes = self._incremental_update_plan
         total = sum(map(len, changes.values()))
         self.progress.update(stage="正在应用增量更新...", value=0, maximum=total)
         done = 0
         for kind in ("deleted_dir", "deleted", "added_dir", "added", "modified"):
-            for name, *paths in changes[kind]:
+            for _name, *paths in changes[kind]:
                 if kind in ("deleted_dir", "deleted"):
                     self._backup_existing(paths[0])
                 elif kind == "added_dir":
@@ -811,7 +832,8 @@ class Updater:
                 else:
                     self._copy_file_with_retry(*paths)
                 done += 1
-                self.progress.update(value=done, detail=f"{kind}: {name}")
+                if done % 25 == 0 or done == total:
+                    self.progress.update(value=done, detail=f"已处理 {done} / {total} 项变更")
         _log("增量更新完成")
 
 
@@ -892,7 +914,8 @@ class Updater:
 
 
     def cleanup(self):
-        for path in (self.download_file_path, self.extract_folder_path, self.changes_file_path, self._backup_dir):
+        # 成功备份保留到下次更新，由 _update_work_dir 清理已完成会话。
+        for path in (self.download_file_path, self.extract_folder_path, self.changes_file_path):
             try:
                 if os.path.isdir(path):
                     shutil.rmtree(path)
@@ -991,17 +1014,21 @@ def main():
         show_error_dialog("AALC 更新器", "缺少更新包文件名参数，更新已取消。")
         sys.exit(2)
 
+    try:
+        updater = Updater(args.file_name, no_progress_ui=args.no_progress_ui, work_dir=args.work_dir)
+    except UpdatePayloadError as exc:
+        show_error_dialog("AALC 更新失败", str(exc))
+        sys.exit(2)
+
     log_path = _setup_logging()
     _log(f"更新器启动: argv={sys.argv[1:]}, apply_mode={args.apply_mode}, log={log_path}")
-    work_dir = _update_work_dir(args.work_dir)
-    _maybe_relaunch_from_temp(work_dir)
+    _maybe_relaunch_from_temp(updater.work_dir)
 
     if args.progress_window and not args.no_progress_ui:
         progress = _RemoteProgress(args.progress_window)
         _log(f"复用更新进度窗口: hwnd={args.progress_window}")
     else:
         progress = UpdateProgressWindow(enabled=not args.no_progress_ui)
-    updater = Updater(args.file_name, no_progress_ui=args.no_progress_ui, work_dir=work_dir)
     try:
         succeeded = updater.run(apply_mode=args.apply_mode, parent_pid=args.parent_pid, progress=progress)
     except Exception as exc:
