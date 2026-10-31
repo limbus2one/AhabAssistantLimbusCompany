@@ -75,11 +75,16 @@ def test_extractor_is_hidden_and_failure_propagates(install, monkeypatch):
 def test_cleanup_keeps_updater_parent_but_stops_old_main(install, monkeypatch):
     instance, root = install
     killed = []
-    processes = [SimpleNamespace(pid=pid, info={"pid": pid}, name=lambda name=name: name,
+
+    def exited_name():
+        raise updater.psutil.NoSuchProcess(1003)
+
+    processes = [SimpleNamespace(pid=pid, info={"pid": pid, "name": name}, name=lambda name=name: name,
                                 exe=lambda name=name: str(root / name),
                                 terminate=lambda pid=pid: killed.append(pid), wait=lambda **_: None)
                  for pid, name in [(1001, "AALC.exe"), (1002, "AALC Updater.exe")]]
-    monkeypatch.setattr(updater.psutil, "Process", lambda: SimpleNamespace(parents=lambda: processes))
+    parents = [*processes, SimpleNamespace(pid=1003, name=exited_name)]
+    monkeypatch.setattr(updater.psutil, "Process", lambda: SimpleNamespace(parents=lambda: parents))
     monkeypatch.setattr(updater.psutil, "process_iter", lambda **_: processes)
     updater.Updater.terminate_processes(instance)
     assert killed == [1001]

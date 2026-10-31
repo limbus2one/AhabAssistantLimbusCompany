@@ -252,11 +252,12 @@ class Updater:
         """终止相关进程以准备更新。"""
         print("开始终止进程...")
         install_root = os.path.normcase(os.path.abspath(self.cover_folder_path)) + os.sep
-        ancestors = {proc.pid for proc in psutil.Process().parents()
-                     if proc.name() in (self.updater_name, self.apply_updater_name)} | {os.getpid()}
+        ancestors = {proc.pid for proc in psutil.Process().parents()}
         for proc in psutil.process_iter(attrs=["pid", "name"]):
-            if proc.pid in ancestors:
-                continue  # 更新器自身位于 update_temp（安装根目录内），不能杀自己
+            if proc.pid == os.getpid() or (
+                proc.pid in ancestors and proc.info["name"] in (self.updater_name, self.apply_updater_name)
+            ):
+                continue  # 保留自身和仍在运行的父更新器。
             try:
                 exe_path = proc.exe()
             except (psutil.AccessDenied, psutil.NoSuchProcess):
