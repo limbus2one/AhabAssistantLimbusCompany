@@ -255,6 +255,7 @@ git pull
 ## 参与开发
 
 - 参与程序[开发](assets/doc/zh/develop_guide.md)（施工中）
+- [项目架构与主题样式位置](assets/doc/zh/architecture.md)
 - 多语言 (i18n)：参考 [多语言支持](assets/doc/zh/translateGuide.md)
 
 ---
