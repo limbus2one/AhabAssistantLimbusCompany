@@ -5,7 +5,6 @@ import numpy as np
 from module.automation import auto
 from module.decorator.decorator import begin_and_finish_time_log
 from module.logger import log
-from tasks.base import update_model_for_retry
 from tasks.base.retry import check_times, retry
 from utils.image_utils import ImageUtils
 
@@ -117,9 +116,13 @@ def get_pass_prize():
 
 @begin_and_finish_time_log(task_name="收取邮箱", calculate_time=False)
 def get_mail_prize():
-    loop_count = 15
     auto.model = "clam"
+    start_time = time()
     while True:
+        start_time = max(start_time, auto.get_restore_time() or start_time)
+        if check_times(start_time):
+            log.error("Failed to claim mail rewards: timed out")
+            return False
         # 自动截图
         if auto.take_screenshot() is None:
             continue
@@ -137,8 +140,3 @@ def get_mail_prize():
         if auto.click_element("home/mail_assets.png"):
             continue
         auto.mouse_to_blank()
-        loop_count -= 1
-        update_model_for_retry(loop_count, normal_at=20, aggressive_at=10)
-        if loop_count < 0:
-            log.error("无法收取邮箱")
-            break
