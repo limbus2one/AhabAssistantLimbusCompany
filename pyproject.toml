@@ -16,7 +16,6 @@ dependencies = [
     "PyAutoGUI",
     "pynput",
     "pyperclip",
-    "playsound3",
     "requests",
     "packaging",
     "markdown-it-py",

@@ -15,6 +15,7 @@ class Mediator(QObject):
     tasks_warning = Signal()
     update_progress = Signal(int)
     download_complete = Signal(str)
+    play_audio = Signal(str)
     warning = Signal(str)
     hdr_warning = Signal(object)
     finished_signal = Signal()

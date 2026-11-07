@@ -6,7 +6,6 @@ from time import sleep, time
 
 import win32api
 import win32con
-from playsound3 import playsound
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QMutex, QThread
 
 from app import mediator
@@ -208,7 +207,7 @@ def _warn_if_game_monitor_hdr_enabled() -> None:
 
 def Resonate_with_Ahab():
     random_number = random.randint(1, 4)
-    playsound(f"assets/audio/This_is_all_your_fault_{random_number}.mp3", block=False)
+    mediator.play_audio.emit(f"assets/audio/This_is_all_your_fault_{random_number}.mp3")
 
 
 def _get_game_rendering_scale() -> int | None:

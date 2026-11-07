@@ -483,13 +483,14 @@ def update(assets_url):
                     subprocess.run(
                         [exe_path, "x", download_file_path, f"-o{destination}", "-aoa"],
                         check=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
                     )
                 else:
                     shutil.unpack_archive(download_file_path, destination)
                 log.info("OCR解压完成，请重启AALC")
                 return True
-            except Exception:
-                input("解压失败，按回车键重新解压. . .多次失败请手动下载更新")
+            except Exception as exc:
+                log.error(f"OCR 更新包解压失败，请重新下载: {exc}")
                 return False
         else:
             mediator.download_complete.emit(file_name)
@@ -512,4 +513,4 @@ def start_update_thread(assets_url):
 
 def start_update(assert_name):
     source_file = os.path.abspath("./AALC Updater.exe")
-    subprocess.Popen([source_file, assert_name], creationflags=subprocess.DETACHED_PROCESS)
+    subprocess.Popen([source_file, assert_name], creationflags=subprocess.CREATE_NO_WINDOW)
