@@ -20,6 +20,11 @@ def catalog():
     return json.loads((ASSET_DIR / "catalog.json").read_text(encoding="utf-8"))
 
 
+@lru_cache
+def observe_positions():
+    return json.loads((ASSET_DIR / "observe_positions.json").read_text(encoding="utf-8"))
+
+
 @lru_cache(maxsize=1024)
 def template(pack_id, width, variant="en"):
     with Image.open(ASSET_DIR / variant / f"{pack_id}.png") as image:
